@@ -1,0 +1,18 @@
+{
+  "name": "sport-slot-reservation-frontend",
+  "version": "0.1.0",
+  "private": true,
+  "description": "SportSlotReservation frontend — React + Vite + TypeScript + PWA",
+  "author": "Chandra Nakkalakunta <chandra.n@chandraailabs.com>",
+  "license": "MIT",
+  "type": "module",
+  "engines": {
+    "node": ">=22.0.0",
+    "pnpm": ">=11.0.0"
+  },
+  "scripts": {
+    "placeholder": "echo 'Scripts will be added in Phase 2'"
+  },
+  "dependencies": {},
+  "devDependencies": {}
+}

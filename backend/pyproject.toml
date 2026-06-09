@@ -1,0 +1,34 @@
+[project]
+name = "sport-slot-reservation"
+version = "0.1.0"
+description = "SportSlotReservation backend — FastAPI + Firestore"
+authors = [
+    {name = "Chandra Nakkalakunta", email = "chandra.n@chandraailabs.com"}
+]
+license = {text = "MIT"}
+requires-python = ">=3.12"
+readme = "../README.md"
+
+# Dependencies will be added in Phase 2
+dependencies = []
+
+[project.optional-dependencies]
+# Dev dependencies will be added in Phase 2
+dev = []
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.uv]
+# uv configuration for this project
+dev-dependencies = []
+
+[tool.ruff]
+# Linting configuration — to be expanded in Phase 2
+line-length = 100
+target-version = "py312"
+
+[tool.pytest.ini_options]
+# Test configuration — to be expanded in Phase 2
+testpaths = ["tests"]
