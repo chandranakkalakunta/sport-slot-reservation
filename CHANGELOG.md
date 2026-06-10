@@ -15,6 +15,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   Terraform, ShellCheck, gcloud, and gh CLI version checks; sed reads all input
   before producing output, eliminating SIGPIPE risk
 
+### Added (Phase 1.4.1)
+- terraform/ directory with module-ready flat structure (Option B+)
+- terraform/backend.tf — remote state in gs://sport-slot-dev-tfstate (prefix: terraform/state)
+- terraform/main.tf — Google + Google-beta providers pinned ~> 6.0
+- terraform/variables.tf — input variables with validation (project_id, region, environment patterns)
+- terraform/outputs.tf — basic variable pass-through outputs
+- terraform/apis.tf, iam.tf, wif.tf, firestore.tf — empty placeholders for Phase 1.4.2 import
+- terraform/terraform.tfvars.example — committed template for developer onboarding
+- terraform/.terraform.lock.hcl — provider version pins (google + google-beta v6.50.0)
+- .gitignore updated: scoped to terraform/ prefix, lock file explicitly NOT ignored
+
 ### Added (Phase 1.3.3)
 - Firebase project enabled on sport-slot-dev (fixes G17 root cause from old SportBook postmortem)
 - Firebase Web App "SportSlot Web (React PWA)" created (App ID: 1:707808711911:web:f16ca1570a30f4e5957e42)
@@ -81,7 +92,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   - 1.3.1 GCP Project Foundation ✓ COMPLETE
   - 1.3.2 Service Accounts + Workload Identity ✓ COMPLETE
   - 1.3.3 Firebase + Firestore Initialization ✓ COMPLETE
-- 1.4 Terraform Foundation + Makefile + Docs ← NEXT
+- 1.4 Terraform Foundation + Makefile + Docs (in progress)
+  - 1.4.1 Terraform Foundation ✓ COMPLETE
+  - 1.4.2 Import Existing Resources ← NEXT
+  - 1.4.3 Makefile + Docs Finalization
 
 ### Phase 0 — Foundation Decisions (complete)
 - ADR-0001: Tech Stack & Software Versions

@@ -65,15 +65,15 @@ dist/
 !.env.example
 
 # Terraform
-*.tfstate
-*.tfstate.*
-*.tfvars
-!*.tfvars.example
-.terraform/
-.terraform.lock.hcl
-terraform-provider-*
-crash.log
-crash.*.log
+terraform/.terraform/
+terraform/*.tfstate
+terraform/*.tfstate.*
+terraform/terraform.tfvars
+terraform/*.auto.tfvars
+terraform/crash.log
+terraform/crash.*.log
+# Lock file is committed for reproducibility — do NOT ignore
+# terraform/.terraform.lock.hcl
 
 # GCP / Firebase
 *firebase-adminsdk*.json

@@ -1,0 +1,13 @@
+# SportSlotReservation — Terraform Variables (Example)
+#
+# Copy this file to terraform.tfvars and fill in actual values.
+# terraform.tfvars is gitignored (contains environment-specific values).
+
+project_id         = "sport-slot-dev"
+project_number     = "707808711911"
+organization_id    = "833112493322"
+billing_account_id = "014A8C-586310-DE4575"
+region             = "asia-south1"
+zone               = "asia-south1-a"
+environment        = "dev"
+github_repository  = "chandranakkalakunta/sport-slot-reservation"

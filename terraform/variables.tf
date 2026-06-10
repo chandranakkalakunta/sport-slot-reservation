@@ -1,0 +1,70 @@
+variable "project_id" {
+  description = "GCP project ID (e.g., sport-slot-dev)"
+  type        = string
+
+  validation {
+    condition     = can(regex("^sport-slot-(dev|test|prod-[a-z]+)$", var.project_id))
+    error_message = "project_id must match pattern: sport-slot-{dev|test|prod-XX}"
+  }
+}
+
+variable "project_number" {
+  description = "GCP project number (auto-assigned by Google)"
+  type        = string
+}
+
+variable "organization_id" {
+  description = "GCP organization ID (chandraailabs.com)"
+  type        = string
+  default     = "833112493322"
+}
+
+variable "billing_account_id" {
+  description = "GCP billing account ID"
+  type        = string
+  default     = "014A8C-586310-DE4575"
+  sensitive   = false
+}
+
+variable "region" {
+  description = "GCP region for resources"
+  type        = string
+  default     = "asia-south1"
+
+  validation {
+    condition     = contains(["asia-south1", "asia-southeast1", "europe-west1", "us-central1"], var.region)
+    error_message = "region must be one of the approved regions."
+  }
+}
+
+variable "zone" {
+  description = "GCP zone for zonal resources"
+  type        = string
+  default     = "asia-south1-a"
+}
+
+variable "environment" {
+  description = "Environment name (dev, test, prod-india, etc.)"
+  type        = string
+
+  validation {
+    condition     = contains(["dev", "test", "prod-india", "prod-uae"], var.environment)
+    error_message = "environment must be: dev | test | prod-india | prod-uae"
+  }
+}
+
+variable "github_repository" {
+  description = "GitHub repo for Workload Identity Federation"
+  type        = string
+  default     = "chandranakkalakunta/sport-slot-reservation"
+}
+
+variable "default_labels" {
+  description = "Labels applied to all resources for cost tracking and management"
+  type        = map(string)
+  default = {
+    project    = "sport-slot-reservation"
+    managed_by = "terraform"
+    owner      = "chandra-ai-labs"
+  }
+}
