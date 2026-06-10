@@ -15,6 +15,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   Terraform, ShellCheck, gcloud, and gh CLI version checks; sed reads all input
   before producing output, eliminating SIGPIPE risk
 
+### Added (Phase 1.4.2)
+- Documented existing GCP resources in Terraform (Option C — hybrid data sources + commented templates)
+- terraform/apis.tf: 18 APIs (9 core + 9 operational) as locals + commented resource template
+- terraform/iam.tf: 4 service accounts as data sources + commented resource templates with roles documented
+- terraform/wif.tf: WIF pool + provider as data sources + commented resource/binding templates
+- terraform/firestore.tf: Firestore documented via locals (no data source in provider v6) + commented resource
+- terraform/outputs.tf: 12 outputs covering project, region, SA emails, WIF names, Firestore name/location
+- Note: google_firestore_database data source absent from provider v6; using locals with known-stable values
+
 ### Added (Phase 1.4.1)
 - terraform/ directory with module-ready flat structure (Option B+)
 - terraform/backend.tf — remote state in gs://sport-slot-dev-tfstate (prefix: terraform/state)
@@ -94,8 +103,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   - 1.3.3 Firebase + Firestore Initialization ✓ COMPLETE
 - 1.4 Terraform Foundation + Makefile + Docs (in progress)
   - 1.4.1 Terraform Foundation ✓ COMPLETE
-  - 1.4.2 Import Existing Resources ← NEXT
-  - 1.4.3 Makefile + Docs Finalization
+  - 1.4.2 Document Existing Resources ✓ COMPLETE
+  - 1.4.3 Makefile + Docs Finalization ← NEXT
 
 ### Phase 0 — Foundation Decisions (complete)
 - ADR-0001: Tech Stack & Software Versions
