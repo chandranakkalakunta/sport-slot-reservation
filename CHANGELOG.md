@@ -15,6 +15,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   Terraform, ShellCheck, gcloud, and gh CLI version checks; sed reads all input
   before producing output, eliminating SIGPIPE risk
 
+### Added (Phase 1.3.1)
+- GCP project sport-slot-dev created under chandraailabs.com org
+- Billing account 014A8C-586310-DE4575 linked
+- 18 GCP APIs enabled (core infrastructure + operational)
+- infrastructure/project-config.yaml documenting project setup
+- docs/runbooks/gcp-project-setup.md
+
 ### Added
 - Phase 1.2: Local toolchain installed and verified
 - Python 3.12.13 via uv (alongside system 3.13)
@@ -34,8 +41,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Phase 1 — Workspace Bootstrap (in progress)
 - 1.1 GitHub + Local Workspace ✓ COMPLETE
-- 1.2 Local Toolchain (Python + Node) ← CURRENT
-- 1.3 GCP Project + Firebase Initialization
+- 1.2 Local Toolchain (Python + Node) ✓ COMPLETE
+- 1.3 GCP Project + Firebase Initialization (in progress)
+  - 1.3.1 GCP Project Foundation ✓ COMPLETE
+  - 1.3.2 Service Accounts + Workload Identity ← NEXT
+  - 1.3.3 Firebase + Firestore Initialization
 - 1.4 Terraform Foundation + Makefile + Docs
 
 ### Phase 0 — Foundation Decisions (complete)

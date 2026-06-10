@@ -1,0 +1,50 @@
+# SportSlotReservation — Project Configuration
+# This file documents the GCP project setup.
+# DO NOT commit secrets or credentials to this file.
+
+organization:
+  name: chandraailabs.com
+  id: "833112493322"
+
+billing_account:
+  name: calgcpbillingaccount
+  id: "014A8C-586310-DE4575"
+  currency: INR
+
+environments:
+  dev:
+    project_id: sport-slot-dev
+    project_number: "707808711911"
+    project_name: "SportSlot DEV"
+    region: asia-south1
+    zone: asia-south1-a
+    created_date: "2026-06-10"
+
+  # test:  (created on-demand later)
+  # prod-india: (created in Phase 8)
+
+enabled_apis:
+  core_infrastructure:
+    - cloudresourcemanager.googleapis.com
+    - iam.googleapis.com
+    - iamcredentials.googleapis.com
+    - run.googleapis.com
+    - firestore.googleapis.com
+    - firebase.googleapis.com
+    - identitytoolkit.googleapis.com
+    - secretmanager.googleapis.com
+    - cloudbuild.googleapis.com
+
+  operational:
+    - artifactregistry.googleapis.com
+    - monitoring.googleapis.com
+    - logging.googleapis.com
+    - cloudscheduler.googleapis.com
+    - cloudtrace.googleapis.com
+    - cloudtasks.googleapis.com
+    - redis.googleapis.com
+    - pubsub.googleapis.com
+    - storage.googleapis.com
+
+phase_completion:
+  phase_1_3_1: "2026-06-10"
