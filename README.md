@@ -6,11 +6,43 @@ and Firestore.
 
 ## Project Status
 
-**Phase 1: Workspace Bootstrap** — In progress
+**Phase 1: Workspace Bootstrap** — COMPLETE
 
-Currently establishing the foundational repository, local
-development environment, and GCP project structure. Application
-code begins in Phase 2.
+All foundational infrastructure is in place:
+
+- GitHub repository with proper structure and ADR documentation
+- Local development toolchain installed and verified (13 checks)
+- GCP project (sport-slot-dev) with 18 enabled APIs
+- 4 service accounts with least-privilege IAM (zero JSON keys)
+- Workload Identity Federation for GitHub Actions CI/CD
+- Firebase initialized: Email/Password + Google OAuth providers
+- Firestore database in Native Mode (asia-south1)
+- Terraform foundation with module-ready flat structure
+- Existing resources documented as Terraform data sources
+- Makefile + bash scripts for daily operations
+
+**Next: Phase 2** — Backend API foundation (FastAPI, repositories, auth middleware)
+
+## Quick Start
+
+After cloning the repository:
+
+```bash
+# Verify your development environment
+make verify-env
+
+# See all available commands
+make help
+
+# Check GCP authentication
+make gcp-whoami
+
+# Switch to sport-slot-dev project
+make gcp-set-dev
+```
+
+See [docs/runbooks/local-development.md](docs/runbooks/local-development.md)
+for complete local setup instructions.
 
 ## Overview
 

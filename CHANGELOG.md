@@ -15,6 +15,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   Terraform, ShellCheck, gcloud, and gh CLI version checks; sed reads all input
   before producing output, eliminating SIGPIPE risk
 
+### Added (Phase 1.4.3) — Phase 1 COMPLETE
+- Makefile at repo root with 11 self-documenting commands (make help)
+- scripts/install.sh — backend + frontend dependency installation
+- scripts/tf-init.sh, tf-plan.sh — Terraform workflow helpers
+- scripts/tf-apply-dev.sh — apply with single confirmation guardrail
+- scripts/tf-destroy-dev.sh — destroy with double confirmation guardrail
+- scripts/gcp-whoami.sh — show gcloud auth state + ADC status
+- scripts/gcp-set-dev.sh — switch to sport-slot-dev project
+- docs/adr/README.md — ADR index with status table for all 5 Phase 0 ADRs
+- docs/adr/template.md — template for future ADRs
+- docs/runbooks/phase-1-retrospective.md — lessons learned from Phase 1
+- README.md updated: Phase 1 COMPLETE badge + Quick Start section
+- Removed obsolete .gitkeep placeholders (5 files)
+- All 7 new scripts ShellCheck clean
+
 ### Added (Phase 1.4.2)
 - Documented existing GCP resources in Terraform (Option C — hybrid data sources + commented templates)
 - terraform/apis.tf: 18 APIs (9 core + 9 operational) as locals + commented resource template
@@ -94,17 +109,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## Phase History
 
-### Phase 1 — Workspace Bootstrap (in progress)
-- 1.1 GitHub + Local Workspace ✓ COMPLETE
-- 1.2 Local Toolchain (Python + Node) ✓ COMPLETE
-- 1.3 GCP Project + Firebase Initialization ✓ COMPLETE
-  - 1.3.1 GCP Project Foundation ✓ COMPLETE
-  - 1.3.2 Service Accounts + Workload Identity ✓ COMPLETE
-  - 1.3.3 Firebase + Firestore Initialization ✓ COMPLETE
-- 1.4 Terraform Foundation + Makefile + Docs (in progress)
-  - 1.4.1 Terraform Foundation ✓ COMPLETE
-  - 1.4.2 Document Existing Resources ✓ COMPLETE
-  - 1.4.3 Makefile + Docs Finalization ← NEXT
+### Phase 1 — Workspace Bootstrap (COMPLETE 2026-06-10)
+- 1.1 GitHub + Local Workspace ✓
+- 1.2 Local Toolchain (Python + Node) ✓
+- 1.3 GCP Project + Firebase Initialization ✓
+  - 1.3.1 GCP Project Foundation ✓
+  - 1.3.2 Service Accounts + Workload Identity ✓
+  - 1.3.3 Firebase + Firestore Initialization ✓
+- 1.4 Terraform Foundation + Makefile + Docs ✓
+  - 1.4.1 Terraform Foundation ✓
+  - 1.4.2 Document Existing Resources ✓
+  - 1.4.3 Makefile + Docs Finalization ✓
+
+### Phase 2 — Backend API Foundation (NEXT)
+- 2.1 FastAPI scaffold + structured logging
+- 2.2 TenantContext + Repository pattern
+- 2.3 Firebase Admin SDK + auth middleware
+- 2.4 First protected endpoint + unit tests
 
 ### Phase 0 — Foundation Decisions (complete)
 - ADR-0001: Tech Stack & Software Versions
