@@ -15,6 +15,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   Terraform, ShellCheck, gcloud, and gh CLI version checks; sed reads all input
   before producing output, eliminating SIGPIPE risk
 
+### Added (Phase 1.3.2)
+- 4 service accounts with least-privilege baseline roles:
+  - sa-cloud-run (secretAccessor, logWriter, metricWriter, cloudtrace.agent)
+  - sa-firebase-admin (placeholder — roles added in Phase 1.3.3)
+  - sa-cloud-build (run.developer, artifactregistry.writer, logWriter + impersonation)
+  - sa-monitoring (monitoring.editor, logWriter)
+- Workload Identity Federation for GitHub Actions (no JSON keys)
+- WIF restricted to main branch of chandranakkalakunta/sport-slot-reservation
+- infrastructure/iam-config.yaml documenting IAM setup
+- docs/runbooks/iam-setup.md
+- .gitignore pattern for phase audit logs (scripts/phase-*.txt)
+
 ### Added (Phase 1.3.1)
 - GCP project sport-slot-dev created under chandraailabs.com org
 - Billing account 014A8C-586310-DE4575 linked
@@ -44,8 +56,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - 1.2 Local Toolchain (Python + Node) ✓ COMPLETE
 - 1.3 GCP Project + Firebase Initialization (in progress)
   - 1.3.1 GCP Project Foundation ✓ COMPLETE
-  - 1.3.2 Service Accounts + Workload Identity ← NEXT
-  - 1.3.3 Firebase + Firestore Initialization
+  - 1.3.2 Service Accounts + Workload Identity ✓ COMPLETE
+  - 1.3.3 Firebase + Firestore Initialization ← NEXT
 - 1.4 Terraform Foundation + Makefile + Docs
 
 ### Phase 0 — Foundation Decisions (complete)

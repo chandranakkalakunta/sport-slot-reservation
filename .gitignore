@@ -104,3 +104,6 @@ logs/
 tmp/
 temp/
 *.tmp
+
+# Phase audit logs (local only)
+scripts/phase-*.txt

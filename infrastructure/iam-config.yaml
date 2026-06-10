@@ -1,0 +1,62 @@
+# SportSlotReservation — IAM Configuration
+# Service accounts and Workload Identity Federation setup
+
+service_accounts:
+  sa-cloud-run:
+    email: sa-cloud-run@sport-slot-dev.iam.gserviceaccount.com
+    purpose: Runtime SA for Cloud Run services
+    roles:
+      - roles/secretmanager.secretAccessor
+      - roles/logging.logWriter
+      - roles/monitoring.metricWriter
+      - roles/cloudtrace.agent
+    additional_roles_per_phase:
+      phase_1_3_3:
+        - roles/datastore.user  # Firestore access
+      phase_2:
+        - roles/redis.editor    # Memorystore Redis
+
+  sa-firebase-admin:
+    email: sa-firebase-admin@sport-slot-dev.iam.gserviceaccount.com
+    purpose: Firebase Admin SDK operations
+    roles:
+      # Phase 1.3.2 baseline: no roles yet
+      # Roles added in Phase 1.3.3 when Firebase initialized
+    additional_roles_per_phase:
+      phase_1_3_3:
+        - roles/firebase.admin
+        - roles/firebaseauth.admin
+
+  sa-cloud-build:
+    email: sa-cloud-build@sport-slot-dev.iam.gserviceaccount.com
+    purpose: CI/CD deployments via GitHub Actions
+    roles:
+      - roles/run.developer
+      - roles/artifactregistry.writer
+      - roles/logging.logWriter
+    impersonates: [sa-cloud-run]
+    workload_identity:
+      pool: github-actions-pool
+      provider: github-actions-provider
+      repository: chandranakkalakunta/sport-slot-reservation
+      branch: refs/heads/main
+
+  sa-monitoring:
+    email: sa-monitoring@sport-slot-dev.iam.gserviceaccount.com
+    purpose: Observability tooling
+    roles:
+      - roles/monitoring.editor
+      - roles/logging.logWriter
+
+workload_identity_federation:
+  pool_name: github-actions-pool
+  pool_id: "projects/707808711911/locations/global/workloadIdentityPools/github-actions-pool"
+  provider: github-actions-provider
+  issuer: https://token.actions.githubusercontent.com
+  attribute_conditions:
+    - "assertion.repository == 'chandranakkalakunta/sport-slot-reservation'"
+    - "assertion.ref == 'refs/heads/main'"
+  bound_service_account: sa-cloud-build
+
+phase_completion:
+  phase_1_3_2: "2026-06-10"
