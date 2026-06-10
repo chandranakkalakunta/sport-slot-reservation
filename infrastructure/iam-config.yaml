@@ -10,9 +10,10 @@ service_accounts:
       - roles/logging.logWriter
       - roles/monitoring.metricWriter
       - roles/cloudtrace.agent
+      - roles/datastore.user  # Added Phase 1.3.3 — direct Firestore access
+    can_impersonate:
+      - sa-firebase-admin (serviceAccountTokenCreator binding on SA)
     additional_roles_per_phase:
-      phase_1_3_3:
-        - roles/datastore.user  # Firestore access
       phase_2:
         - roles/redis.editor    # Memorystore Redis
 
@@ -20,12 +21,12 @@ service_accounts:
     email: sa-firebase-admin@sport-slot-dev.iam.gserviceaccount.com
     purpose: Firebase Admin SDK operations
     roles:
-      # Phase 1.3.2 baseline: no roles yet
-      # Roles added in Phase 1.3.3 when Firebase initialized
-    additional_roles_per_phase:
-      phase_1_3_3:
-        - roles/firebase.admin
-        - roles/firebaseauth.admin
+      - roles/firebase.admin
+      - roles/datastore.user
+      - roles/iam.serviceAccountTokenCreator
+      - roles/logging.logWriter
+    impersonators:
+      - sa-cloud-run (backend Cloud Run service — for Firebase Admin SDK access)
 
   sa-cloud-build:
     email: sa-cloud-build@sport-slot-dev.iam.gserviceaccount.com
@@ -58,5 +59,54 @@ workload_identity_federation:
     - "assertion.ref == 'refs/heads/main'"
   bound_service_account: sa-cloud-build
 
+firebase:
+  project_id: sport-slot-dev
+  initialized: "2026-06-10"
+  web_app:
+    created: "2026-06-10"
+    display_name: "SportSlot Web (React PWA)"
+    app_id_location: infrastructure/firebase-web-config.json  # local only
+    config_storage_strategy: "build-time injection (per ADR-0001)"
+
+  auth_providers:
+    email_password: "Enabled (Step 4)"
+    google_oauth: "Enabled (Step 4)"
+    support_email: "admin@chandraailabs.com"
+
+  firestore:
+    status: "Created (Phase 1.3.3)"
+    mode: "Native (per ADR-0002)"
+    region: "asia-south1 (Mumbai)"
+    database_id: "(default)"
+    security_rules: "infrastructure/firestore.rules (deny-all baseline)"
+    indexes_file: "infrastructure/firestore.indexes.json (empty initially)"
+
+authentication_strategy:
+  pattern: "Application Default Credentials (ADC) + Workload Identity Federation"
+  rationale: |
+    No static service account JSON keys are used anywhere in this project.
+
+    Aligned with:
+      - Google's "Secure by Default" organization policy
+        (iam.disableServiceAccountKeyCreation)
+      - ADR-0004: 5-layer defense-in-depth (Layer 1)
+      - ADR-0001: Stateless architecture principle
+
+    Authentication flows by context:
+      - Local development (developer machine):
+          gcloud auth application-default login
+          ADC stored in ~/.config/gcloud/application_default_credentials.json
+
+      - Cloud Run services (production runtime):
+          Service account attached to Cloud Run service
+          Identity automatically provided via instance metadata
+          No code changes needed — Firebase Admin SDK detects ADC
+
+      - GitHub Actions (CI/CD):
+          Workload Identity Federation (Phase 1.3.2)
+          Short-lived OIDC tokens, never JSON keys
+          Restricted to main branch of sport-slot-reservation repo
+
 phase_completion:
   phase_1_3_2: "2026-06-10"
+  phase_1_3_3: "2026-06-10"

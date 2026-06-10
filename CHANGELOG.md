@@ -15,6 +15,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   Terraform, ShellCheck, gcloud, and gh CLI version checks; sed reads all input
   before producing output, eliminating SIGPIPE risk
 
+### Added (Phase 1.3.3)
+- Firebase project enabled on sport-slot-dev (fixes G17 root cause from old SportBook postmortem)
+- Firebase Web App "SportSlot Web (React PWA)" created (App ID: 1:707808711911:web:f16ca1570a30f4e5957e42)
+- Web app config captured to infrastructure/firebase-web-config.json (local only, not committed)
+- .gitignore patterns for Firebase config files (infrastructure/firebase-*.json)
+- Email/Password and Google OAuth authentication providers enabled
+- Firestore database created (Native Mode, asia-south1 / Mumbai)
+- Deny-all security rules deployed via `firebase deploy --only firestore:rules`
+- infrastructure/firestore.rules (deny-all baseline; tenant-aware rules added in Phase 2)
+- infrastructure/firestore.indexes.json (empty — composite indexes added per query design in Phase 2)
+- firebase.json and .firebaserc for Firebase CLI configuration
+- sa-firebase-admin granted: roles/firebase.admin, roles/datastore.user, roles/iam.serviceAccountTokenCreator, roles/logging.logWriter
+- sa-cloud-run granted roles/datastore.user for direct Firestore access
+- sa-cloud-run can impersonate sa-firebase-admin via serviceAccountTokenCreator on SA resource
+- infrastructure/iam-config.yaml: added authentication_strategy section documenting ADC pattern
+- docs/runbooks/iam-setup.md: added ADC pattern explanation with code examples
+- docs/runbooks/local-development.md: new runbook for developer onboarding
+
+### Architecture Decisions Confirmed (Phase 1.3.3)
+- Authentication uses Application Default Credentials (ADC) + Workload Identity Federation
+- No static service account JSON keys generated (org policy iam.disableServiceAccountKeyCreation enforces this)
+- Aligned with Google's "Secure by Default" policy and ADR-0004 5-layer defense-in-depth
+
 ### Added (Phase 1.3.2)
 - 4 service accounts with least-privilege baseline roles:
   - sa-cloud-run (secretAccessor, logWriter, metricWriter, cloudtrace.agent)
@@ -54,11 +77,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ### Phase 1 — Workspace Bootstrap (in progress)
 - 1.1 GitHub + Local Workspace ✓ COMPLETE
 - 1.2 Local Toolchain (Python + Node) ✓ COMPLETE
-- 1.3 GCP Project + Firebase Initialization (in progress)
+- 1.3 GCP Project + Firebase Initialization ✓ COMPLETE
   - 1.3.1 GCP Project Foundation ✓ COMPLETE
   - 1.3.2 Service Accounts + Workload Identity ✓ COMPLETE
-  - 1.3.3 Firebase + Firestore Initialization ← NEXT
-- 1.4 Terraform Foundation + Makefile + Docs
+  - 1.3.3 Firebase + Firestore Initialization ✓ COMPLETE
+- 1.4 Terraform Foundation + Makefile + Docs ← NEXT
 
 ### Phase 0 — Foundation Decisions (complete)
 - ADR-0001: Tech Stack & Software Versions

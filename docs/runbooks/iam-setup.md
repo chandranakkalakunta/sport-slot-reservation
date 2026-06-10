@@ -37,12 +37,29 @@ WIF authentication is restricted to:
 
 Pull request branches CANNOT deploy. Only merged main commits.
 
+## Firestore Access
+
+Firestore (Native Mode, asia-south1) was created in Phase 1.3.3.
+Two service accounts have access:
+
+| SA | Role | How Used |
+|----|------|----------|
+| sa-firebase-admin | roles/firebase.admin + roles/datastore.user | Firebase Admin SDK (backend operations, bypasses security rules) |
+| sa-cloud-run | roles/datastore.user | Direct Firestore access from Cloud Run |
+
+`sa-cloud-run` can also impersonate `sa-firebase-admin` via
+`roles/iam.serviceAccountTokenCreator` bound on the SA resource.
+
+Security rules (`infrastructure/firestore.rules`) are deployed via
+`firebase deploy --only firestore:rules`. Phase 1.3.3 baseline is
+deny-all. Tenant-isolation rules are added in Phase 2.
+
 ## Permission Growth Plan
 
 Permissions are added incrementally per phase:
-- Phase 1.3.2: Baseline operational permissions (this phase)
-- Phase 1.3.3: Firebase + Firestore access added
-- Phase 2: Redis access added
+- Phase 1.3.2: Baseline operational permissions ✓ COMPLETE
+- Phase 1.3.3: Firebase + Firestore access added ✓ COMPLETE
+- Phase 2: Redis access added (sa-cloud-run → roles/redis.editor)
 - Phase 5: Pub/Sub publishing for notifications
 
 ## Verification Commands
@@ -73,6 +90,90 @@ gcloud projects get-iam-policy sport-slot-dev \
 1. GitHub Actions deployments will fail with auth error
 2. Re-run Phase 1.3.2 Steps 10-12
 3. Verify with: `gcloud iam workload-identity-pools describe`
+
+## Authentication Without JSON Keys
+
+### Why No Keys?
+
+Google enforces a "Secure by Default" organization policy
+(`iam.disableServiceAccountKeyCreation`) on chandraailabs.com.
+This blocks creation of static service account JSON keys.
+
+This is intentional and aligns with our security architecture:
+
+- **ADR-0004 Layer 1:** Defense-in-depth without static credentials
+- **ADR-0001 Stateless:** No secrets persisted in containers
+- **Industry direction:** Static keys are the #1 cloud breach vector
+
+### How Authentication Works
+
+**Local development (developer machine):**
+
+```bash
+# One-time setup per developer
+gcloud auth login
+gcloud auth application-default login
+gcloud auth application-default set-quota-project sport-slot-dev
+
+# Backend code uses ADC automatically
+python -m my_module  # firebase-admin uses ADC
+```
+
+**Cloud Run runtime (production):**
+
+When deploying:
+
+```bash
+gcloud run deploy sport-slot-api \
+  --service-account=sa-cloud-run@sport-slot-dev.iam.gserviceaccount.com
+```
+
+Cloud Run automatically provides credentials matching the attached
+service account. Code "just works" — no explicit auth needed.
+
+**GitHub Actions (CI/CD):**
+
+Configured via Workload Identity Federation (Phase 1.3.2):
+
+```yaml
+- uses: google-github-actions/auth@v2
+  with:
+    workload_identity_provider: 'projects/707808711911/locations/global/workloadIdentityPools/github-actions-pool/providers/github-actions-provider'
+    service_account: 'sa-cloud-build@sport-slot-dev.iam.gserviceaccount.com'
+```
+
+Short-lived OIDC tokens — automatically rotate.
+
+### What Backend Code Looks Like
+
+Firebase Admin SDK initialization (Python):
+
+```python
+import firebase_admin
+
+# DO NOT pass a credentials path
+# firebase_admin auto-detects ADC
+firebase_admin.initialize_app()
+```
+
+That's it. No JSON file paths. No environment variables for credentials.
+Works identically locally and in Cloud Run.
+
+### Verification
+
+Confirm ADC is working:
+
+```bash
+gcloud auth application-default print-access-token
+# Should print a token (no error)
+
+python3 -c "
+import google.auth
+creds, project = google.auth.default()
+print(f'Project: {project}')
+"
+# Should print: Project: sport-slot-dev
+```
 
 ## Related ADRs
 
