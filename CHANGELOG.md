@@ -6,6 +6,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Fixed
+- verify_toolchain.sh exited with code 120 due to SIGPIPE when gcloud --version
+  output was piped to `head -1`; `head` closed the pipe after line 1 and gcloud
+  received SIGPIPE on subsequent writes — under `set -euo pipefail` this aborted
+  the script mid-execution, skipping gcloud, Git, and gh CLI checks
+- Replaced all `| head -1` patterns with `| sed -n '1p'` across Homebrew,
+  Terraform, ShellCheck, gcloud, and gh CLI version checks; sed reads all input
+  before producing output, eliminating SIGPIPE risk
+
 ### Added
 - Phase 1.2: Local toolchain installed and verified
 - Python 3.12.13 via uv (alongside system 3.13)

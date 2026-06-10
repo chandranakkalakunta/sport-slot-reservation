@@ -32,7 +32,7 @@ echo ""
 
 # Check Homebrew
 if command -v brew &> /dev/null; then
-    VERSION=$(brew --version | head -1)
+    VERSION=$(brew --version 2>/dev/null | sed -n '1p')
     print_pass "Homebrew: $VERSION"
 else
     print_fail "Homebrew: NOT INSTALLED"
@@ -105,7 +105,7 @@ fi
 
 # Check Terraform
 if command -v terraform &> /dev/null; then
-    VERSION=$(terraform --version | head -1)
+    VERSION=$(terraform --version 2>/dev/null | sed -n '1p')
     print_pass "Terraform: $VERSION"
 else
     print_fail "Terraform: NOT INSTALLED"
@@ -113,7 +113,7 @@ fi
 
 # Check ShellCheck
 if command -v shellcheck &> /dev/null; then
-    VERSION=$(shellcheck --version | head -1)
+    VERSION=$(shellcheck --version 2>/dev/null | sed -n '1p')
     print_pass "ShellCheck: $VERSION"
 else
     print_fail "ShellCheck: NOT INSTALLED"
@@ -121,7 +121,7 @@ fi
 
 # Check gcloud
 if command -v gcloud &> /dev/null; then
-    VERSION=$(gcloud --version 2>&1 | head -1)
+    VERSION=$(gcloud --version 2>/dev/null | sed -n '1p')
     print_pass "gcloud: $VERSION"
 else
     print_fail "gcloud: NOT INSTALLED"
@@ -137,7 +137,7 @@ fi
 
 # Check gh CLI
 if command -v gh &> /dev/null; then
-    VERSION=$(gh --version | head -1)
+    VERSION=$(gh --version 2>/dev/null | sed -n '1p')
     print_pass "gh CLI: $VERSION"
 else
     print_fail "gh CLI: NOT INSTALLED"
