@@ -33,4 +33,24 @@ else
     --location="$REGION" --uniform-bucket-level-access
   echo "Staging bucket created: $BUCKET"
 fi
+
+SA_BUILD="sa-cloud-build@${PROJECT}.iam.gserviceaccount.com"
+
+echo "Granting build SA permissions (idempotent)..."
+gcloud storage buckets add-iam-policy-binding "$BUCKET" \
+  --member="serviceAccount:${SA_BUILD}" \
+  --role="roles/storage.objectAdmin" >/dev/null
+echo "  - storage.objectAdmin on ${BUCKET}"
+
+gcloud projects add-iam-policy-binding "$PROJECT" \
+  --member="serviceAccount:${SA_BUILD}" \
+  --role="roles/logging.logWriter" >/dev/null
+echo "  - logging.logWriter on ${PROJECT}"
+
+gcloud projects add-iam-policy-binding "$PROJECT" \
+  --member="serviceAccount:${SA_BUILD}" \
+  --role="roles/artifactregistry.writer" >/dev/null
+echo "  - artifactregistry.writer on ${PROJECT}"
+
+echo "Build SA ready: ${SA_BUILD}"
 echo "Build infrastructure ready."
