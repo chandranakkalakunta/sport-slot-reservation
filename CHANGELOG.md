@@ -6,6 +6,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added (Phase 2.2) — Phase 2.2 COMPLETE
+
+- Phase 2.2: Security charter v1.1 committed to docs/security/charter.md (identity &
+  credential model, ADR-0006/0007 alignment)
+
 ### Added (Phase 2.1) — Phase 2.1 COMPLETE
 
 - ADR-0006: API Design Patterns accepted — URL path versioning (/api/v1/), UPPER_SNAKE
@@ -134,7 +139,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Phase 2 — Backend API Foundation (IN PROGRESS)
 - 2.1 ADR-0006 + ADR-0007 (API design + auth decisions) ✓
-- 2.2 FastAPI scaffold + structured logging
+- 2.2 Security charter v1.1 committed to docs/security/charter.md ✓
 - 2.3 TenantContext + Repository pattern
 - 2.4 Firebase Admin SDK + auth middleware
 - 2.5 First protected endpoint + unit tests
