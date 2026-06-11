@@ -65,6 +65,39 @@ gcp-set-dev: ## Switch to sport-slot-dev project
 seed-dev: ## Seed dev Firebase user + profile (dev only)
 	@cd backend && uv run python scripts/seed_dev_user.py
 
+.PHONY: dev-env
+dev-env: ## Create backend/.env from template (first-time setup)
+	@if [ -f backend/.env ]; then \
+		echo "backend/.env already exists — not overwriting."; \
+	else \
+		cp backend/.env.example backend/.env; \
+		echo "Created backend/.env — fill in SPORTSLOT_WEB_API_KEY before running the server."; \
+	fi
+
+.PHONY: run-dev
+run-dev: ## Run backend locally (uvicorn, reload)
+	@cd backend && PYTHONPATH=src uv run uvicorn sport_slot.main:app --reload --port 8000
+
+.PHONY: docker-build
+docker-build: ## Build backend Docker image locally
+	@cd backend && docker build -t sport-slot-api:local .
+
+.PHONY: docker-run
+docker-run: ## Run container locally (mounts gcloud ADC read-only)
+	@docker run --rm -p 8080:8080 \
+		-v "$$HOME/.config/gcloud:/home/app/.config/gcloud:ro" \
+		-e GOOGLE_CLOUD_PROJECT=sport-slot-dev \
+		-e SPORTSLOT_ENVIRONMENT=development \
+		sport-slot-api:local
+
+.PHONY: build-push
+build-push: ## Build and push backend image via Cloud Build (Coordinator-run)
+	@./scripts/build_push.sh
+
+.PHONY: deploy-dev
+deploy-dev: ## Deploy backend to Cloud Run DEV (Coordinator-run, GUARDED)
+	@./scripts/deploy_cloud_run.sh
+
 # ═══════════════════════════════════════════════════════════════
 # Help
 # ═══════════════════════════════════════════════════════════════

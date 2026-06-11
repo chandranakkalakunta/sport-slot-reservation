@@ -6,6 +6,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added (Phase 2.6) — Phase 2.6 COMPLETE
+
+- Phase 2.6: Multi-stage Dockerfile (uv builder → slim non-root runtime); .dockerignore;
+  guarded Coordinator scripts for AR/bucket setup (setup_build_infra.sh), Cloud Build push
+  with git-SHA tags (build_push.sh), Cloud Run deploy min=0/max=2 sa-cloud-run (deploy_cloud_run.sh);
+  Makefile: dev-env, run-dev, docker-build, docker-run, build-push, deploy-dev targets;
+  config.py .env path anchored to backend/ (CWD-independent); .last_image_tag gitignored.
+
 ### Added (Phase 2.5) — Phase 2.5 COMPLETE
 
 - Phase 2.5: GET /api/v1/users/me (TenantContext → UserProfileRepository → Firestore);
@@ -164,6 +172,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - 2.3 FastAPI scaffold + error envelope + TenantContext auth dependency ✓
 - 2.4 Repository pattern + deny-all rules formalized + ADR-0008 ✓
 - 2.5 /api/v1/users/me + slowapi rate limiting + dev seed ✓
+- 2.6 Dockerfile + Cloud Run deploy scripts + papercut fixes ✓
 
 ### Phase 0 — Foundation Decisions (complete)
 - ADR-0001: Tech Stack & Software Versions

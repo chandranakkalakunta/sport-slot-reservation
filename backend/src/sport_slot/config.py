@@ -1,10 +1,16 @@
 from functools import lru_cache
+from pathlib import Path
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+# backend/src/sport_slot/config.py → parents[2] == backend/
+_ENV_FILE = Path(__file__).resolve().parents[2] / ".env"
+
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_prefix="SPORTSLOT_", env_file=".env", extra="ignore")
+    model_config = SettingsConfigDict(
+        env_prefix="SPORTSLOT_", env_file=str(_ENV_FILE), extra="ignore"
+    )
 
     environment: str = "development"
     gcp_project: str = "sport-slot-dev"

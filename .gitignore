@@ -92,6 +92,9 @@ secrets/
 # Docker
 *.dockerignore.bak
 
+# Cloud Build
+.last_image_tag
+
 # OS
 Thumbs.db
 .DS_Store
