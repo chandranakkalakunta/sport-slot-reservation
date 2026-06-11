@@ -20,6 +20,8 @@ IMAGE="${IMAGE_BASE}:${TAG}"
 echo "Building ${IMAGE} via Cloud Build (region ${REGION})"
 gcloud builds submit backend \
   --project="$PROJECT" --region="$REGION" \
+  --service-account="projects/${PROJECT}/serviceAccounts/sa-cloud-build@${PROJECT}.iam.gserviceaccount.com" \
+  --default-buckets-behavior=regional-user-owned-bucket \
   --tag "$IMAGE" \
   --gcs-source-staging-dir="${BUCKET}/source"
 
