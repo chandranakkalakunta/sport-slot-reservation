@@ -6,6 +6,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added (Phase 2.4) — Phase 2.4 COMPLETE
+
+- Phase 2.4: ADR-0008 (subcollection layout, permanent deny-all rules, repository contract);
+  infrastructure/firestore.rules updated with ADR-0008 comment block + guarded deploy script;
+  TenantRepository/PlatformRepository + UserProfile model. Coverage ≥80% (87%).
+
 ### Added (Phase 2.3) — Phase 2.3 COMPLETE
 
 - Phase 2.3: FastAPI scaffold — app factory, request-ID middleware, error envelope + code
@@ -147,7 +153,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - 2.1 ADR-0006 + ADR-0007 (API design + auth decisions) ✓
 - 2.2 Security charter v1.1 committed to docs/security/charter.md ✓
 - 2.3 FastAPI scaffold + error envelope + TenantContext auth dependency ✓
-- 2.4 Firebase Admin SDK + auth middleware
+- 2.4 Repository pattern + deny-all rules formalized + ADR-0008 ✓
 - 2.5 First protected endpoint + unit tests
 
 ### Phase 0 — Foundation Decisions (complete)
