@@ -6,6 +6,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added (Phase 2.3) — Phase 2.3 COMPLETE
+
+- Phase 2.3: FastAPI scaffold — app factory, request-ID middleware, error envelope + code
+  registry, structlog with PII redaction, /healthz + /readyz, TenantContext auth dependency
+  (ADR-0006/0007). Coverage ≥80% (93%).
+
 ### Added (Phase 2.2) — Phase 2.2 COMPLETE
 
 - Phase 2.2: Security charter v1.1 committed to docs/security/charter.md (identity &
@@ -140,7 +146,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ### Phase 2 — Backend API Foundation (IN PROGRESS)
 - 2.1 ADR-0006 + ADR-0007 (API design + auth decisions) ✓
 - 2.2 Security charter v1.1 committed to docs/security/charter.md ✓
-- 2.3 TenantContext + Repository pattern
+- 2.3 FastAPI scaffold + error envelope + TenantContext auth dependency ✓
 - 2.4 Firebase Admin SDK + auth middleware
 - 2.5 First protected endpoint + unit tests
 
