@@ -6,6 +6,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added (Phase 2.1) — Phase 2.1 COMPLETE
+
+- ADR-0006: API Design Patterns accepted — URL path versioning (/api/v1/), UPPER_SNAKE
+  error code registry, cursor-based pagination (offset prohibited), split liveness/readiness
+  health probes outside versioned surface
+- ADR-0007: Authentication & Authorization accepted — firebase-admin-only JWT verification
+  (python-jose prohibited: CVE-2024-33663/CVE-2024-33664), custom claims as identity source of
+  truth, accepted 1-hour staleness with selective revocation on SENSITIVE endpoints, no admin
+  tenant bypass, phased rate limiting (slowapi → Redis → Cloud Armor)
+- docs/adr/README.md: Phase 2 section added with index entries for ADR-0006 and ADR-0007
+
 ### Fixed
 - verify_toolchain.sh exited with code 120 due to SIGPIPE when gcloud --version
   output was piped to `head -1`; `head` closed the pipe after line 1 and gcloud
@@ -121,11 +132,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   - 1.4.2 Document Existing Resources ✓
   - 1.4.3 Makefile + Docs Finalization ✓
 
-### Phase 2 — Backend API Foundation (NEXT)
-- 2.1 FastAPI scaffold + structured logging
-- 2.2 TenantContext + Repository pattern
-- 2.3 Firebase Admin SDK + auth middleware
-- 2.4 First protected endpoint + unit tests
+### Phase 2 — Backend API Foundation (IN PROGRESS)
+- 2.1 ADR-0006 + ADR-0007 (API design + auth decisions) ✓
+- 2.2 FastAPI scaffold + structured logging
+- 2.3 TenantContext + Repository pattern
+- 2.4 Firebase Admin SDK + auth middleware
+- 2.5 First protected endpoint + unit tests
 
 ### Phase 0 — Foundation Decisions (complete)
 - ADR-0001: Tech Stack & Software Versions

@@ -29,6 +29,13 @@ establishing the architectural foundation.
 | [0004](0004-tenant-isolation.md) | Tenant Isolation Strategy | Accepted | Logical isolation with 5-layer defense-in-depth; subdomain identification with wildcard DNS; platform admin assigns slugs |
 | [0005](0005-cost-baseline.md) | Cost Baseline & Budget Alerts | Accepted | DEV ≤₹5K/month; PROD target ≤₹2K/tenant; 4-tier alert thresholds with hard limits at 100%; daily dashboard + weekly summary |
 
+## Phase 2 — Backend API Foundation
+
+| ADR | Title | Status | Summary |
+|-----|-------|--------|---------|
+| [0006](0006-api-design-patterns.md) | API Design Patterns | Accepted | URL path versioning (/api/v1/); UPPER_SNAKE error code registry; cursor-based pagination only; split /healthz + /readyz probes |
+| [0007](0007-auth-and-authorization.md) | Authentication & Authorization | Accepted | firebase-admin only JWT verification (python-jose prohibited); custom claims as identity source of truth; accepted 1h staleness with selective revocation; no admin tenant bypass; phased rate limiting |
+
 ## Reading Order
 
 For someone new to the project, read ADRs in numerical order.
