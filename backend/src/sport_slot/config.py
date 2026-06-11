@@ -12,6 +12,7 @@ class Settings(BaseSettings):
     admin_host: str = "admin.sportbook.chandraailabs.com"
     dev_tenant_slug: str | None = None
     log_level: str = "INFO"
+    rate_limit: str = "30/minute"
 
 
 @lru_cache

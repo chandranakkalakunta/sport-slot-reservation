@@ -58,6 +58,14 @@ gcp-set-dev: ## Switch to sport-slot-dev project
 	@bash scripts/gcp-set-dev.sh
 
 # ═══════════════════════════════════════════════════════════════
+# Development
+# ═══════════════════════════════════════════════════════════════
+
+.PHONY: seed-dev
+seed-dev: ## Seed dev Firebase user + profile (dev only)
+	@cd backend && uv run python scripts/seed_dev_user.py
+
+# ═══════════════════════════════════════════════════════════════
 # Help
 # ═══════════════════════════════════════════════════════════════
 

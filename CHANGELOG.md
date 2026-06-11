@@ -6,6 +6,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added (Phase 2.5) — Phase 2.5 COMPLETE
+
+- Phase 2.5: GET /api/v1/users/me (TenantContext → UserProfileRepository → Firestore);
+  slowapi in-memory rate limiting per ADR-0007 §5 — 429 in error envelope via middleware
+  subclass (slowapi middleware bypasses app exception handlers); /healthz + /readyz exempt;
+  guarded dev seed script (backend/scripts/seed_dev_user.py), Firebase token helper
+  (scripts/get_dev_token.sh), Makefile seed-dev target, architecture gate test. 31 tests,
+  coverage 89%.
+
 ### Added (Phase 2.4) — Phase 2.4 COMPLETE
 
 - Phase 2.4: ADR-0008 (subcollection layout, permanent deny-all rules, repository contract);
@@ -154,7 +163,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - 2.2 Security charter v1.1 committed to docs/security/charter.md ✓
 - 2.3 FastAPI scaffold + error envelope + TenantContext auth dependency ✓
 - 2.4 Repository pattern + deny-all rules formalized + ADR-0008 ✓
-- 2.5 First protected endpoint + unit tests
+- 2.5 /api/v1/users/me + slowapi rate limiting + dev seed ✓
 
 ### Phase 0 — Foundation Decisions (complete)
 - ADR-0001: Tech Stack & Software Versions
