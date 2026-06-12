@@ -6,6 +6,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Fixed (Phase 3.6.1)
+
+- 3.6.1: fix — cancelled bookings can be rebooked (status-aware supersede in transaction).
+
 ### Added (Phase 3.6) — PHASE 3 COMPLETE
 
 - Phase 3.6: ADR-0011 synchronous Firestore audit trail, IN_PROGRESS slot marking + booking

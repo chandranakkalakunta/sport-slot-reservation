@@ -83,8 +83,14 @@ def create_booking_with_quota(
         ref = collection.document(booking_id)
         snapshot = next(iter(txn.get(ref)), None)
         if snapshot is not None and snapshot.exists:
-            raise AlreadyBookedError()
-        txn.create(ref, doc)
+            if (snapshot.to_dict() or {}).get("status") == "confirmed":
+                raise AlreadyBookedError()
+            # Cancelled document: supersede with the new booking.
+            # Prior lifecycle is preserved in the audit collection
+            # (ADR-0011); the booking doc holds current state only.
+            txn.set(ref, doc)
+        else:
+            txn.create(ref, doc)
 
     _run(transaction)
 

@@ -167,3 +167,29 @@ async def test_audit_written_on_create(make_client):
     assert resp.status_code == 201
     assert audit.call_args.args[0] == "booking.created"
     assert audit.call_args.args[1] == "u1"
+
+
+def test_cancelled_document_is_superseded():
+    """Lifecycle: create → cancel → rebook must succeed (3.6.1)."""
+    from sport_slot.repositories.bookings import create_booking_with_quota
+
+    repo = MagicMock()
+    txn = MagicMock()
+    repo._client.transaction.return_value = txn
+
+    cancelled_snap = MagicMock()
+    cancelled_snap.exists = True
+    cancelled_snap.to_dict.return_value = {"status": "cancelled"}
+
+    def fake_transactional(fn):
+        def runner(transaction):
+            return fn(transaction)
+        return runner
+
+    with patch("google.cloud.firestore.transactional", fake_transactional):
+        txn.get.side_effect = [iter([]), iter([cancelled_snap])]
+        create_booking_with_quota(repo, "b1", {"status": "confirmed"},
+                                  "u9", "2026-06-13", quota=1)
+    ref = repo._collection.document.return_value
+    txn.set.assert_called_once_with(ref, {"status": "confirmed"})
+    txn.create.assert_not_called()

@@ -15,6 +15,7 @@ live by the Coordinator.
 | 2 | In-progress slots were silently bookable for remaining time | compute_slots marks past at slot END; behavior was emergent, not decided | Decided: keep, mark reason=IN_PROGRESS + booking notice (ADR-0010 behavior, 3.6) | Emergent behaviors found in validation get an explicit ruling, never silence |
 | 3 | Live validation curls returned empty bodies and could read as passes | curl -s hides connection failure; dev server was down | Re-run with -w "%{http_code}" | Validation curls always print the status code |
 | 4 | Sync-audit / no-BigQuery decision existed only in conversation | Decision made mid-discussion without a home | ADR-0011 written same sub-phase | Every decision lands in an ADR or it does not exist |
+| 5 | Cancelled slots advertised bookable but rejected all rebooking (409) | txn.create fails on ANY existing document; cancelled docs share the deterministic ID | Status-aware transaction: confirmed→reject, cancelled→supersede (audit holds history) | Trace every lifecycle loop (create→cancel→recreate) in close-out review; the deployed probe, not the test suite, found this |
 
 ## Design observations
 - Cancelled bookings free slots and quota automatically because
