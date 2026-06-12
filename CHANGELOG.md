@@ -6,6 +6,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added (Phase 3.1)
+
+- Phase 3.1: ADR-0009 (Redis slot locking), ADR-0010 (booking domain & policy resolution) accepted.
+
 ### Fixed (Phase 2.6.3)
 
 - 2.6.3: retrospective investigation record corrected (omitted STEP 3 of 2.6.2;
@@ -200,6 +204,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - 2.5 /api/v1/users/me + slowapi rate limiting + dev seed ✓
 - 2.6 Dockerfile + Cloud Run deploy scripts + papercut fixes ✓
 - 2.7 Documentation closure: README, retrospective, runbook, charter v1.2 ✓
+
+### Phase 3 — Booking Engine (IN PROGRESS)
+- 3.1 ADR-0009 (Redis slot locking) + ADR-0010 (booking domain & policy) ✓
 
 ### Phase 0 — Foundation Decisions (complete)
 - ADR-0001: Tech Stack & Software Versions

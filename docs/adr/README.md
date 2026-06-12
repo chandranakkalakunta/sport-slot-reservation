@@ -37,6 +37,13 @@ establishing the architectural foundation.
 | [0007](0007-auth-and-authorization.md) | Authentication & Authorization | Accepted | firebase-admin only JWT verification (python-jose prohibited); custom claims as identity source of truth; accepted 1h staleness with selective revocation; no admin tenant bypass; phased rate limiting |
 | [0008](0008-data-layout-and-repository-contract.md) | Data Layout & Repository Contract | Accepted | Permanent deny-all Firestore rules; per-tenant subcollection layout /tenants/{id}/...; TenantRepository with construction-time tenant enforcement; PlatformRepository gated to platform_admin; cursor pagination |
 
+## Phase 3 — Booking Engine
+
+| ADR | Title | Status | Summary |
+|-----|-------|--------|---------|
+| [0009](0009-slot-locking-redis.md) | Slot Locking — Memorystore Redis | Accepted | Memorystore Redis Basic 1 GB; SET NX PX lock on deterministic key; Fail Closed (503 on Redis down, never bypass); LockService interface; VPC egress to Cloud Run |
+| [0010](0010-booking-domain-and-policy.md) | Booking Domain Model & Policy Resolution | Accepted | Computed availability (no pre-generated slots); deterministic booking ID as second double-booking guard; PolicyService Tenant Override → Global Default; quota enforcement inside Firestore transaction |
+
 ## Reading Order
 
 For someone new to the project, read ADRs in numerical order.
