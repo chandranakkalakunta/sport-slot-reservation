@@ -1,172 +1,83 @@
 # Phase 2 Retrospective — Backend API Foundation
 
-**Phase:** 2.0 – 2.7  
-**Completed:** 2026-06-12  
-**Author:** Chandra Nakkalakunta
+Period: 2026-06-10 → 2026-06-12 · Sub-phases 2.1–2.7
+Outcome: backend foundation complete and live-validated locally;
+Cloud Run deployment built and configured correctly, public serving
+blocked by a Google account-level hold (external; support case open).
 
-## What Was Built
+## Issue log
 
-| Sub-phase | Deliverable |
-|-----------|-------------|
-| 2.1 | ADR-0006 (API design) + ADR-0007 (auth & authorization) |
-| 2.2 | Security charter v1.1 committed to `docs/security/charter.md` |
-| 2.3 | FastAPI scaffold: app factory, request-ID middleware, error envelope, structlog, TenantContext auth dependency |
-| 2.4 | Repository pattern (TenantRepository/PlatformRepository), deny-all Firestore rules formalized, ADR-0008 |
-| 2.5 | `GET /api/v1/users/me`, slowapi rate limiting (30/min), dev seed tooling |
-| 2.6 | Multi-stage Dockerfile, Cloud Build + Artifact Registry, Cloud Run deploy scripts |
-| 2.7 | Documentation closure: README, retrospective, runbook, charter v1.2 |
+| # | Symptom | Root cause | Resolution | Rule adopted |
+|---|---------|-----------|------------|--------------|
+| 1 | Unexpected branch with Phase 2 code | Work done outside protocol in a side session | Branch parked, ADRs written first, branch deleted after 2.3 | All work flows through the protocol; no side sessions |
+| 2 | gcloud active account was org admin | chandra.n@ assumed to be a cloud identity; it is email/git only | Identity model documented in charter v1.1; app credentials via SA impersonation | Security docs must describe reality, not aspiration |
+| 3 | Pre-flight expected no firebase.json; it existed | Strategist wrote pre-flights from summary docs, not verified state | Worker STOP-and-report; repo layout won | Pre-flight expectations come from verified state; summaries are maps, not territory |
+| 4 | make verify-env passed but firebase CLI "not found" | Older terminal predated PNPM_HOME in zshrc | Fresh terminal | Shell sessions don't inherit config changes (re-confirmed) |
+| 5 | slowapi 429 bypassed our error envelope (two rounds) | Middleware-layer exceptions never reach FastAPI exception handlers; slowapi hardcodes its handler | Subclassed middleware post-processes 429s into the envelope | Verify third-party library behavior at version before designing on it |
+| 6 | /users/me 403 locally despite valid token | No .env existed; the tracked .env.example had been edited (real API key in a tracked file) | cp to .env, checkout template; near-miss, nothing committed | Setup instructions must say HOW to create files, not just name them; make dev-env added |
+| 7 | Cloud Build 403 on staging bucket | Build ran as default Compute SA, not sa-cloud-build | --service-account flag + scripted IAM grants | Every gcloud mutation ships in a script — including hotfixes |
+| 8 | Cloud Build logs-bucket FAILED_PRECONDITION, then unknown --logging flag | Custom build SAs default to GCS logging; logging is a build-config option, not a CLI flag (3 failed attempts from memory) | cloudbuild.yaml with CLOUD_LOGGING_ONLY | After two failed fixes, stop and read --help / docs before a third |
+| 9 | allUsers IAM binding rejected | Secure-by-Default org policy (domain restricted sharing) | Project-scoped org-policy override; documented in charter v1.2 | Org-policy exceptions are scoped, documented, and reviewed at PROD boundary |
+| 10 | Phase 2.7 docs fabricated after session interruption | Claude Code context compaction lost verbatim blocks; Worker reconstructed from memory and self-validated the fabrication | Independent grep validation caught it; full verbatim re-run (2.7.1) | After any session interruption, re-paste the full prompt; Worker self-validation cannot catch fabrication — independent validation is non-negotiable |
 
-**Final metrics:** 31 tests · 89.25% coverage · 0 Bandit findings · ShellCheck clean
+## The Cloud Run 404 investigation
 
----
+After deployment, every run.app URL returned Google's HTML 404.
+Systematic elimination over ~24h: service config (Ready=True,
+ingress=all) → IAM (binding confirmed) → org policy (override
+verified effective) → propagation (hours elapsed) → hostname
+(recreation reproduces identical deterministic URLs — recreating
+under a NEW name also 404'd) → region (asia-southeast1 also 404'd)
+→ client network (mobile data identical; TLS terminated at genuine
+Google frontend) → request logs (zero entries ever: requests never
+reach the service).
 
-## What Went Well
+Decisive differential: an established project under a different
+account, same region, same network, served 200. Conclusion:
+account-level serving hold on the new organization (created days
+earlier) — a documented pattern for new accounts. All
+customer-controllable surfaces verified correct; support case
+filed with full evidence package.
 
-### Architecture held up under implementation pressure
+Lesson: when configuration is verified correct and the symptom
+persists, vary the variables you haven't varied — and know where
+your control ends. The fastest path out was a differential
+diagnosis, not another fix.
 
-The ADR-first approach (ADR-0006/0007 written before a single line of code) kept
-decisions visible and reversible. When the Firestore layout pre-flight found an
-existing `infrastructure/firestore.rules` from Phase 1.3.3, having ADR-0008 as the
-source of truth made the resolution unambiguous: keep the file, update the content,
-don't restructure.
+## Protocol amendments adopted (v1.0 → v1.1)
 
-### 5-layer tenant isolation is real, not just documented
+1. Pre-flight expectations MUST derive from verified state; Worker
+   echoes every pre-flight check result explicitly.
+2. Strategist verifies third-party library/API behavior (at the
+   installed version) before designing around it; after two failed
+   fixes, mandatory stop-and-read-docs.
+3. Every cloud mutation ships in a version-controlled script —
+   no exceptions for hotfixes or one-offs.
+4. Validation plans must specify file-creation steps explicitly
+   (how, not just what).
+5. Strategist states expected counts as "report actual"; exact
+   counting is the Coordinator's independent validation.
+6. After any Worker session interruption, the full prompt is
+   re-pasted in a fresh session; verbatim payloads must never be
+   trusted to post-compaction context.
 
-Each layer forced a concrete engineering choice:
-- Rules → permanent deny-all (no client path at all)
-- Repository → TenantRepository rejects non-tenant contexts at construction time
-- Auth dependency → `_slug_from_host` fail-closed in production
-- Tests → cross-tenant 403 assertions in the pytest suite
-- CI gate → `test_architecture.py` prevents Firestore imports leaking into handlers
+## What went right
 
-### Error envelope is consistent end-to-end
+Phase-gating caught every issue before it compounded. Worker
+STOP-and-report behavior (issues 3, 5, 8) prevented bad guesses.
+Independent Coordinator validation caught what reports missed —
+including issue 10, where it was the only layer that could.
+Cost: effectively ₹0 against a ₹5,000/month budget. Coverage 89%
+against an 80% gate. Zero secrets committed (one near-miss caught
+by validation). All 10 issues produced durable rules.
 
-Every response — success, 4xx, 5xx, rate limit — uses the same
-`{code, message, request_id, timestamp}` envelope. This required solving the
-slowapi middleware bypass problem (see Issues section), but the result is a
-client that never has to handle two different error shapes.
+## Carried forward
 
-### Zero-credential discipline maintained
-
-No JSON keys were generated at any point. All local dev uses ADC, CI/CD uses WIF,
-Cloud Run uses the attached service account. The org policy
-(`iam.disableServiceAccountKeyCreation`) was confirmed enforced throughout.
-
----
-
-## Issues Encountered and Resolved
-
-### 1 — slowapi 429 not in error envelope (two rounds)
-
-**Round 1 diagnosis (wrong):** `raise ApiError(429, ...)` inside a
-`@app.exception_handler(RateLimitExceeded)` handler. FastAPI exception handlers
-don't chain — raising inside a handler doesn't dispatch to another handler.
-Switched to `return JSONResponse(...)`.
-
-**Round 2 diagnosis (root cause):** `SlowAPIMiddleware.dispatch()` catches
-`RateLimitExceeded` internally and calls `slowapi.errors._rate_limit_exceeded_handler`
-before FastAPI's exception-handler pipeline is ever entered. The `@app.exception_handler`
-decorator is dead code for this exception.
-
-**Resolution:** `EnvelopeRateLimitMiddleware(SlowAPIMiddleware)` — post-processes any
-429 response from the middleware layer into the envelope. No handler registration needed.
-Dead handler removed from `errors.py`.
-
-### 2 — Health probes not exempt from rate limit
-
-`SlowAPIMiddleware.default_limits` applied to ALL routes including `/healthz`.
-Added `@limiter.exempt` decorators under the route decorators in `health.py`.
-Changed from a `build_limiter()` factory to a module-level `limiter` singleton
-with a `_current_limit()` callable so tests can monkeypatch the limit per-request.
-
-### 3 — uv editable-install .pth not on sys.path
-
-`_editable_impl_sport_slot_backend.pth` exists in site-packages but `backend/src`
-is not added to `sys.path` by the uv Python symlink on macOS. Fixed:
-`pythonpath = ["src"]` in `[tool.pytest.ini_options]`. For uvicorn: `PYTHONPATH=src`
-(set in Makefile `run-dev` target).
-
-### 4 — Cloud Build 403 on staging bucket
-
-Build submitted without `--service-account`, so it ran as the default Compute SA
-which lacked `storage.objectAdmin` on the staging bucket. Fixed: explicit
-`--service-account` flag in `build_push.sh` + `roles/storage.objectAdmin` grant
-scripted in `setup_build_infra.sh`.
-
-### 5 — `--logging=CLOUD_LOGGING_ONLY` not a valid gcloud flag
-
-`gcloud builds submit` in SDK version 571 does not have a `--logging` flag.
-Fixed: moved to `options.logging: CLOUD_LOGGING_ONLY` in `backend/cloudbuild.yaml`.
-
-### 6 — Cloud Run external serving hold (open)
-
-Service deployed successfully (Ready=True, IAM, ingress=all, org-policy override
-all verified correct), but external requests receive 404. This is an account-level
-serving hold on new Google organization domains. Support case filed.
-Service `sport-slot-api-b` kept as live repro. Worker has no action here.
-
-### 7 — Firestore pre-flight: existing file from Phase 1.3.3
-
-`infrastructure/firestore.rules` already existed in the flat layout established by
-Phase 1.3.3 (`firebase.json` references it directly). Phase 2.4 prompt assumed
-this was absent. Resolution: keep the existing layout, replace only the file content,
-update the path reference in ADR-0008 and the deploy script. No `infrastructure/firestore/`
-subdirectory created.
-
----
-
-## Key Decisions
-
-### python-jose prohibited permanently
-
-CVE-2024-33663 and CVE-2024-33664 affect python-jose. Decision: Firebase Admin SDK
-is the only JWT verifier in this codebase. Documented in ADR-0007 and enforced by
-`test_architecture.py` import scan. Any future contributor adding python-jose to
-`pyproject.toml` will break the architecture gate.
-
-### Fail-closed dev override
-
-`_slug_from_host` allows tenant slug override only when `environment == "development"`
-AND the host is in `{"localhost", "127.0.0.1", "testserver"}`. In production,
-any host not matching the `base_domain` pattern returns 400. There is no runtime
-flag that relaxes this — the environment field is set at deploy time via env vars.
-
-### Callable rate limit for test overrides
-
-`Limiter(default_limits=[_current_limit])` passes a callable, not a string.
-slowapi calls it per request. Tests monkeypatch `get_settings()` return value;
-the callable picks up the override without requiring limiter reconstruction.
-
----
-
-## Lessons Learned
-
-1. **Read middleware source before registering exception handlers.** Middleware
-   that catches exceptions internally is invisible to `@app.exception_handler`.
-   Check the library's `dispatch()` before assuming handler registration will work.
-
-2. **uv editable installs on macOS need an explicit `pythonpath` setting.**
-   Don't assume `.pth` files work — verify `sys.path` in the test environment.
-
-3. **Pre-flight the filesystem before each phase.** Phase 1 artifacts survived into
-   Phase 2 (`firestore.rules`, `local-development.md`). A 30-second pre-flight
-   that confirms expected state prevents 30-minute backtrack sessions.
-
-4. **Three-agent protocol forces complete designs.** Having the Strategist produce
-   all file contents before the Worker writes a single byte prevents the "I'll figure
-   out the details as I go" pattern that causes mid-task architectural drift.
-
-5. **Cloud Build config belongs in a file, not CLI flags.** `cloudbuild.yaml` is
-   version-controlled and deterministic. CLI flags depend on the SDK version installed
-   on the machine that runs the script.
-
----
-
-## Phase 3 Preview
-
-- Redis distributed lock for double-booking prevention (ADR-0002)
-- Per-user/household booking quotas (anti-hoarding)
-- Booking cancellation rate limiting
-- Audit logging for all booking mutations to BigQuery
-- `POST /api/v1/bookings`, `DELETE /api/v1/bookings/{id}`
-- `GET /api/v1/slots` with availability projection
+- BLOCKER (external): Cloud Run serving hold — validation curls
+  run when lifted; service sport-slot-api-b kept as live repro.
+- Known issue: containerized /readyz with mounted ADC unvalidated
+  locally (likely HOME/mount path for system user) — revisit in
+  Phase 5 when CI runs containers.
+- deploy_cloud_run.sh: separate deploy from ensure-public-access.
+- Strategist ground-truth access (GitHub/filesystem MCP) — agreed
+  improvement, deferred; revisit before Phase 3.

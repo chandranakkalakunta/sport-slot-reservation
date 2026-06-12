@@ -6,6 +6,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Fixed (Phase 2.7.1)
+
+- Corrected fabricated documentation content (issue #10 in retrospective): charter
+  had fictional run.allowedIngress override and omitted real allowedPolicyMemberDomains
+  exception; retrospective omitted Cloud Run 404 investigation, protocol amendments,
+  and issues #1/#6/#9; runbook omitted credential model; README omitted engineering
+  method section. Root cause: session interruption + context compaction; Worker
+  reconstructed instead of stopping. All five files replaced with verbatim content.
+
 ### Added (Phase 2.7) — PHASE 2 COMPLETE
 
 - README.md rewritten: Phase 2 COMPLETE badge, Mermaid architecture diagram, ADR table
