@@ -12,6 +12,7 @@ dependencies = [
   "structlog>=24.4",
   "google-cloud-firestore>=2.19",
   "slowapi>=0.1.9",
+  "redis>=5.2",
 ]
 
 [dependency-groups]

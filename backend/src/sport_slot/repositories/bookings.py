@@ -21,3 +21,46 @@ class BookingRepository(TenantRepository):
             .where("status", "==", "confirmed")
         )
         return {snap.to_dict().get("start") for snap in query.stream()}
+
+
+class QuotaExceededError(Exception):
+    pass
+
+
+class AlreadyBookedError(Exception):
+    pass
+
+
+def create_booking_with_quota(
+    repo: "BookingRepository",
+    booking_id: str,
+    doc: dict,
+    uid: str,
+    date: str,
+    quota: int,
+) -> None:
+    """Atomic quota-check + create (ADR-0010 §4). The Redis lock
+    guards the SLOT; quota races ACROSS slots are settled here."""
+    from google.cloud import firestore
+
+    collection = repo._collection
+    transaction = repo._client.transaction()
+
+    @firestore.transactional
+    def _run(txn):
+        query = (
+            collection
+            .where("uid", "==", uid)
+            .where("date", "==", date)
+            .where("status", "==", "confirmed")
+        )
+        count = len(list(txn.get(query)))
+        if count >= quota:
+            raise QuotaExceededError()
+        ref = collection.document(booking_id)
+        snapshot = next(iter(txn.get(ref)), None)
+        if snapshot is not None and snapshot.exists:
+            raise AlreadyBookedError()
+        txn.create(ref, doc)
+
+    _run(transaction)

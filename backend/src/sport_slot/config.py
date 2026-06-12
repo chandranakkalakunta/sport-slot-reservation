@@ -19,6 +19,9 @@ class Settings(BaseSettings):
     dev_tenant_slug: str | None = None
     log_level: str = "INFO"
     rate_limit: str = "30/minute"
+    redis_host: str = "localhost"
+    redis_port: int = 6379
+    redis_auth: str | None = None
 
 
 @lru_cache

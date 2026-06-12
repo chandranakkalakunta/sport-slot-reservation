@@ -6,6 +6,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added (Phase 3.4)
+
+- Phase 3.4: Memorystore Redis infra script (AUTH → Secret Manager), LockService (SET NX PX,
+  owner-checked release, fail-closed), transactional booking creation (quota + deterministic-ID
+  guards), Direct VPC egress wiring in deploy. Tracker: 3.4 ✓.
+
 ### Added (Phase 3.3)
 
 - Phase 3.3: computed availability endpoint — pure-function slot matrix

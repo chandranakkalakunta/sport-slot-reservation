@@ -90,6 +90,14 @@ docker-run: ## Run container locally (mounts gcloud ADC read-only)
 		-e SPORTSLOT_ENVIRONMENT=development \
 		sport-slot-api:local
 
+.PHONY: redis-local
+redis-local: ## Run local Redis for dev (docker)
+	@docker run --rm -d -p 6379:6379 --name sport-slot-redis redis:7-alpine
+
+.PHONY: redis-local-stop
+redis-local-stop: ## Stop local Redis container
+	@docker stop sport-slot-redis
+
 .PHONY: build-push
 build-push: ## Build and push backend image via Cloud Build (Coordinator-run)
 	@./scripts/build_push.sh
