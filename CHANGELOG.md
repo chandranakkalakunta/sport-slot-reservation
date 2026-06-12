@@ -6,6 +6,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added (Phase 2.7) — PHASE 2 COMPLETE
+
+- README.md rewritten: Phase 2 COMPLETE badge, Mermaid architecture diagram, ADR table
+  (0001–0008), updated repo structure, security summary
+- docs/retrospectives/phase-2.md: full Phase 2 retrospective (what went well, 7 issues
+  log, key decisions, lessons learned, Phase 3 preview)
+- docs/runbooks/local-development.md: replaced Phase 1 stub with comprehensive Phase 2
+  backend runbook (GCP auth, dev server with PYTHONPATH, tests, seed, Docker, tenant
+  routing, coordinator-only scripts, troubleshooting)
+- docs/security/charter.md: v1.1 → v1.2; Org-Policy Exceptions section added
+  (run.allowedIngress override documented with Phase 7 review date)
+
 ### Added (Phase 2.6) — Phase 2.6 COMPLETE
 
 - Phase 2.6: Multi-stage Dockerfile (uv builder → slim non-root runtime); .dockerignore;
@@ -166,13 +178,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   - 1.4.2 Document Existing Resources ✓
   - 1.4.3 Makefile + Docs Finalization ✓
 
-### Phase 2 — Backend API Foundation (IN PROGRESS)
+### Phase 2 — Backend API Foundation (COMPLETE 2026-06-12)
 - 2.1 ADR-0006 + ADR-0007 (API design + auth decisions) ✓
 - 2.2 Security charter v1.1 committed to docs/security/charter.md ✓
 - 2.3 FastAPI scaffold + error envelope + TenantContext auth dependency ✓
 - 2.4 Repository pattern + deny-all rules formalized + ADR-0008 ✓
 - 2.5 /api/v1/users/me + slowapi rate limiting + dev seed ✓
 - 2.6 Dockerfile + Cloud Run deploy scripts + papercut fixes ✓
+- 2.7 Documentation closure: README, retrospective, runbook, charter v1.2 ✓
 
 ### Phase 0 — Foundation Decisions (complete)
 - ADR-0001: Tech Stack & Software Versions

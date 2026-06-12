@@ -1,6 +1,6 @@
 # Security Charter — SportSlot Reservation
 
-**Version:** 1.1 | **Date:** 2026-06-11 | **Author:** Chandra Nakkalakunta
+**Version:** 1.2 | **Date:** 2026-06-12 | **Author:** Chandra Nakkalakunta
 
 ## Principles
 
@@ -96,6 +96,20 @@ When principles conflict: Privacy > Fail Closed > Defense-in-Depth > Zero Creden
 - Breach notification — within 72 hours per DPDP requirements
 - No data sold or shared with third parties
 
+## Org-Policy Exceptions
+
+The following org-policy overrides are active on `sport-slot-dev` and must be
+re-evaluated before any production deployment:
+
+| Policy | Override | Rationale | Owner | Review by |
+|--------|----------|-----------|-------|-----------|
+| `constraints/run.allowedIngress` | `all` (overrides `is:internal-and-cloud-load-balancing`) | Cloud Run must be externally reachable during Phase 2–4 development; no load balancer provisioned yet | admin@chandraailabs.com | Phase 7 (production readiness) |
+| `constraints/iam.disableServiceAccountKeyCreation` | **Not overridden — enforced** | All credentials use ADC + WIF; JSON keys are blocked at org level | admin@chandraailabs.com | Permanent |
+
+**Process for future overrides:** Any new org-policy exception requires an entry
+in this table with rationale and a phase-specific review date. Exceptions not
+reviewed by their date are flagged as security debt at the phase retrospective.
+
 ## Incident Response
 
 **Severity levels:**
@@ -126,5 +140,6 @@ When principles conflict: Privacy > Fail Closed > Defense-in-Depth > Zero Creden
 
 ## Changelog
 
+- **1.2 (2026-06-12):** Added Org-Policy Exceptions section; documented `run.allowedIngress` override and review schedule for Phase 7; confirmed `iam.disableServiceAccountKeyCreation` enforced (not overridden).
 - **1.1 (2026-06-11):** Added Identity & Credential Model section; recorded accepted claims-staleness risk; added ADR-0006/0007 references.
 - **1.0 (2026-06-10):** Initial charter.
