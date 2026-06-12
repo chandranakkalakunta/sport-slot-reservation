@@ -3,6 +3,7 @@ import structlog
 from fastapi import APIRouter, FastAPI
 
 from sport_slot.api.errors import register_exception_handlers
+from sport_slot.api.v1.facilities import router as facilities_router
 from sport_slot.api.v1.users import router as users_router
 from sport_slot.config import get_settings
 from sport_slot.health import router as health_router
@@ -35,6 +36,7 @@ def create_app() -> FastAPI:
 
     v1 = APIRouter(prefix="/api/v1")
     v1.include_router(users_router)
+    v1.include_router(facilities_router)
     app.include_router(v1)
     return app
 
