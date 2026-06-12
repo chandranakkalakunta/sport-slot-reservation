@@ -9,10 +9,12 @@ from sport_slot.ratelimit import limiter
 router = APIRouter()
 
 
-@router.get("/healthz")
+@router.get("/health")
 @limiter.exempt
-async def healthz():
-    """Liveness: process is up. No dependency calls (ADR-0006 Decision 4)."""
+async def health():
+    """Liveness: process is up. No dependency calls (ADR-0006 Decision 4).
+    (/healthz is reserved by GCP's frontend on Cloud Run — never reachable externally)
+    """
     return {"status": "ok"}
 
 

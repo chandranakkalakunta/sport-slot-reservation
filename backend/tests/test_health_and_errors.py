@@ -3,9 +3,9 @@ from unittest.mock import patch
 import sport_slot.health as health
 
 
-async def test_healthz_ok(make_client):
+async def test_health_ok(make_client):
     async with make_client() as client:
-        resp = await client.get("/healthz")
+        resp = await client.get("/health")
     assert resp.status_code == 200
     assert resp.json() == {"status": "ok"}
 
@@ -31,8 +31,8 @@ async def test_readyz_503_when_firestore_down(make_client):
 
 async def test_request_id_header_on_every_response(make_client):
     async with make_client() as client:
-        r1 = await client.get("/healthz")
-        r2 = await client.get("/healthz")
+        r1 = await client.get("/health")
+        r2 = await client.get("/health")
     assert r1.headers["x-request-id"]
     assert r1.headers["x-request-id"] != r2.headers["x-request-id"]
 

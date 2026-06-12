@@ -47,11 +47,14 @@ ceiling at scale.
 
 ### 4. Health endpoints: split liveness/readiness
 
-- GET /healthz — liveness. Process is up. No dependency calls.
+- GET /health — liveness. Process is up. No dependency calls.
 - GET /readyz — readiness. Verifies Firestore reachability.
 Both OUTSIDE /api/v1/ (infrastructure probes are not versioned
 API surface). Prevents Cloud Run restart loops when a
 dependency blips (liveness stays green while readiness drops).
+
+Amended 2026-06-12: /healthz is a reserved path on Cloud Run,
+intercepted by Google's frontend; liveness moved to /health.
 
 ## Alternatives Considered
 

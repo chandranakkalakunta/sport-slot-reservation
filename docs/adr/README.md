@@ -33,7 +33,7 @@ establishing the architectural foundation.
 
 | ADR | Title | Status | Summary |
 |-----|-------|--------|---------|
-| [0006](0006-api-design-patterns.md) | API Design Patterns | Accepted | URL path versioning (/api/v1/); UPPER_SNAKE error code registry; cursor-based pagination only; split /healthz + /readyz probes |
+| [0006](0006-api-design-patterns.md) | API Design Patterns | Accepted | URL path versioning (/api/v1/); UPPER_SNAKE error code registry; cursor-based pagination only; split /health + /readyz probes (/healthz is GCP-reserved) |
 | [0007](0007-auth-and-authorization.md) | Authentication & Authorization | Accepted | firebase-admin only JWT verification (python-jose prohibited); custom claims as identity source of truth; accepted 1h staleness with selective revocation; no admin tenant bypass; phased rate limiting |
 | [0008](0008-data-layout-and-repository-contract.md) | Data Layout & Repository Contract | Accepted | Permanent deny-all Firestore rules; per-tenant subcollection layout /tenants/{id}/...; TenantRepository with construction-time tenant enforcement; PlatformRepository gated to platform_admin; cursor pagination |
 

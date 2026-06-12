@@ -66,5 +66,5 @@ async def test_rate_limit_429_envelope(make_client):
 
 async def test_health_exempt_from_rate_limit(make_client):
     async with make_client({"SPORTSLOT_RATE_LIMIT": "2/minute"}) as client:
-        codes = [(await client.get("/healthz")).status_code for _ in range(5)]
+        codes = [(await client.get("/health")).status_code for _ in range(5)]
     assert codes == [200] * 5

@@ -29,7 +29,7 @@ only — deployable images come ONLY from `make build-push`
 (Cloud Build, amd64, git-SHA tag, clean tree required).
 `make docker-run` mounts ~/.config/gcloud read-only.
 KNOWN ISSUE: /readyz inside the local container may hang (ADC
-mount/HOME path for the non-root user) — /healthz and the 401
+mount/HOME path for the non-root user) — /health and the 401
 envelope still validate; live Firestore checks are proven via
 uvicorn and cloud Ready status.
 
