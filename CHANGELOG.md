@@ -6,6 +6,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added (Phase 3.6) — PHASE 3 COMPLETE
+
+- Phase 3.6: ADR-0011 synchronous Firestore audit trail, IN_PROGRESS slot marking + booking
+  notice, concurrency proof script, Phase 3 retrospective. PHASE 3 COMPLETE
+  (cloud redeploy pending Coordinator). Tracker: 3.6 ✓.
+
 ### Added (Phase 3.5)
 
 - Phase 3.5: booking cancellation (self or tenant_admin, buffer-enforced on tenant clock,

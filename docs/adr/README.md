@@ -43,6 +43,7 @@ establishing the architectural foundation.
 |-----|-------|--------|---------|
 | [0009](0009-slot-locking-redis.md) | Slot Locking — Memorystore Redis | Accepted | Memorystore Redis Basic 1 GB; SET NX PX lock on deterministic key; Fail Closed (503 on Redis down, never bypass); LockService interface; VPC egress to Cloud Run |
 | [0010](0010-booking-domain-and-policy.md) | Booking Domain Model & Policy Resolution | Accepted | Computed availability (no pre-generated slots); deterministic booking ID as second double-booking guard; PolicyService Tenant Override → Global Default; quota enforcement inside Firestore transaction |
+| [0011](0011-audit-logging.md) | Audit Logging | Accepted | Append-only Firestore audit events at /tenants/{id}/audit; synchronous write in mutation path; BigQuery prohibited in request path; Cloud Logging rejected as non-tenant-owned |
 
 ## Reading Order
 

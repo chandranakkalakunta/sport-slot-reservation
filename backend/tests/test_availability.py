@@ -66,3 +66,12 @@ def test_wider_horizon_midrange_open():
     slots = compute_slots(FACILITY, datetime.date(2026, 6, 15), set(),
                           _now(12, 6), 7, "20:00")
     assert all(s["bookable"] for s in slots)
+
+
+def test_in_progress_slot_bookable_and_marked():
+    slots = compute_slots(FACILITY, datetime.date(2026, 6, 12), set(),
+                          _now(12, 14, 30), 1, "20:00")
+    by = {s["start"]: s for s in slots}
+    assert by["14:00"]["bookable"] is True
+    assert by["14:00"]["reason"] == "IN_PROGRESS"
+    assert by["13:00"]["status"] == "past"

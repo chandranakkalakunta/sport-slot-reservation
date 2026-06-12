@@ -152,3 +152,18 @@ async def test_off_grid_start_422(make_client):
                                      json={**BODY, "start": "18:30"},
                                      headers={**AUTH, **HOST})
     assert resp.status_code == 422
+
+
+async def test_audit_written_on_create(make_client):
+    lock = FakeLock()
+    with patch(VERIFY, return_value=RESIDENT), \
+         patch(BOOKED, return_value=set()), \
+         patch(CREATE), \
+         patch("sport_slot.api.v1.bookings.AuditRepository.write_event") as audit:
+        async with make_client() as client:
+            _wire(_client(), client, lock)
+            resp = await client.post("/api/v1/bookings", json=BODY,
+                                     headers={**AUTH, **HOST})
+    assert resp.status_code == 201
+    assert audit.call_args.args[0] == "booking.created"
+    assert audit.call_args.args[1] == "u1"

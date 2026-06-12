@@ -9,8 +9,10 @@ from sport_slot.api.errors import ApiError
 from sport_slot.auth.context import TenantContext
 from sport_slot.auth.dependency import get_tenant_context
 from sport_slot.dependencies import get_firestore_client, get_lock_service
+from sport_slot.middleware.request_id import get_request_id
 from sport_slot.repositories.bookings import (
     AlreadyBookedError,
+    AuditRepository,
     BookingRepository,
     QuotaExceededError,
     create_booking_with_quota,
@@ -93,6 +95,13 @@ async def create_booking(
     finally:
         await lock.release(key, token)
 
+    AuditRepository(ctx, client).write_event(
+        "booking.created", ctx.uid, ctx.role, booking_id,
+        get_request_id(), {"date": body.date, "start": body.start,
+                           "facility_id": body.facility_id},
+    )
+    if slot.get("reason") == "IN_PROGRESS":
+        return {**doc, "notice": "Slot already in progress; you have booked the remaining time"}
     return doc
 
 
@@ -149,4 +158,8 @@ async def cancel_booking(
         "cancelled_by": cancelled_by,
         "cancelled_by_uid": ctx.uid,
     })
+    AuditRepository(ctx, client).write_event(
+        "booking.cancelled", ctx.uid, ctx.role, booking_id,
+        get_request_id(), {"cancelled_by": cancelled_by},
+    )
     return repo.get(booking_id) or {}

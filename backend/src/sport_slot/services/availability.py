@@ -54,6 +54,10 @@ def compute_slots(
             status, bookable, reason = STATUS_BOOKED, False, "BOOKED"
         elif date_reason:
             status, bookable, reason = STATUS_AVAILABLE, False, date_reason
+        elif cursor <= naive_now < cursor + duration:
+            # In progress: bookable remainder, marked so the UI can
+            # warn before confirming (3.6 decision).
+            status, bookable, reason = STATUS_AVAILABLE, True, "IN_PROGRESS"
         else:
             status, bookable, reason = STATUS_AVAILABLE, True, None
         slots.append(

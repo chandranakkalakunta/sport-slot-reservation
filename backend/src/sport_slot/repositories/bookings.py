@@ -87,3 +87,27 @@ def create_booking_with_quota(
         txn.create(ref, doc)
 
     _run(transaction)
+
+
+class AuditRepository(TenantRepository):
+    """/tenants/{tenant_id}/audit/{event_id} (ADR-0011).
+    Append-only; synchronous by design."""
+
+    collection_name = "audit"
+
+    def write_event(
+        self, event_type: str, actor_uid: str, actor_role: str,
+        booking_id: str, request_id: str, details: dict,
+    ) -> str:
+        import datetime
+        import uuid
+
+        event_id = uuid.uuid4().hex
+        self.create(event_id, {
+            "event_id": event_id, "type": event_type,
+            "actor_uid": actor_uid, "actor_role": actor_role,
+            "booking_id": booking_id, "request_id": request_id,
+            "details": details,
+            "ts": datetime.datetime.now(datetime.UTC),
+        })
+        return event_id

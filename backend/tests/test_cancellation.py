@@ -134,3 +134,17 @@ async def test_my_bookings_lists(make_client):
     assert resp.status_code == 200
     assert len(resp.json()["items"]) == 2
     assert lst.call_args.args[0] == "u1"
+
+
+async def test_audit_written_on_cancel(make_client):
+    booking = _booking()
+    with patch(VERIFY, return_value=RESIDENT), \
+         patch(GET, side_effect=[booking, {**booking, "status": "cancelled"}]), \
+         patch(UPDATE), \
+         patch("sport_slot.api.v1.bookings.AuditRepository.write_event") as audit:
+        async with make_client() as client:
+            _wire(client)
+            resp = await client.post(f"/api/v1/bookings/{booking['id']}/cancel",
+                                     headers={**AUTH, **HOST})
+    assert resp.status_code == 200
+    assert audit.call_args.args[0] == "booking.cancelled"
