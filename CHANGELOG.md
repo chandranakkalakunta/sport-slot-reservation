@@ -6,6 +6,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added (Phase 3.5)
+
+- Phase 3.5: booking cancellation (self or tenant_admin, buffer-enforced on tenant clock,
+  attribution fields) + GET /bookings/mine (cursor-paginated). Tracker: 3.5 ✓.
+
 ### Added (Phase 3.4)
 
 - Phase 3.4: Memorystore Redis infra script (AUTH → Secret Manager), LockService (SET NX PX,

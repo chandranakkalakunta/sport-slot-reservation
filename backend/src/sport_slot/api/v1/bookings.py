@@ -94,3 +94,59 @@ async def create_booking(
         await lock.release(key, token)
 
     return doc
+
+
+@router.get("/mine")
+async def my_bookings(
+    limit: int = 20,
+    cursor: str | None = None,
+    ctx: TenantContext = Depends(get_tenant_context),
+    client=Depends(get_firestore_client),
+):
+    items, next_cursor = BookingRepository(ctx, client).list_for_uid(
+        ctx.uid, limit=limit, cursor=cursor
+    )
+    return {"items": items, "next_cursor": next_cursor}
+
+
+@router.post("/{booking_id}/cancel")
+async def cancel_booking(
+    booking_id: str,
+    ctx: TenantContext = Depends(get_tenant_context),
+    client=Depends(get_firestore_client),
+):
+    repo = BookingRepository(ctx, client)
+    booking = repo.get(booking_id)
+    if booking is None:
+        raise ApiError(404, error_codes.BOOKING_NOT_FOUND, "Booking not found")
+    if booking["uid"] != ctx.uid and ctx.role != "tenant_admin":
+        raise ApiError(
+            403, error_codes.CANCELLATION_FORBIDDEN,
+            "Only the booking owner or a tenant admin may cancel",
+        )
+    if booking["status"] == "cancelled":
+        raise ApiError(409, error_codes.ALREADY_CANCELLED, "Already cancelled")
+
+    policy = PolicyService(ctx, client)
+    tz = zoneinfo.ZoneInfo(policy.tenant_timezone())
+    now_local = datetime.datetime.now(tz).replace(tzinfo=None)
+    slot_start = datetime.datetime.combine(
+        datetime.date.fromisoformat(booking["date"]),
+        datetime.time.fromisoformat(booking["start"]),
+    )
+    buffer_hours = int(policy.get("cancellation_buffer_hours"))
+    deadline = slot_start - datetime.timedelta(hours=buffer_hours)
+    if now_local >= deadline:
+        raise ApiError(
+            422, error_codes.CANCELLATION_TOO_LATE,
+            f"Cancellation closes {buffer_hours}h before the slot",
+        )
+
+    cancelled_by = "self" if booking["uid"] == ctx.uid else "tenant_admin"
+    repo.update(booking_id, {
+        "status": "cancelled",
+        "cancelled_at": datetime.datetime.now(datetime.UTC),
+        "cancelled_by": cancelled_by,
+        "cancelled_by_uid": ctx.uid,
+    })
+    return repo.get(booking_id) or {}

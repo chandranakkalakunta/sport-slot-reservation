@@ -22,6 +22,29 @@ class BookingRepository(TenantRepository):
         )
         return {snap.to_dict().get("start") for snap in query.stream()}
 
+    def list_for_uid(
+        self, uid: str, limit: int = 20, cursor: str | None = None
+    ) -> tuple[list[dict], str | None]:
+        """Caller's own bookings, cursor-paginated by document ID
+        (deterministic IDs sort facility/date/start naturally)."""
+        from sport_slot.repositories.base import _decode_cursor, _encode_cursor
+
+        query = (
+            self._collection
+            .where("uid", "==", uid)
+            .order_by("__name__")
+            .limit(limit + 1)
+        )
+        if cursor:
+            start_ref = self._collection.document(_decode_cursor(cursor))
+            query = query.start_after({"__name__": start_ref})
+        snaps = list(query.stream())
+        has_more = len(snaps) > limit
+        snaps = snaps[:limit]
+        items = [s.to_dict() for s in snaps]
+        next_cursor = _encode_cursor(snaps[-1].id) if has_more and snaps else None
+        return items, next_cursor
+
 
 class QuotaExceededError(Exception):
     pass
