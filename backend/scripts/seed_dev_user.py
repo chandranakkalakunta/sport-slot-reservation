@@ -72,11 +72,15 @@ def main() -> int:
         tenant_ref.create({
             "tenant_id": TENANT_ID, "slug": TENANT_SLUG,
             "name": "Demo Society", "active": True, "policies": {},
+            "timezone": "Asia/Kolkata",
             "created_at": datetime.datetime.now(datetime.UTC),
         })
         print(f"Tenant registry document created: /tenants/{TENANT_ID}")
     else:
         print("Tenant registry document exists")
+        if "timezone" not in (tenant_ref.get().to_dict() or {}):
+            tenant_ref.update({"timezone": "Asia/Kolkata"})
+            print("Backfilled tenant timezone")
 
     for spec in USERS:
         _ensure_user(client, spec)

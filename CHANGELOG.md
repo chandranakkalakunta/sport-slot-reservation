@@ -6,6 +6,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added (Phase 3.3)
+
+- Phase 3.3: computed availability endpoint — pure-function slot matrix
+  (past/booked/window/horizon), tenant-timezone rule evaluation, BookingRepository
+  (read side), tenant timezone seeded.
+
 ### Added (Phase 3.2)
 
 - Phase 3.2: PolicyService (override→default), Facility model + CRUD with require_role gate,
@@ -213,6 +219,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ### Phase 3 — Booking Engine (IN PROGRESS)
 - 3.1 ADR-0009 (Redis slot locking) + ADR-0010 (booking domain & policy) ✓
 - 3.2 PolicyService + Facility CRUD + require_role + seed v2 ✓
+- 3.3 Computed availability endpoint + BookingRepository (read side) + tenant timezone ✓
 
 ### Phase 0 — Foundation Decisions (complete)
 - ADR-0001: Tech Stack & Software Versions
