@@ -19,30 +19,49 @@ blocked by a Google account-level hold (external; support case open).
 | 8 | Cloud Build logs-bucket FAILED_PRECONDITION, then unknown --logging flag | Custom build SAs default to GCS logging; logging is a build-config option, not a CLI flag (3 failed attempts from memory) | cloudbuild.yaml with CLOUD_LOGGING_ONLY | After two failed fixes, stop and read --help / docs before a third |
 | 9 | allUsers IAM binding rejected | Secure-by-Default org policy (domain restricted sharing) | Project-scoped org-policy override; documented in charter v1.2 | Org-policy exceptions are scoped, documented, and reviewed at PROD boundary |
 | 10 | Phase 2.7 docs fabricated after session interruption | Claude Code context compaction lost verbatim blocks; Worker reconstructed from memory and self-validated the fabrication | Independent grep validation caught it; full verbatim re-run (2.7.1) | After any session interruption, re-paste the full prompt; Worker self-validation cannot catch fabrication — independent validation is non-negotiable |
+| 11 | All run.app URLs "404" for ~30h | /healthz is a GCP reserved path and was the sole canary in every cloud test; overlapped with a Google account review that silently removed services (confirmed via audit-log absence of deletes) | Liveness renamed to /health (2.6.2); account verified; redeployed; record corrected | Verify platform reserved paths at design time; differential tests vary one variable; complete the probe list past the first failure |
 
-## The Cloud Run 404 investigation
+## The Cloud Run 404 investigation — and its real causes
 
 After deployment, every run.app URL returned Google's HTML 404.
-Systematic elimination over ~24h: service config (Ready=True,
-ingress=all) → IAM (binding confirmed) → org policy (override
-verified effective) → propagation (hours elapsed) → hostname
-(recreation reproduces identical deterministic URLs — recreating
-under a NEW name also 404'd) → region (asia-southeast1 also 404'd)
-→ client network (mobile data identical; TLS terminated at genuine
-Google frontend) → request logs (zero entries ever: requests never
-reach the service).
+~30 hours of systematic elimination followed: service config, IAM,
+org policy, propagation, hostname, region, client network — all
+verified correct; request logs empty throughout.
 
-Decisive differential: an established project under a different
-account, same region, same network, served 200. Conclusion:
-account-level serving hold on the new organization (created days
-earlier) — a documented pattern for new accounts. All
-customer-controllable surfaces verified correct; support case
-filed with full evidence package.
+Two overlapping causes, both confirmed:
 
-Lesson: when configuration is verified correct and the symptom
-persists, vary the variables you haven't varied — and know where
-your control ends. The fastest path out was a differential
-diagnosis, not another fix.
+1. /healthz is a documented GCP reserved path
+(cloud.google.com/run/docs/issues) — Google's frontend intercepts
+it on every *.run.app URL and returns 404 without reaching the
+container. Every cloud test in the investigation probed /healthz
+and only /healthz; /readyz was in the validation plan from the
+start but was never executed because the plan halted at the first
+failure. The "decisive" differential test was confounded: the
+control service was probed at / while ours was probed at /healthz.
+Liveness renamed to /health (2.6.2); the first /readyz ever sent
+over the public edge returned 200.
+
+2. A Google-side account review silently removed all three
+services overnight Jun 11→12 — proven by audit log: services
+existed at 02:15 UTC, were gone by morning, with ZERO
+DeleteService entries (removal below the audit plane is
+Google-internal only); the 05:33 redeploy logged CreateService,
+confirming the name was free. The account was verified; the
+redeployed service serves publicly.
+
+The IAM and org-policy issues found along the way were real and
+needed fixing, but cause 1 guaranteed a 404 in every probe even
+after they were fixed, making it impossible to observe when
+serving actually began working — which is why two true phenomena
+produced 30 hours of false conclusions.
+
+Lessons: (1) verify platform reserved paths at design time —
+ADR-0006 chose /healthz from Kubernetes convention without
+checking Cloud Run; (2) a differential test must vary exactly one
+variable — ours varied two; (3) complete the probe list even
+after the first failure — especially after the first failure;
+one data point cannot localize a fault. One additional probe on
+day one would have saved 30 hours.
 
 ## Protocol amendments adopted (v1.0 → v1.1)
 
@@ -69,12 +88,15 @@ Independent Coordinator validation caught what reports missed —
 including issue 10, where it was the only layer that could.
 Cost: effectively ₹0 against a ₹5,000/month budget. Coverage 89%
 against an 80% gate. Zero secrets committed (one near-miss caught
-by validation). All 10 issues produced durable rules.
+by validation). All 11 issues produced durable rules.
 
 ## Carried forward
 
-- BLOCKER (external): Cloud Run serving hold — validation curls
-  run when lifted; service sport-slot-api-b kept as live repro.
+- RESOLVED 2026-06-12 (two overlapping causes — see investigation
+  section): /healthz reserved-path confound + Google account
+  review silently removing services. Account verified; service
+  redeployed and serving publicly (/readyz 200, error envelopes
+  verified over the edge).
 - Known issue: containerized /readyz with mounted ADC unvalidated
   locally (likely HOME/mount path for system user) — revisit in
   Phase 5 when CI runs containers.

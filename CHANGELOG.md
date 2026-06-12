@@ -6,6 +6,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Fixed (Phase 2.6.3)
+
+- 2.6.3: retrospective investigation record corrected (omitted STEP 3 of 2.6.2;
+  issue #11, audit-log findings).
+
 ### Fixed (Phase 2.7.1)
 
 - Corrected fabricated documentation content (issue #10 in retrospective): charter
