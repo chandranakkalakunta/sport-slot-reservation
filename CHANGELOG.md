@@ -6,6 +6,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added (Phase 4.1) — PHASE 4 IN PROGRESS
+
+- Phase 4.1: ADR-0012 (hosting constraint findings — Firebase Hosting 20-subdomain cap, LB wildcard
+  deferred to Phase 7; same-origin API rewrites; CSS-variable theming; Tailwind rejected) + Vite/TS
+  strict/PWA scaffold with pnpm, TanStack Query, React Router, vitest + Testing Library. lint/test/build
+  gates pass; bundle 209.50 kB / 68.33 kB gzip; PWA service worker generated.
+
 ### Fixed (Phase 3.6.1)
 
 - 3.6.1: fix — cancelled bookings can be rebooked (status-aware supersede in transaction).

@@ -1,0 +1,23 @@
+/* Tenant theming contract (ADR-0012 §4).
+   Runtime branding overwrites these on :root from the tenant
+   document (Phase 4.6). Everything styles against the variables,
+   never against raw values. */
+:root {
+  --color-primary: #1a4d8f;
+  --color-secondary: #0f7b6c;
+  --color-background: #ffffff;
+  --color-surface: #f4f6fa;
+  --color-text: #1c1f26;
+  --color-text-muted: #5b6472;
+  --color-danger: #b3261e;
+  --font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  --radius: 8px;
+  --spacing: 8px;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-family);
+  background: var(--color-background);
+  color: var(--color-text);
+}

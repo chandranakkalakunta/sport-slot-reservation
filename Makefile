@@ -107,6 +107,30 @@ deploy-dev: ## Deploy backend to Cloud Run DEV (Coordinator-run, GUARDED)
 	@./scripts/deploy_cloud_run.sh
 
 # ═══════════════════════════════════════════════════════════════
+# Frontend
+# ═══════════════════════════════════════════════════════════════
+
+.PHONY: fe-install
+fe-install: ## Install frontend dependencies
+	@(cd frontend && pnpm install)
+
+.PHONY: fe-dev
+fe-dev: ## Run frontend dev server (proxies /api → :8000)
+	@(cd frontend && pnpm dev)
+
+.PHONY: fe-lint
+fe-lint: ## Lint frontend
+	@(cd frontend && pnpm lint)
+
+.PHONY: fe-test
+fe-test: ## Run frontend tests
+	@(cd frontend && pnpm test)
+
+.PHONY: fe-build
+fe-build: ## Build frontend for production
+	@(cd frontend && pnpm build)
+
+# ═══════════════════════════════════════════════════════════════
 # Help
 # ═══════════════════════════════════════════════════════════════
 
