@@ -1,21 +1,24 @@
 import { Route, Routes } from "react-router-dom";
 
-function Home() {
-  return (
-    <main style={{ padding: "calc(var(--spacing) * 3)" }}>
-      <h1 style={{ color: "var(--color-primary)" }}>SportSlot</h1>
-      <p style={{ color: "var(--color-text-muted)" }}>
-        Community sports facility booking — frontend foundation
-        (Phase 4.1). Sign-in arrives in 4.2.
-      </p>
-    </main>
-  );
-}
+import { AuthProvider } from "./auth/AuthContext";
+import { ProtectedRoute } from "./auth/ProtectedRoute";
+import Home from "./pages/Home";
+import SignIn from "./pages/SignIn";
 
 export default function App() {
   return (
-    <Routes>
-      <Route path="/" element={<Home />} />
-    </Routes>
+    <AuthProvider>
+      <Routes>
+        <Route path="/signin" element={<SignIn />} />
+        <Route
+          path="/"
+          element={
+            <ProtectedRoute>
+              <Home />
+            </ProtectedRoute>
+          }
+        />
+      </Routes>
+    </AuthProvider>
   );
 }

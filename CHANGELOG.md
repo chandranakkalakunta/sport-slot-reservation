@@ -6,6 +6,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added (Phase 4.2)
+
+- Phase 4.2: Firebase Auth context (onIdTokenChanged, token-refresh-aware), tenant resolution
+  (host subdomain + JWT claim cross-check), typed same-origin API client (apiFetch),
+  sign-in page (email/password + Google), ProtectedRoute, Home page with mismatch warning.
+  Tracker: 4.2 ✓.
+
 ### Added (Phase 4.1) — PHASE 4 IN PROGRESS
 
 - Phase 4.1: ADR-0012 (hosting constraint findings — Firebase Hosting 20-subdomain cap, LB wildcard

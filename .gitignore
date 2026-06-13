@@ -36,6 +36,9 @@ htmlcov/
 .ruff_cache/
 .tox/
 
+# Frontend source lib directory (must not be caught by Python lib/ pattern above)
+!frontend/src/lib/
+
 # Node.js
 node_modules/
 npm-debug.log*
