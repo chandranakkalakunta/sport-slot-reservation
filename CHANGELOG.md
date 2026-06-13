@@ -6,6 +6,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added (Phase 4.3)
+
+- Phase 4.3: ADR-0013 (error presentation/i18n — resolver chain, English catalog, fail-safe),
+  TanStack Query booking hooks (useFacilities, useAvailability, useCreateBooking), facility list,
+  availability grid with SlotGrid + IN_PROGRESS warning, booking confirm dialog with error
+  catalog lookup. Tracker: 4.3 ✓.
+
 ### Added (Phase 4.2)
 
 - Phase 4.2: Firebase Auth context (onIdTokenChanged, token-refresh-aware), tenant resolution

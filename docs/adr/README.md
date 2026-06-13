@@ -50,6 +50,7 @@ establishing the architectural foundation.
 | ADR | Title | Status | Summary |
 |-----|-------|--------|---------|
 | [0012](0012-frontend-architecture.md) | Frontend Architecture | Accepted | Classic Firebase Hosting (named subdomains, LB wildcard deferred to Phase 7); same-origin API via Hosting rewrites (zero CORS); React 18 + Vite + TS strict + TanStack Query; CSS variables as tenant theming contract; Tailwind rejected |
+| [0013](0013-error-presentation-i18n.md) | Error Presentation & i18n Strategy | Accepted | Resolver chain: tenant override → locale catalog → English default → raw code; English-only catalog in Phase 4.3; locale/tenant-override layers designed-for but not built; fail-safe renders the code itself on unmapped entry |
 
 ## Reading Order
 
