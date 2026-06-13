@@ -6,6 +6,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added (Phase 5.1)
+
+- Phase 5.1: ADR-0014 (admin architecture & identity — route gating, seeded superadmin,
+  generate+force-change credentials), ADR-0015 (facility catalog → tenant instances),
+  ADR-0016 (shared user provisioning, CSV bulk import). PHASE 5 IN PROGRESS.
+  Tracker: 5.1 ✓.
+
 ### Fixed (Phase 4.6.1)
 
 - Phase 4.6.1: fix — branding resolves on non-subdomain hosts (.web.app) via

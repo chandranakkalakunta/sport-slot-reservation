@@ -52,6 +52,14 @@ establishing the architectural foundation.
 | [0012](0012-frontend-architecture.md) | Frontend Architecture | Accepted | Classic Firebase Hosting (named subdomains, LB wildcard deferred to Phase 7); same-origin API via Hosting rewrites (zero CORS); React 18 + Vite + TS strict + TanStack Query; CSS variables as tenant theming contract; Tailwind rejected |
 | [0013](0013-error-presentation-i18n.md) | Error Presentation & i18n Strategy | Accepted | Resolver chain: tenant override → locale catalog → English default → raw code; English-only catalog in Phase 4.3; locale/tenant-override layers designed-for but not built; fail-safe renders the code itself on unmapped entry |
 
+## Phase 5 — Admin & Provisioning
+
+| ADR | Title | Status | Summary |
+|-----|-------|--------|---------|
+| [0014](0014-admin-architecture-identity.md) | Admin Architecture & Identity | Accepted | Route-gated admin surfaces (/admin/*, /tenant/*) in the existing PWA; seeded first superadmin; generate+force-change credential model; must_change_password flag + forced-reset screen; require_platform_admin dependency |
+| [0015](0015-facility-catalog-model.md) | Facility Catalog Model | Accepted | Global platform catalog at /facility_catalog/{type_id} seeded with standard sports; per-tenant facility instances gain facility_type_id; catalog CRUD deferred; creation constraint enforces type selection |
+| [0016](0016-user-provisioning.md) | Bulk & Manual User Provisioning | Accepted | Single UserProvisioningService.create_user() for all paths; CSV schema with partial-success import; household_id derived from flat_number; frontend parses CSV (backend stays file-agnostic); 500-row cap |
+
 ## Reading Order
 
 For someone new to the project, read ADRs in numerical order.
