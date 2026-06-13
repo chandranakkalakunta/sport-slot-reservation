@@ -4,6 +4,7 @@ import { AuthProvider } from "./auth/AuthContext";
 import { ProtectedRoute } from "./auth/ProtectedRoute";
 import Facilities from "./pages/Facilities";
 import FacilityAvailability from "./pages/FacilityAvailability";
+import MyBookings from "./pages/MyBookings";
 import SignIn from "./pages/SignIn";
 
 export default function App() {
@@ -14,6 +15,8 @@ export default function App() {
         <Route path="/" element={<ProtectedRoute><Facilities /></ProtectedRoute>} />
         <Route path="/facilities/:facilityId"
           element={<ProtectedRoute><FacilityAvailability /></ProtectedRoute>} />
+        <Route path="/bookings"
+          element={<ProtectedRoute><MyBookings /></ProtectedRoute>} />
       </Routes>
     </AuthProvider>
   );

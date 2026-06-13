@@ -6,6 +6,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added (Phase 4.4)
+
+- Phase 4.4: my-bookings list + cancellation (dialog-level error handling, query invalidation
+  reopens slots), proactive quota banner on availability page, sign-in show-password toggle.
+  Booking dialog errors now surface in-dialog instead of closing dialog (fixes silent 409 UX).
+  Tracker: 4.4 ✓.
+
 ### Added (Phase 4.3)
 
 - Phase 4.3: ADR-0013 (error presentation/i18n — resolver chain, English catalog, fail-safe),

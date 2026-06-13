@@ -11,6 +11,11 @@ export default function Facilities() {
     <main style={{ padding: 24, maxWidth: 720, margin: "0 auto" }}>
       <header style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <h1 style={{ color: "var(--color-primary)" }}>SportSlot</h1>
+        <Link to="/bookings" style={{
+          padding: "6px 12px", borderRadius: "var(--radius)",
+          border: "1px solid var(--color-primary)", color: "var(--color-primary)",
+          textDecoration: "none", marginRight: "var(--spacing)",
+        }}>My bookings</Link>
         <button onClick={() => signOut()} style={{
           padding: "6px 12px", borderRadius: "var(--radius)",
           border: "1px solid var(--color-text-muted)", background: "transparent", cursor: "pointer",

@@ -8,6 +8,7 @@ export default function SignIn() {
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPw, setShowPw] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   async function handleSubmit(e: FormEvent) {
@@ -31,8 +32,17 @@ export default function SignIn() {
       <form onSubmit={handleSubmit}>
         <input style={field} type="email" placeholder="Email" value={email}
           onChange={(e) => setEmail(e.target.value)} required />
-        <input style={field} type="password" placeholder="Password" value={password}
-          onChange={(e) => setPassword(e.target.value)} required />
+        <div style={{ position: "relative" }}>
+          <input style={field} type={showPw ? "text" : "password"}
+            placeholder="Password" value={password}
+            onChange={(e) => setPassword(e.target.value)} required />
+          <button type="button" onClick={() => setShowPw((s) => !s)}
+            style={{ position: "absolute", right: 8, top: 8, background: "none",
+              border: "none", cursor: "pointer", color: "var(--color-text-muted)",
+              fontSize: 13 }}>
+            {showPw ? "Hide" : "Show"}
+          </button>
+        </div>
         <button type="submit" style={{ width: "100%", padding: "10px",
           background: "var(--color-primary)", color: "#fff", border: "none",
           borderRadius: "var(--radius)", cursor: "pointer" }}>

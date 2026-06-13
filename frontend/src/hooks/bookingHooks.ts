@@ -34,6 +34,7 @@ export interface Booking {
   end: string;
   status: string;
   notice?: string;
+  cancelled_at?: string | null;
 }
 
 export function useFacilities() {
@@ -63,6 +64,28 @@ export function useCreateBooking() {
       }),
     onSuccess: (_data, vars) => {
       // Refresh the grid so the booked slot flips to unavailable.
+      qc.invalidateQueries({
+        queryKey: ["availability", vars.facility_id, vars.date],
+      });
+    },
+  });
+}
+
+export function useMyBookings() {
+  return useQuery({
+    queryKey: ["my-bookings"],
+    queryFn: () =>
+      apiFetch<{ items: Booking[]; next_cursor: string | null }>("/bookings/mine"),
+  });
+}
+
+export function useCancelBooking() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (booking: { id: string; facility_id: string; date: string }) =>
+      apiFetch<Booking>(`/bookings/${booking.id}/cancel`, { method: "POST" }),
+    onSuccess: (_data, vars) => {
+      qc.invalidateQueries({ queryKey: ["my-bookings"] });
       qc.invalidateQueries({
         queryKey: ["availability", vars.facility_id, vars.date],
       });
