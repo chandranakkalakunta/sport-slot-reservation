@@ -37,7 +37,7 @@ function wrap(ui: React.ReactElement) {
 
 const BOOKING = {
   id: "b1", facility_id: "f1", date: "2026-06-15",
-  start: "09:00", end: "10:00", status: "confirmed",
+  start: "09:00", end: "10:00", status: "confirmed", cancellable: true,
 };
 
 it("renders confirmed booking", () => {
@@ -58,6 +58,24 @@ it("renders confirmed booking", () => {
 
   expect(screen.getByText("Tennis Court")).toBeInTheDocument();
   expect(screen.getByText(/2026-06-15/)).toBeInTheDocument();
+});
+
+it("shows Cancellation closed when cancellable is false", () => {
+  const nonCancellable = { ...BOOKING, cancellable: false };
+  vi.spyOn(hooks, "useMyBookings").mockReturnValue({
+    data: { items: [nonCancellable] }, isLoading: false,
+  } as ReturnType<typeof hooks.useMyBookings>);
+  vi.spyOn(hooks, "useFacilities").mockReturnValue({
+    data: { items: [] }, isLoading: false,
+  } as unknown as ReturnType<typeof hooks.useFacilities>);
+  vi.spyOn(hooks, "useCancelBooking").mockReturnValue({
+    mutateAsync: vi.fn(), isPending: false,
+  } as unknown as ReturnType<typeof hooks.useCancelBooking>);
+
+  wrap(<MyBookings />);
+
+  expect(screen.getByText("Cancellation closed")).toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "Cancel" })).toBeNull();
 });
 
 describe("cancellation dialog", () => {

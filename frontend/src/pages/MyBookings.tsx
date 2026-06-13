@@ -60,11 +60,17 @@ export default function MyBookings() {
                 {b.date} · {b.start}–{b.end}
               </div>
             </div>
-            <button onClick={() => { setDialogError(null); setTarget(b); }} style={{
-              padding: "6px 12px", borderRadius: "var(--radius)",
-              border: "1px solid var(--color-danger)", color: "var(--color-danger)",
-              background: "transparent", cursor: "pointer",
-            }}>Cancel</button>
+            {b.cancellable ? (
+              <button onClick={() => { setDialogError(null); setTarget(b); }} style={{
+                padding: "6px 12px", borderRadius: "var(--radius)",
+                border: "1px solid var(--color-danger)", color: "var(--color-danger)",
+                background: "transparent", cursor: "pointer",
+              }}>Cancel</button>
+            ) : (
+              <span style={{ color: "var(--color-text-muted)", fontSize: 13 }}>
+                Cancellation closed
+              </span>
+            )}
           </div>
         ))}
       </div>

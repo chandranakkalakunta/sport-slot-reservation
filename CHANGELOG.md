@@ -6,6 +6,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added (Phase 4.6)
+
+- Phase 4.6: public per-tenant branding endpoint + CSS-variable application on app load,
+  server-computed `cancellable` flag on /bookings/mine (reuses cancellation deadline logic —
+  refactored into shared `_is_cancellable()` helper), eye-icon password toggle in sign-in,
+  hide-cancel-when-closed (MyBookings shows "Cancellation closed" hint), Phase 4 retrospective,
+  branding backfill in seed. PHASE 4 COMPLETE (custom domain deferred to Phase 7).
+  Tracker: 4.6 ✓.
+
 ### Added (Phase 4.5a)
 
 - Phase 4.5a: Firebase Hosting config (firebase.json rewrites /api/** → Cloud Run, SPA fallback),

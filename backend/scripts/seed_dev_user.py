@@ -73,14 +73,27 @@ def main() -> int:
             "tenant_id": TENANT_ID, "slug": TENANT_SLUG,
             "name": "Demo Society", "active": True, "policies": {},
             "timezone": "Asia/Kolkata",
+            "branding": {
+                "brand_name": "Demo Society",
+                "brand_primary_color": "#0f7b6c",
+                "brand_secondary_color": "#1a4d8f",
+            },
             "created_at": datetime.datetime.now(datetime.UTC),
         })
         print(f"Tenant registry document created: /tenants/{TENANT_ID}")
     else:
         print("Tenant registry document exists")
-        if "timezone" not in (tenant_ref.get().to_dict() or {}):
+        doc = tenant_ref.get().to_dict() or {}
+        if "timezone" not in doc:
             tenant_ref.update({"timezone": "Asia/Kolkata"})
             print("Backfilled tenant timezone")
+        if "branding" not in doc:
+            tenant_ref.update({"branding": {
+                "brand_name": "Demo Society",
+                "brand_primary_color": "#0f7b6c",
+                "brand_secondary_color": "#1a4d8f",
+            }})
+            print("Backfilled tenant branding")
 
     for spec in USERS:
         _ensure_user(client, spec)

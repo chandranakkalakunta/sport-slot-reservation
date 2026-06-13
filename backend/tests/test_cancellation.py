@@ -148,3 +148,36 @@ async def test_audit_written_on_cancel(make_client):
                                      headers={**AUTH, **HOST})
     assert resp.status_code == 200
     assert audit.call_args.args[0] == "booking.cancelled"
+
+
+# ── cancellable flag on /bookings/mine ────────────────────────────────────
+
+LIST = "sport_slot.api.v1.bookings.BookingRepository.list_for_uid"
+
+
+async def test_my_bookings_cancellable_true_far_future(make_client):
+    items = [_booking(days_ahead=5)]
+    with patch(VERIFY, return_value=RESIDENT), patch(LIST, return_value=(items, None)):
+        async with make_client() as client:
+            _wire(client)
+            resp = await client.get("/api/v1/bookings/mine", headers={**AUTH, **HOST})
+    assert resp.status_code == 200
+    assert resp.json()["items"][0]["cancellable"] is True
+
+
+async def test_my_bookings_cancellable_false_past_buffer(make_client):
+    items = [_booking(days_ahead=0)]
+    # Buffer 9999h ensures slot is past deadline regardless of wall clock.
+    tenant = {"policies": {"cancellation_buffer_hours": 9999}, "timezone": "Asia/Kolkata"}
+    client_mock = MagicMock()
+    ten = client_mock.collection.return_value.document.return_value.get.return_value
+    ten.exists = True
+    ten.to_dict.return_value = tenant
+    with patch(VERIFY, return_value=RESIDENT), patch(LIST, return_value=(items, None)):
+        async with make_client() as client:
+            overrides = client._transport.app.dependency_overrides
+            overrides[get_firestore_client] = lambda: client_mock
+            overrides[get_lock_service] = lambda: MagicMock()
+            resp = await client.get("/api/v1/bookings/mine", headers={**AUTH, **HOST})
+    assert resp.status_code == 200
+    assert resp.json()["items"][0]["cancellable"] is False

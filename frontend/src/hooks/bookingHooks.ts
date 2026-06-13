@@ -35,6 +35,7 @@ export interface Booking {
   status: string;
   notice?: string;
   cancelled_at?: string | null;
+  cancellable?: boolean;
 }
 
 export function useFacilities() {
