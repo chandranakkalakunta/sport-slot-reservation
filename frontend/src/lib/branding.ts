@@ -7,21 +7,35 @@ export interface Branding {
   brand_secondary_color: string;
 }
 
-/** Fetch public branding (no auth) and apply to CSS variables.
- * Called before/independent of login so the sign-in page is
- * branded. Falls back silently to theme.css defaults on any error. */
-export async function loadBranding(): Promise<Branding | null> {
-  const slug = tenantSlugFromHost();
-  if (!slug) return null;
+function applyBranding(b: Branding): void {
+  const root = document.documentElement;
+  root.style.setProperty("--color-primary", b.brand_primary_color);
+  root.style.setProperty("--color-secondary", b.brand_secondary_color);
+}
+
+async function fetchBranding(slug: string): Promise<Branding | null> {
   try {
     const resp = await fetch(`/api/v1/tenants/${slug}/branding`);
     if (!resp.ok) return null;
-    const b = (await resp.json()) as Branding;
-    const root = document.documentElement;
-    root.style.setProperty("--color-primary", b.brand_primary_color);
-    root.style.setProperty("--color-secondary", b.brand_secondary_color);
-    return b;
+    return (await resp.json()) as Branding;
   } catch {
     return null;
   }
+}
+
+/** Pre-login: resolve slug from host (default-tenant fallback on
+ * non-subdomain hosts) and apply. Silent on failure. */
+export async function loadBranding(): Promise<Branding | null> {
+  const slug = tenantSlugFromHost();
+  if (!slug) return null;
+  const b = await fetchBranding(slug);
+  if (b) applyBranding(b);
+  return b;
+}
+
+/** Post-login: re-resolve from the authoritative JWT slug claim. */
+export async function loadBrandingForSlug(slug: string): Promise<Branding | null> {
+  const b = await fetchBranding(slug);
+  if (b) applyBranding(b);
+  return b;
 }

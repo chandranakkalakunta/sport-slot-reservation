@@ -15,6 +15,7 @@ import {
   type ReactNode,
 } from "react";
 
+import { loadBrandingForSlug } from "../lib/branding";
 import { auth } from "../lib/firebase";
 
 interface AuthState {
@@ -44,6 +45,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const result = await u.getIdTokenResult();
         setIdToken(result.token);
         setClaims(result.claims);
+        const slug = result.claims.tenant_slug;
+        if (typeof slug === "string") {
+          void loadBrandingForSlug(slug);
+        }
       } else {
         setIdToken(null);
         setClaims(null);

@@ -6,6 +6,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Fixed (Phase 4.6.1)
+
+- Phase 4.6.1: fix — branding resolves on non-subdomain hosts (.web.app) via
+  VITE_DEFAULT_TENANT_SLUG, and re-applies post-login from the JWT tenant_slug claim.
+  Branding endpoint/data were correct; frontend slug resolution was the gap.
+  Tracker: 4.6.1 ✓.
+
 ### Added (Phase 4.6)
 
 - Phase 4.6: public per-tenant branding endpoint + CSS-variable application on app load,
