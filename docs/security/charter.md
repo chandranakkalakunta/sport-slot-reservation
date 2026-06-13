@@ -1,6 +1,6 @@
 # Security Charter — SportSlot Reservation
 
-**Version:** 1.2 | **Date:** 2026-06-12 | **Author:** Chandra Nakkalakunta
+**Version:** 1.3 | **Date:** 2026-06-13 | **Author:** Chandra Nakkalakunta
 
 ## Principles
 
@@ -118,6 +118,12 @@ Org default remains restrictive for all other projects. Granting
 roles/orgpolicy.policyAdmin to admin@ (org-level, 2026-06-11) is
 recorded as part of the identity model.
 
+## Accepted Exposures (time-boxed)
+
+| Exposure | Risk | Mitigation in place | Closure |
+|----------|------|---------------------|---------|
+| Cloud Run service (sport-slot-api) accepts public unauthenticated ingress at its run.app URL, bypassing Firebase Hosting | Infrastructure-layer abuse (DoS, error-surface probing) not gated by the Hosting CDN/edge | App-layer enforces Firebase JWT auth + tenant isolation on every endpoint; JWT is the authoritative tenant source so X-Forwarded-Host spoofing on direct calls cannot cross tenants (ADR-0007, ADR-0012 §2) | Phase 7: Global External Load Balancer + Cloud Armor; set Cloud Run ingress to internal-and-cloud-load-balancing so traffic must transit the LB. Interim option logged: Hosting-injected shared-secret header checked by the backend. |
+
 ## Review Schedule
 
 - **Quarterly:** Review charter for currency
@@ -136,6 +142,7 @@ recorded as part of the identity model.
 
 ## Changelog
 
+- **1.3 (2026-06-13):** Accepted Exposures section — Cloud Run direct ingress logged; Phase 7 LB closure path documented.
 - **1.2 (2026-06-12):** Org-policy exceptions section (domain-restricted-sharing override for sport-slot-dev); corrects fabricated v1.2 content from interrupted session.
 - **1.1 (2026-06-11):** Added Identity & Credential Model section; recorded accepted claims-staleness risk; added ADR-0006/0007 references.
 - **1.0 (2026-06-10):** Initial charter.

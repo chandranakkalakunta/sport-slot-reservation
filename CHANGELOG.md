@@ -6,6 +6,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added (Phase 4.5a)
+
+- Phase 4.5a: Firebase Hosting config (firebase.json rewrites /api/** → Cloud Run, SPA fallback),
+  deploy_hosting.sh (Coordinator-run, guarded), X-Forwarded-Host-aware tenant cross-check
+  (conditional host enforcement — recognized subdomains enforced, unrecognized hosts trust JWT
+  claim; JWT remains authoritative per ADR-0007/ADR-0012 §2), Cloud Run direct ingress logged
+  as accepted exposure in security charter (Phase 7 LB closure path documented). Tracker: 4.5a ✓.
+
 ### Added (Phase 4.4)
 
 - Phase 4.4: my-bookings list + cancellation (dialog-level error handling, query invalidation

@@ -9,8 +9,11 @@ from sport_slot.config import Settings, get_settings
 _DEV_HOSTS = {"localhost", "127.0.0.1", "testserver"}
 
 
-def _host_without_port(request: Request) -> str:
-    return request.headers.get("host", "").split(":")[0].lower()
+def _effective_host(request: Request) -> str:
+    # Prefer X-Forwarded-Host (set by Firebase Hosting rewrites); fall back to Host.
+    xfh = request.headers.get("x-forwarded-host", "")
+    raw = xfh.split(",")[0].strip() if xfh else request.headers.get("host", "")
+    return raw.split(":")[0].lower()
 
 
 def _slug_from_host(host: str, settings: Settings) -> str | None:
@@ -44,7 +47,7 @@ def get_tenant_context(
     if not role:
         raise ApiError(401, error_codes.AUTH_INVALID_TOKEN, "Token missing provisioned claims")
 
-    host = _host_without_port(request)
+    host = _effective_host(request)
     is_admin_host = host == settings.admin_host
 
     # ADR-0007 Decision 4: no admin bypass of tenant isolation.
@@ -66,7 +69,10 @@ def get_tenant_context(
         raise ApiError(401, error_codes.AUTH_INVALID_TOKEN, "Token missing provisioned claims")
 
     slug = _slug_from_host(host, settings)
-    if slug is None or slug != tenant_slug:
+    # ADR-0012 §2: enforce only when the host resolves to a recognized tenant
+    # subdomain; unrecognized hosts (*.web.app, *.run.app, localhost) fall back
+    # to trusting the JWT tenant_slug claim (JWT is authoritative, ADR-0007).
+    if slug is not None and slug != tenant_slug:
         raise ApiError(403, error_codes.TENANT_MISMATCH, "Tenant mismatch")
 
     return TenantContext(

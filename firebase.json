@@ -1,6 +1,13 @@
 {
-  "firestore": {
-    "rules": "infrastructure/firestore.rules",
-    "indexes": "infrastructure/firestore.indexes.json"
+  "hosting": {
+    "site": "sport-slot-dev",
+    "public": "frontend/dist",
+    "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
+    "rewrites": [
+      { "source": "/api/**", "run": { "serviceId": "sport-slot-api", "region": "asia-south1" } },
+      { "source": "/health", "run": { "serviceId": "sport-slot-api", "region": "asia-south1" } },
+      { "source": "/readyz", "run": { "serviceId": "sport-slot-api", "region": "asia-south1" } },
+      { "source": "**", "destination": "/index.html" }
+    ]
   }
 }

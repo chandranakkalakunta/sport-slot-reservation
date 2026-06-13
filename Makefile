@@ -130,6 +130,10 @@ fe-test: ## Run frontend tests
 fe-build: ## Build frontend for production
 	@(cd frontend && pnpm build)
 
+.PHONY: deploy-hosting
+deploy-hosting: ## Build + deploy PWA to Firebase Hosting (Coordinator)
+	@./scripts/deploy_hosting.sh
+
 # ═══════════════════════════════════════════════════════════════
 # Help
 # ═══════════════════════════════════════════════════════════════

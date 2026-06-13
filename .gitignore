@@ -50,6 +50,7 @@ pnpm-debug.log*
 # Build outputs
 build/
 dist/
+frontend/dist/
 frontend/dev-dist/
 *.tsbuildinfo
 
