@@ -1,6 +1,10 @@
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, expect, test, vi } from "vitest";
+
+vi.mock("./lib/branding", () => ({ loadBrandingForSlug: vi.fn() }));
+vi.mock("./lib/api", () => ({ apiFetch: vi.fn() }));
 
 // Mock Firebase Auth at the module boundary (no real auth in unit tests).
 let idTokenCallback: ((u: unknown) => void) | null = null;
@@ -19,6 +23,7 @@ vi.mock("firebase/auth", () => ({
   GoogleAuthProvider: class {},
 }));
 
+import { apiFetch } from "./lib/api";
 import App from "./App";
 
 beforeEach(() => {
@@ -45,4 +50,29 @@ test("loading state shows before auth resolves", () => {
     </MemoryRouter>,
   );
   expect(screen.getByText("Loading…")).toBeInTheDocument();
+});
+
+test("tenant_admin with must_change_password=true is redirected to /force-password", async () => {
+  vi.mocked(apiFetch).mockResolvedValue({ must_change_password: true });
+  const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+
+  render(
+    <QueryClientProvider client={qc}>
+      <MemoryRouter initialEntries={["/"]}>
+        <App />
+      </MemoryRouter>
+    </QueryClientProvider>,
+  );
+
+  idTokenCallback?.({
+    email: "admin@example.com",
+    getIdTokenResult: async () => ({
+      token: "tok",
+      claims: { role: "tenant_admin", tenant_slug: "demo" },
+    }),
+  });
+
+  await waitFor(() => {
+    expect(screen.getByRole("heading", { name: /set a new password/i })).toBeInTheDocument();
+  });
 });

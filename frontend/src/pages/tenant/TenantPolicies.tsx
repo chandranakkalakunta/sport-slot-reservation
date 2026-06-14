@@ -1,6 +1,7 @@
 import { type FormEvent, useState } from "react";
 import { Link } from "react-router-dom";
 
+import { AppHeader } from "../../components/AppHeader";
 import { useUpdatePolicies } from "../../hooks/tenantAdminHooks";
 import { ApiClientError } from "../../lib/api";
 import { messageForCode } from "../../lib/messages";
@@ -36,7 +37,9 @@ export default function TenantPolicies() {
   }
 
   return (
-    <main style={{ padding: 24, maxWidth: 480, margin: "0 auto" }}>
+    <>
+      <AppHeader />
+      <main style={{ padding: 24, maxWidth: 480, margin: "0 auto" }}>
       <Link to="/tenant" style={{ color: "var(--color-primary)" }}>← Dashboard</Link>
       <h1 style={{ color: "var(--color-primary)" }}>Booking Policies</h1>
       <form onSubmit={submit}>
@@ -61,6 +64,7 @@ export default function TenantPolicies() {
       </form>
       {ok && <p style={{ color: "var(--color-secondary)" }}>Saved ✓</p>}
       {error && <p style={{ color: "var(--color-danger)" }}>{error}</p>}
-    </main>
+      </main>
+    </>
   );
 }

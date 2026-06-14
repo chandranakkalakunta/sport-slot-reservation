@@ -4,6 +4,8 @@ import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
 
+vi.mock("../components/AppHeader", () => ({ AppHeader: () => null }));
+
 import * as hooks from "../hooks/bookingHooks";
 import { ApiClientError } from "../lib/api";
 import MyBookings from "./MyBookings";

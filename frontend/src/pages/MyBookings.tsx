@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 
+import { AppHeader } from "../components/AppHeader";
 import { ConfirmDialog } from "../components/ConfirmDialog";
 import {
   type Booking, useCancelBooking, useFacilities, useMyBookings,
@@ -38,7 +39,9 @@ export default function MyBookings() {
   const confirmed = data?.items.filter((b) => b.status === "confirmed") ?? [];
 
   return (
-    <main style={{ padding: 24, maxWidth: 720, margin: "0 auto" }}>
+    <>
+      <AppHeader />
+      <main style={{ padding: 24, maxWidth: 720, margin: "0 auto" }}>
       <Link to="/" style={{ color: "var(--color-primary)" }}>← Facilities</Link>
       <h1 style={{ color: "var(--color-primary)" }}>My bookings</h1>
       {feedback && <p style={{ color: "var(--color-secondary)" }}>{feedback}</p>}
@@ -92,6 +95,7 @@ export default function MyBookings() {
           onCancel={() => { setTarget(null); setDialogError(null); }}
         />
       )}
-    </main>
+      </main>
+    </>
   );
 }

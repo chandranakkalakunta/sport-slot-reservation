@@ -1,6 +1,7 @@
 import { type FormEvent, useState } from "react";
 import { Link } from "react-router-dom";
 
+import { AppHeader } from "../../components/AppHeader";
 import {
   useCreateFacility, useDeactivateFacility, useFacilityCatalog,
   useTenantFacilities,
@@ -45,7 +46,9 @@ export default function TenantFacilities() {
   }
 
   return (
-    <main style={{ padding: 24, maxWidth: 820, margin: "0 auto" }}>
+    <>
+      <AppHeader />
+      <main style={{ padding: 24, maxWidth: 820, margin: "0 auto" }}>
       <Link to="/tenant" style={{ color: "var(--color-primary)" }}>← Dashboard</Link>
       <h1 style={{ color: "var(--color-primary)" }}>Facilities</h1>
 
@@ -103,6 +106,7 @@ export default function TenantFacilities() {
       </form>
       {error && <p style={{ color: "var(--color-danger)" }}>{error}</p>}
       {ok && <p style={{ color: "var(--color-secondary)" }}>{ok}</p>}
-    </main>
+      </main>
+    </>
   );
 }

@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 
 import { useAuth } from "../../auth/AuthContext";
+import { AppHeader } from "../../components/AppHeader";
 import { useUpdateBranding } from "../../hooks/tenantAdminHooks";
 import { apiFetch } from "../../lib/api";
 import { ApiClientError } from "../../lib/api";
@@ -57,7 +58,9 @@ export default function TenantBranding() {
   }
 
   return (
-    <main style={{ padding: 24, maxWidth: 480, margin: "0 auto" }}>
+    <>
+      <AppHeader />
+      <main style={{ padding: 24, maxWidth: 480, margin: "0 auto" }}>
       <Link to="/tenant" style={{ color: "var(--color-primary)" }}>← Dashboard</Link>
       <h1 style={{ color: "var(--color-primary)" }}>Branding</h1>
       <form onSubmit={submit}>
@@ -97,6 +100,7 @@ export default function TenantBranding() {
       </form>
       {ok && <p style={{ color: "var(--color-secondary)" }}>Saved ✓</p>}
       {error && <p style={{ color: "var(--color-danger)" }}>{error}</p>}
-    </main>
+      </main>
+    </>
   );
 }

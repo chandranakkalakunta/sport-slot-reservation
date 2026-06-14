@@ -1,6 +1,7 @@
 import { type ChangeEvent, type FormEvent, useState } from "react";
 import { Link } from "react-router-dom";
 
+import { AppHeader } from "../../components/AppHeader";
 import { CredentialDisplay, type Credential } from "../../components/CredentialDisplay";
 import {
   useBulkCreateUsers, useCreateTenantUser, useDeactivateTenantUser,
@@ -105,7 +106,9 @@ export default function TenantUsers() {
   const bulkFailed = bulkReport?.results.filter((r) => r.status !== "created") ?? [];
 
   return (
-    <main style={{ padding: 24, maxWidth: 720, margin: "0 auto" }}>
+    <>
+      <AppHeader />
+      <main style={{ padding: 24, maxWidth: 720, margin: "0 auto" }}>
       <Link to="/tenant" style={{ color: "var(--color-primary)" }}>← Dashboard</Link>
       <h1 style={{ color: "var(--color-primary)" }}>Residents &amp; Admins</h1>
 
@@ -223,6 +226,7 @@ export default function TenantUsers() {
           </div>
         )}
       </section>
-    </main>
+      </main>
+    </>
   );
 }

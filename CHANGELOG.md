@@ -6,6 +6,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added (Phase 5.5.1)
+
+- Phase 5.5.1: Fix forced-password-change routing for tenant_admin + shared `AppHeader` component.
+  Bug fix: `enabled: !isAdmin && !isTenantAdmin` in Landing disabled the `/users/me` query for
+  tenant_admin, causing `must_change_password` check to be skipped and routing directly to `/tenant`.
+  Fixed by `enabled: !isAdmin` (runs for all non-platform-admin roles) with an `isLoading` gate
+  before all redirects, ordering `must_change_password` check before the role-based redirect.
+  New `AppHeader` component: logo + brand name (Link to "/") + optional children slot + user
+  email·role badge + sign-out button. Adopted on all authenticated screens: Facilities, MyBookings,
+  TenantDashboard, TenantFacilities, TenantBranding, TenantPolicies, TenantUsers, TenantList.
+  41 frontend tests (+4: AppHeader×3, Landing regression guard×1). Build: 115 kB gzip
+  (128 backend tests unchanged). Tracker: 5.5.1 ✓.
+
 ### Added (Phase 5.5b)
 
 - Phase 5.5b: tenant user management UI (list active users, add, deactivate, reset password,
