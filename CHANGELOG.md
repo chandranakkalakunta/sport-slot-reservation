@@ -6,6 +6,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added (Phase 5.5a)
+
+- Phase 5.5a: tenant-admin UI — role-based landing (`TenantAdminRoute` → `/tenant`), dashboard
+  with 4 nav cards, facilities management (catalog-based create/list/deactivate), branding form
+  (brand name, primary/secondary hex color, logo URL), booking-policies form. `TenantAdminRoute`
+  guards all `/tenant/*` routes; tenant_admin JWT claim redirects to `/tenant` at landing.
+  `tenantAdminHooks.ts` wraps all tenant-config and facility API calls via TanStack Query.
+  `TenantUsers` stubbed (Phase 5.5b). 7 new frontend tests (29 total). Build: 113 kB gzip.
+  Tracker: 5.5a ✓.
+
 ### Added (Phase 5.4b)
 
 - Phase 5.4b: tenant-admin config backend — PATCH `/tenant/branding` (hex color + http(s) URL

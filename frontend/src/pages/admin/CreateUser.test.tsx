@@ -36,7 +36,7 @@ function renderCreate(search = "") {
 
 beforeEach(() => {
   vi.mocked(useCreateUser).mockImplementation(
-    () => ({ mutateAsync: vi.fn().mockResolvedValue({ uid: "u-1", temp_password: "TempP@ss99" }), isPending: false }) as any,
+    () => ({ mutateAsync: vi.fn().mockResolvedValue({ uid: "u-1", temp_password: "TempP@ss99" }), isPending: false }) as unknown as ReturnType<typeof useCreateUser>,
   );
 });
 
@@ -70,7 +70,7 @@ describe("CreateUser", () => {
     vi.mocked(useCreateUser).mockImplementation(
       () => ({ mutateAsync: vi.fn().mockRejectedValue(
         new ApiClientError({ code: "USER_EMAIL_TAKEN", message: "Email taken", status: 409 }),
-      ), isPending: false }) as any,
+      ), isPending: false }) as unknown as ReturnType<typeof useCreateUser>,
     );
 
     const user = userEvent.setup();
