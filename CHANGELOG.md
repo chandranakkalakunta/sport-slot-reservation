@@ -6,6 +6,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added (Phase 5.4b)
+
+- Phase 5.4b: tenant-admin config backend — PATCH `/tenant/branding` (hex color + http(s) URL
+  validation, merge-into-map semantics), PATCH `/tenant/policies` (bounds: horizon≥1,
+  buffer≥0, max_slots≥1, HH:MM time format), `/tenant/users` CRUD (POST/GET/DELETE) + bulk
+  import POST `/tenant/users/bulk` (per-row report: created+temp_password or failed+reason,
+  500-row cap). `flat_number` now optional for `tenant_admin` role (required for `resident`);
+  `ProvisioningError(ApiError)` subclass separates expected from unexpected errors. Request
+  validation 422 now includes a `"detail"` array with `loc` + `msg` per field. New
+  `api/v1/tenant_config.py`; admin.py `deactivate_user` uses constructor-bound `caller_uid`.
+  17 new tests (122 total, 91% coverage). Tenant-admin backend complete. Tracker: 5.4b ✓.
+
 ### Added (Phase 5.4a)
 
 - Phase 5.4a: global facility catalog (seed + GET /facility-catalog), catalog-based tenant

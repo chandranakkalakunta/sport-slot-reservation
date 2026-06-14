@@ -13,6 +13,16 @@ from sport_slot.repositories.user_profiles import UserProfileRepository
 _VALID_ROLES = {"resident", "tenant_admin"}
 
 
+class ProvisioningError(ApiError):
+    """Expected service-layer error; caught by tenant-admin routes (ADR-0016).
+
+    Extends ApiError so the registered exception handler returns the correct
+    HTTP response when the error propagates uncaught (e.g. platform-admin
+    endpoints that do not wrap with try/except).
+    """
+    pass
+
+
 def _derive_household(flat_number: str, household_id: str | None) -> str:
     return household_id if household_id else f"h-{flat_number}"
 
@@ -22,20 +32,34 @@ def _ctx(tenant_id: str | None, uid: str, role: str) -> TenantContext:
 
 
 class UserProvisioningService:
-    def __init__(self, client) -> None:
+    def __init__(
+        self,
+        client,
+        caller_uid: str | None = None,
+        caller_role: str | None = None,
+    ) -> None:
         self._client = client
+        self._caller_uid = caller_uid
+        self._caller_role = caller_role
 
     def create_user(
         self,
         tenant_id: str,
         email: str,
         display_name: str,
-        flat_number: str,
+        flat_number: str | None,
         role: str,
         household_id: str | None = None,
+        request_id: str = "-",
     ) -> dict:
         if role not in _VALID_ROLES:
-            raise ApiError(422, error_codes.VALIDATION_FAILED, f"Invalid role: {role!r}")
+            raise ProvisioningError(422, error_codes.VALIDATION_FAILED, f"Invalid role: {role!r}")
+
+        # STEP 5 fix: flat_number required for residents, optional for tenant_admin.
+        if role == "resident" and not flat_number:
+            raise ProvisioningError(
+                422, error_codes.VALIDATION_FAILED, "flat_number required for residents"
+            )
 
         # Look up tenant slug so the JWT claim allows host-based cross-checks (ADR-0012 §2).
         tenant_snap = self._client.collection("tenants").document(tenant_id).get()
@@ -47,10 +71,10 @@ class UserProvisioningService:
                 email=email, display_name=display_name, password=temp_password
             )
         except fb_auth.EmailAlreadyExistsError:
-            raise ApiError(409, error_codes.USER_EMAIL_TAKEN, f"Email {email!r} already registered")
+            raise ProvisioningError(409, error_codes.USER_EMAIL_TAKEN, f"Email {email!r} already registered")
 
         try:
-            hid = _derive_household(flat_number, household_id)
+            hid = _derive_household(flat_number, household_id) if flat_number else None
             fb_auth.set_custom_user_claims(user.uid, {
                 "tenant_id": tenant_id,
                 "tenant_slug": tenant_slug,
@@ -73,7 +97,7 @@ class UserProvisioningService:
                 actor_uid=user.uid,
                 actor_role=role,
                 booking_id="-",
-                request_id="-",
+                request_id=request_id,
                 details={"email": email, "flat_number": flat_number, "role": role},
             )
         except ApiError:
@@ -89,18 +113,19 @@ class UserProvisioningService:
         self,
         tenant_id: str,
         target_uid: str,
-        caller_uid: str,
-    ) -> None:
+        request_id: str = "-",
+    ) -> dict:
+        caller_uid = self._caller_uid
         if target_uid == caller_uid:
-            raise ApiError(
+            raise ProvisioningError(
                 403, error_codes.SELF_DEACTIVATION_FORBIDDEN, "Cannot deactivate yourself"
             )
 
-        ctx = _ctx(tenant_id=tenant_id, uid=caller_uid, role="tenant_admin")
+        ctx = _ctx(tenant_id=tenant_id, uid=caller_uid or "", role="tenant_admin")
         repo = UserProfileRepository(ctx, self._client)
         profile = repo.get(target_uid)
         if profile is None:
-            raise ApiError(404, error_codes.USER_NOT_FOUND, f"User {target_uid!r} not found")
+            raise ProvisioningError(404, error_codes.USER_NOT_FOUND, f"User {target_uid!r} not found")
 
         repo.update(target_uid, {
             "status": "inactive",
@@ -109,6 +134,7 @@ class UserProvisioningService:
         fb_auth.update_user(target_uid, disabled=True)
         today = datetime.date.today().isoformat()
         self._cancel_future_bookings(tenant_id, target_uid, today)
+        return {"uid": target_uid, "status": "deactivated"}
 
     def _cancel_future_bookings(self, tenant_id: str, uid: str, today: str) -> int:
         col = (

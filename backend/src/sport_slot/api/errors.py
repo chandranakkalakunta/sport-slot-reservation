@@ -35,10 +35,11 @@ def register_exception_handlers(app: FastAPI) -> None:
 
     @app.exception_handler(RequestValidationError)
     async def validation_handler(request: Request, exc: RequestValidationError):
-        return JSONResponse(
-            status_code=422,
-            content=_envelope(error_codes.VALIDATION_FAILED, "Request validation failed"),
-        )
+        envelope = _envelope(error_codes.VALIDATION_FAILED, "Request validation failed")
+        envelope["detail"] = [
+            {"loc": list(e["loc"]), "msg": e["msg"]} for e in exc.errors()
+        ]
+        return JSONResponse(status_code=422, content=envelope)
 
     @app.exception_handler(StarletteHTTPException)
     async def http_exception_handler(request: Request, exc: StarletteHTTPException):

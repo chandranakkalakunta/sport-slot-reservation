@@ -141,6 +141,6 @@ async def deactivate_user(
     ctx: TenantContext = Depends(require_platform_admin),
     client=Depends(get_firestore_client),
 ):
-    svc = UserProvisioningService(client)
-    svc.deactivate_user(tenant_id=tenant_id, target_uid=uid, caller_uid=ctx.uid)
+    svc = UserProvisioningService(client, caller_uid=ctx.uid)
+    svc.deactivate_user(tenant_id=tenant_id, target_uid=uid)
     return {"status": "deactivated"}
