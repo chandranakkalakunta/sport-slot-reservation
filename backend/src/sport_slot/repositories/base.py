@@ -76,8 +76,6 @@ class PlatformRepository:
     def __init__(self, ctx: TenantContext, client: firestore.Client):
         if ctx.role != "platform_admin":
             raise PermissionError("PlatformRepository requires platform_admin")
-        if not self.collection_name:
-            raise ValueError("collection_name must be set by subclass")
         self._ctx = ctx
         self._client = client
 
@@ -88,3 +86,32 @@ class PlatformRepository:
     def get(self, doc_id: str) -> dict[str, Any] | None:
         snap = self._collection.document(doc_id).get()
         return snap.to_dict() if snap.exists else None
+
+    # ── Tenant registry methods (ADR-0008, ADR-0017) ──────────────────────
+
+    def create_tenant(self, tenant_id: str, data: dict[str, Any]) -> None:
+        self._client.collection("tenants").document(tenant_id).set(data)
+
+    def get_tenant_by_slug(self, slug: str) -> dict[str, Any] | None:
+        snaps = list(
+            self._client.collection("tenants")
+            .where("slug", "==", slug)
+            .limit(1)
+            .stream()
+        )
+        return snaps[0].to_dict() if snaps else None
+
+    def list_tenants(
+        self, limit: int = 20, cursor: str | None = None
+    ) -> tuple[list[dict[str, Any]], str | None]:
+        col = self._client.collection("tenants")
+        query = col.order_by("__name__").limit(limit + 1)
+        if cursor:
+            start_ref = col.document(_decode_cursor(cursor))
+            query = query.start_after({"__name__": start_ref})
+        snaps = list(query.stream())
+        has_more = len(snaps) > limit
+        snaps = snaps[:limit]
+        items = [snap.to_dict() for snap in snaps]
+        next_cursor = _encode_cursor(snaps[-1].id) if has_more and snaps else None
+        return items, next_cursor

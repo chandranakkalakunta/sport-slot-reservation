@@ -1,4 +1,6 @@
+import firebase_admin.auth as fb_auth
 from fastapi import APIRouter, Depends
+from pydantic import BaseModel
 
 from sport_slot.api import error_codes
 from sport_slot.api.errors import ApiError
@@ -23,3 +25,27 @@ async def get_me(
             "Authenticated user has no profile (not provisioned)",
         )
     return profile
+
+
+class ChangePasswordBody(BaseModel):
+    new_password: str
+
+
+@router.post("/me/change-password")
+async def change_password(
+    body: ChangePasswordBody,
+    ctx: TenantContext = Depends(get_tenant_context),
+    client=Depends(get_firestore_client),
+):
+    if len(body.new_password) < 8:
+        raise ApiError(422, error_codes.WEAK_PASSWORD, "Password must be at least 8 characters")
+    fb_auth.update_user(ctx.uid, password=body.new_password)
+    if ctx.tenant_id:
+        (
+            client.collection("tenants")
+            .document(ctx.tenant_id)
+            .collection("users")
+            .document(ctx.uid)
+            .update({"must_change_password": False})
+        )
+    return {"status": "ok"}

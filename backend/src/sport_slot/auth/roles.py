@@ -15,3 +15,12 @@ def require_role(*allowed: str):
         return ctx
 
     return dep
+
+
+def require_platform_admin(
+    ctx: TenantContext = Depends(get_tenant_context),
+) -> TenantContext:
+    """Platform-admin gate: role=platform_admin AND tenant_id=None (ADR-0014 §5)."""
+    if ctx.role != "platform_admin" or ctx.tenant_id is not None:
+        raise ApiError(403, error_codes.FORBIDDEN_ROLE, "Platform admin access required")
+    return ctx

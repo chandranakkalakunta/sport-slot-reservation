@@ -3,6 +3,7 @@ import structlog
 from fastapi import APIRouter, FastAPI
 
 from sport_slot.api.errors import register_exception_handlers
+from sport_slot.api.v1.admin import router as admin_router
 from sport_slot.api.v1.bookings import router as bookings_router
 from sport_slot.api.v1.branding import router as branding_router
 from sport_slot.api.v1.facilities import router as facilities_router
@@ -41,6 +42,7 @@ def create_app() -> FastAPI:
     v1.include_router(facilities_router)
     v1.include_router(bookings_router)
     v1.include_router(branding_router)
+    v1.include_router(admin_router)
     app.include_router(v1)
     return app
 

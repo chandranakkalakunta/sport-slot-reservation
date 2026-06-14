@@ -6,6 +6,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added (Phase 5.2)
+
+- Phase 5.2: platform-admin backend provisioning — ADR-0017 (deletion/retention lifecycle,
+  three-stage ACTIVE→INACTIVE→PURGED, user soft-delete + Firebase disable + cancel future
+  bookings, self-deactivation forbidden), `require_platform_admin` dependency, 6 new error
+  codes (TENANT_SLUG_TAKEN, INVALID_SLUG, USER_EMAIL_TAKEN, USER_NOT_FOUND,
+  SELF_DEACTIVATION_FORBIDDEN, WEAK_PASSWORD), `UserProvisioningService` (create_user with
+  tenant_slug lookup + AuditRepository + rollback guard, deactivate_user +
+  _cancel_future_bookings), `PlatformRepository.create_tenant / get_tenant_by_slug /
+  list_tenants` (collection_name guard removed to allow direct multi-collection access),
+  `/api/v1/admin` router (POST /tenants, GET /tenants, POST /tenants/{id}/users,
+  POST /tenants/{id}/users/bulk, DELETE /tenants/{id}/users/{uid}),
+  POST /api/v1/users/me/change-password (clears must_change_password flag),
+  seed_platform_admin.py + `make seed-platform-admin` (idempotent),
+  composite Firestore index (bookings: uid+status+date for deactivation cancel-scan).
+  13 new tests (98 total, 90% coverage). Tracker: 5.2 ✓.
+
 ### Added (Phase 5.1)
 
 - Phase 5.1: ADR-0014 (admin architecture & identity — route gating, seeded superadmin,

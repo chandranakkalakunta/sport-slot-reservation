@@ -65,6 +65,10 @@ gcp-set-dev: ## Switch to sport-slot-dev project
 seed-dev: ## Seed dev Firebase user + profile (dev only)
 	@cd backend && uv run python scripts/seed_dev_user.py
 
+.PHONY: seed-platform-admin
+seed-platform-admin: ## Seed first platform-admin user (run once, idempotent — Coordinator runs this)
+	@cd backend && uv run python scripts/seed_platform_admin.py
+
 .PHONY: dev-env
 dev-env: ## Create backend/.env from template (first-time setup)
 	@if [ -f backend/.env ]; then \
