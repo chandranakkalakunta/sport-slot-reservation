@@ -51,5 +51,26 @@ configurable.
 − Bulk Firebase creation is broadly sequential; large imports take
   time (mitigated by the cap + per-row reporting).
 
+## Deployment placement (added 2026-06-14)
+
+Synchronous provisioning (create tenant, create/deactivate a single
+user, manual add) lives in the main sport-slot-api service, not a
+separate one — per ADR-0001's modular-monolith principle: one
+service until a boundary earns separation. These operations share
+Firestore, the auth/tenant model, AuditRepository, and the
+compensating-rollback transaction concerns with the main API;
+splitting them would add coupling and a deploy/IAM/on-call surface
+for no benefit.
+
+Bulk CSV import is the one path with a genuine case for separation
+(long-running, heavy, async-flavoured). It ships SYNCHRONOUS WITH A
+500-ROW CAP now (the cap keeps it in-request-safe — hundreds of
+users is seconds), and MIGRATES to a background job (Cloud Run Job
+or task-queue worker) in Phase 7, alongside the worker
+infrastructure the notifications and retention-purge jobs also need.
+Separation arrives where it matters (heavy async work) at the phase
+its infrastructure exists — not as a premature service for light
+synchronous work.
+
 ## References
 ADR-0007, ADR-0011 (audit), ADR-0014 (credential model).
