@@ -5,17 +5,20 @@ export interface ApiError {
   message: string;
   request_id?: string;
   status: number;
+  detail?: { loc: (string | number)[]; msg: string }[];
 }
 
 export class ApiClientError extends Error {
   code: string;
   request_id?: string;
   status: number;
+  detail?: { loc: (string | number)[]; msg: string }[];
   constructor(e: ApiError) {
     super(e.message);
     this.code = e.code;
     this.request_id = e.request_id;
     this.status = e.status;
+    this.detail = e.detail;
   }
 }
 
@@ -36,6 +39,7 @@ export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise
       message: body.message ?? resp.statusText,
       request_id: body.request_id,
       status: resp.status,
+      detail: body.detail,
     });
   }
   return body as T;

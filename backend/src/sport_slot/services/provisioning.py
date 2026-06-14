@@ -136,6 +136,20 @@ class UserProvisioningService:
         self._cancel_future_bookings(tenant_id, target_uid, today)
         return {"uid": target_uid, "status": "deactivated"}
 
+    def reset_password(self, tenant_id: str, uid: str, request_id: str = "") -> dict:
+        ref = (self._client.collection("tenants").document(tenant_id)
+               .collection("users").document(uid))
+        if not ref.get().exists:
+            raise ProvisioningError(404, error_codes.USER_NOT_FOUND, f"User {uid!r} not found")
+        password = secrets.token_urlsafe(16)
+        fb_auth.update_user(uid, password=password)
+        ref.update({"must_change_password": True})
+        AuditRepository(_ctx(tenant_id, self._caller_uid or "", self._caller_role or ""),
+                        self._client).write_event(
+            "user.password_reset", self._caller_uid or "", self._caller_role or "", uid,
+            request_id, {})
+        return {"uid": uid, "temp_password": password}
+
     def _cancel_future_bookings(self, tenant_id: str, uid: str, today: str) -> int:
         col = (
             self._client.collection("tenants")

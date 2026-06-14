@@ -53,3 +53,12 @@ operates within a tenant.
 ## References
 ADR-0007 (auth/roles), ADR-0011 (audit), ADR-0012 (frontend),
 Charter (accepted exposures).
+
+> Amendment (2026-06-14): Password reset. Admin-initiated reset is
+> available now — a tenant-admin (own tenant, any user incl. peer
+> admins) or platform-admin (any tenant) regenerates a temporary
+> password and sets must_change_password=true; the new temp password
+> is returned once for the admin to distribute. Self-service
+> email-based forgot-password is deferred to Phase 7 (notifications).
+> Voluntary change-password (logged-in user) uses the existing
+> /users/me/change-password endpoint.

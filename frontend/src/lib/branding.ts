@@ -5,12 +5,21 @@ export interface Branding {
   brand_name: string;
   brand_primary_color: string;
   brand_secondary_color: string;
+  brand_logo_url?: string | null;
+}
+
+let _current: Branding | null = null;
+
+/** Returns the last successfully loaded Branding object (set at login/startup). */
+export function getLastBranding(): Branding | null {
+  return _current;
 }
 
 function applyBranding(b: Branding): void {
   const root = document.documentElement;
   root.style.setProperty("--color-primary", b.brand_primary_color);
   root.style.setProperty("--color-secondary", b.brand_secondary_color);
+  _current = b;
 }
 
 async function fetchBranding(slug: string): Promise<Branding | null> {

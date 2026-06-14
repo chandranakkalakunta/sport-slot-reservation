@@ -11,8 +11,13 @@ from sport_slot.api.errors import ApiError
 from sport_slot.auth.context import TenantContext
 from sport_slot.auth.roles import require_platform_admin
 from sport_slot.dependencies import get_firestore_client
+from sport_slot.middleware.request_id import get_request_id
 from sport_slot.repositories.base import PlatformRepository
-from sport_slot.services.provisioning import UserProvisioningService
+from sport_slot.services.provisioning import ProvisioningError, UserProvisioningService
+
+
+def _provisioning_error(e: ProvisioningError) -> ApiError:
+    return e
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
@@ -132,6 +137,19 @@ async def bulk_create_users(
                 "reason": str(exc),
             })
     return {"results": results}
+
+
+@router.post("/tenants/{tenant_id}/users/{uid}/reset-password")
+async def admin_reset_password(
+    tenant_id: str, uid: str,
+    ctx: TenantContext = Depends(require_platform_admin),
+    client=Depends(get_firestore_client),
+):
+    svc = UserProvisioningService(client, ctx.uid, ctx.role)
+    try:
+        return svc.reset_password(tenant_id, uid, get_request_id())
+    except ProvisioningError as e:
+        raise _provisioning_error(e)
 
 
 @router.delete("/tenants/{tenant_id}/users/{uid}", status_code=200)

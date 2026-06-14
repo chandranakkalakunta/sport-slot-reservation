@@ -30,4 +30,5 @@ async def tenant_branding(slug: str, client=Depends(get_firestore_client)):
         "brand_name": branding.get("brand_name") or data.get("name") or _BRANDING_DEFAULTS["brand_name"],
         "brand_primary_color": branding.get("brand_primary_color") or _BRANDING_DEFAULTS["brand_primary_color"],
         "brand_secondary_color": branding.get("brand_secondary_color") or _BRANDING_DEFAULTS["brand_secondary_color"],
+        "brand_logo_url": branding.get("brand_logo_url") or None,
     }

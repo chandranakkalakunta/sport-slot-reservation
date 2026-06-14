@@ -67,3 +67,55 @@ export function useUpdatePolicies() {
       apiFetch("/tenant/policies", { method: "PATCH", body: JSON.stringify(body) }),
   });
 }
+
+export interface TenantUser {
+  uid: string; email: string; display_name: string; role: string;
+  flat_number?: string | null; active?: boolean; must_change_password?: boolean;
+}
+
+export function useTenantUsers() {
+  return useQuery({
+    queryKey: ["tenant", "users"],
+    queryFn: () => apiFetch<{ items: TenantUser[] }>("/tenant/users"),
+  });
+}
+
+export function useCreateTenantUser() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: { email: string; display_name: string;
+      flat_number?: string | null; role: string }) =>
+      apiFetch<{ uid: string; temp_password: string }>("/tenant/users", {
+        method: "POST", body: JSON.stringify(body),
+      }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["tenant", "users"] }),
+  });
+}
+
+export function useDeactivateTenantUser() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (uid: string) => apiFetch(`/tenant/users/${uid}`, { method: "DELETE" }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["tenant", "users"] }),
+  });
+}
+
+export function useResetTenantUserPassword() {
+  return useMutation({
+    mutationFn: (uid: string) =>
+      apiFetch<{ uid: string; temp_password: string }>(
+        `/tenant/users/${uid}/reset-password`, { method: "POST" }),
+  });
+}
+
+export function useBulkCreateUsers() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (rows: Record<string, unknown>[]) =>
+      apiFetch<{ total: number; created: number; failed: number;
+        results: { row: number; email: string; status: string;
+          temp_password?: string; reason?: string }[] }>(
+        "/tenant/users/bulk", { method: "POST", body: JSON.stringify({ rows }) }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["tenant", "users"] }),
+  });
+}

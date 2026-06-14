@@ -1,6 +1,7 @@
 import { type FormEvent, useState } from "react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 
+import { CredentialDisplay } from "../../components/CredentialDisplay";
 import { useCreateUser } from "../../hooks/adminHooks";
 import { ApiClientError } from "../../lib/api";
 import { messageForCode } from "../../lib/messages";
@@ -36,22 +37,12 @@ export default function CreateUser() {
     border: "1px solid var(--color-text-muted)" } as const;
 
   if (created) {
-    const block = `Email: ${created.email}\nTemporary password: ${created.temp}\nSign in and you'll be asked to set a new password.`;
     return (
       <main style={{ maxWidth: 480, margin: "6vh auto", padding: "0 16px" }}>
         <h1 style={{ color: "var(--color-primary)" }}>User created</h1>
-        <p style={{ color: "var(--color-danger)", fontWeight: 600 }}>
-          Save these credentials now — the password is shown only once.
-        </p>
-        <pre style={{ background: "var(--color-surface)", padding: 12,
-          borderRadius: "var(--radius)", whiteSpace: "pre-wrap" }}>{block}</pre>
-        <button onClick={() => navigator.clipboard?.writeText(block)} style={{ padding: "8px 16px",
-          background: "var(--color-primary)", color: "#fff", border: "none",
-          borderRadius: "var(--radius)", cursor: "pointer", marginRight: 8 }}>
-          Copy credentials
-        </button>
+        <CredentialDisplay creds={[{ email: created.email, temp_password: created.temp }]} title="User created" />
         <button onClick={() => { setCreated(null); setEmail(""); setDisplayName(""); setFlat(""); }}
-          style={{ padding: "8px 16px", borderRadius: "var(--radius)",
+          style={{ marginTop: 12, padding: "8px 16px", borderRadius: "var(--radius)",
           border: "1px solid var(--color-text-muted)", background: "transparent", cursor: "pointer" }}>
           Add another
         </button>

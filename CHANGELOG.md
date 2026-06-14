@@ -6,6 +6,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added (Phase 5.5b)
+
+- Phase 5.5b: tenant user management UI (list active users, add, deactivate, reset password,
+  bulk CSV import), admin-initiated password reset backend (ADR-0014 amendment — tenant-admin
+  or platform-admin resets any user in their scope; returns temp_password once; sets
+  must_change_password=true). Factored `CredentialDisplay` component with "Copied!" feedback
+  shared by create/bulk/reset flows. Branding fix: GET `/tenants/{slug}/branding` now returns
+  `brand_logo_url`; `TenantBranding` form pre-fills from current branding on mount (slug from
+  JWT claim per ADR-0012 §2); logo renders in resident header via `getLastBranding()`.
+  `flat_number` field hidden when role=tenant_admin on the Add User form (required only for
+  resident). VALIDATION_FAILED 422 field detail (loc+msg) now surfaced in user-facing error
+  messages. `ApiClientError` extended to carry the `detail` array. 37 frontend tests
+  (128 backend tests, 92% coverage, 115 kB gzip). PHASE 5 FEATURE-COMPLETE. Tracker: 5.5b ✓.
+
 ### Added (Phase 5.5a)
 
 - Phase 5.5a: tenant-admin UI — role-based landing (`TenantAdminRoute` → `/tenant`), dashboard

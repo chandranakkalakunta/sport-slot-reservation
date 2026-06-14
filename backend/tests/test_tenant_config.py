@@ -354,6 +354,72 @@ async def test_bulk_over_500_rows_422(make_client):
     assert resp.json()["code"] == "VALIDATION_FAILED"
 
 
+# ── Password reset ───────────────────────────────────────────────────────────
+
+async def test_tenant_admin_reset_password_returns_temp_password(make_client):
+    with patch(VERIFY, return_value=ADMIN), patch(UPDATE_FB):
+        async with make_client() as c:
+            c._transport.app.dependency_overrides[get_firestore_client] = (
+                lambda: _prov_client(profile_exists=True)
+            )
+            resp = await c.post(
+                "/api/v1/tenant/users/u-99/reset-password",
+                headers={**AUTH, **HOST},
+            )
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["uid"] == "u-99"
+    assert "temp_password" in body
+    assert len(body["temp_password"]) > 8
+
+
+async def test_tenant_admin_reset_password_sets_must_change(make_client):
+    """Firestore ref.update must be called with must_change_password=True."""
+    from unittest.mock import call
+    with patch(VERIFY, return_value=ADMIN), patch(UPDATE_FB):
+        async with make_client() as c:
+            client = _prov_client(profile_exists=True)
+            c._transport.app.dependency_overrides[get_firestore_client] = lambda: client
+            await c.post(
+                "/api/v1/tenant/users/u-99/reset-password",
+                headers={**AUTH, **HOST},
+            )
+    # ref is client.collection().document().collection().document()
+    ref = (client.collection.return_value
+           .document.return_value
+           .collection.return_value
+           .document.return_value)
+    ref.update.assert_called_with({"must_change_password": True})
+
+
+async def test_tenant_reset_password_unknown_user_404(make_client):
+    with patch(VERIFY, return_value=ADMIN):
+        async with make_client() as c:
+            c._transport.app.dependency_overrides[get_firestore_client] = (
+                lambda: _prov_client(profile_exists=False)
+            )
+            resp = await c.post(
+                "/api/v1/tenant/users/ghost-uid/reset-password",
+                headers={**AUTH, **HOST},
+            )
+    assert resp.status_code == 404
+    assert resp.json()["code"] == "USER_NOT_FOUND"
+
+
+async def test_resident_cannot_reset_password_403(make_client):
+    with patch(VERIFY, return_value=RESIDENT):
+        async with make_client() as c:
+            c._transport.app.dependency_overrides[get_firestore_client] = (
+                lambda: _prov_client()
+            )
+            resp = await c.post(
+                "/api/v1/tenant/users/u-99/reset-password",
+                headers={**AUTH, **HOST},
+            )
+    assert resp.status_code == 403
+    assert resp.json()["code"] == "FORBIDDEN_ROLE"
+
+
 # ── VALIDATION_FAILED detail ─────────────────────────────────────────────────
 
 async def test_validation_failed_includes_field_detail(make_client):

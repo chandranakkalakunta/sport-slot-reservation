@@ -138,6 +138,19 @@ async def deactivate_tenant_user(
         raise _provisioning_error(e)
 
 
+@router.post("/tenant/users/{uid}/reset-password")
+async def tenant_reset_password(
+    uid: str,
+    ctx: TenantContext = Depends(require_role("tenant_admin")),
+    client=Depends(get_firestore_client),
+):
+    svc = UserProvisioningService(client, ctx.uid, ctx.role)
+    try:
+        return svc.reset_password(ctx.tenant_id, uid, get_request_id())
+    except ProvisioningError as e:
+        raise _provisioning_error(e)
+
+
 # ── STEP 4: Bulk import ───────────────────────────────────────────────────────
 
 class BulkRow(BaseModel):

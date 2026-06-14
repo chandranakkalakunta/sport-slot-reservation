@@ -2,15 +2,24 @@ import { Link } from "react-router-dom";
 
 import { useAuth } from "../auth/AuthContext";
 import { useFacilities } from "../hooks/bookingHooks";
+import { getLastBranding } from "../lib/branding";
 
 export default function Facilities() {
   const { signOut, user } = useAuth();
   const { data, isLoading, error } = useFacilities();
+  const branding = getLastBranding();
 
   return (
     <main style={{ padding: 24, maxWidth: 720, margin: "0 auto" }}>
       <header style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <h1 style={{ color: "var(--color-primary)" }}>SportSlot</h1>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          {branding?.brand_logo_url && (
+            <img src={branding.brand_logo_url} alt="logo" style={{ height: 32 }} />
+          )}
+          <h1 style={{ color: "var(--color-primary)", margin: 0 }}>
+            {branding?.brand_name ?? "SportSlot"}
+          </h1>
+        </div>
         <Link to="/bookings" style={{
           padding: "6px 12px", borderRadius: "var(--radius)",
           border: "1px solid var(--color-primary)", color: "var(--color-primary)",

@@ -283,3 +283,35 @@ async def test_change_password_too_short(make_client):
             )
     assert resp.status_code == 422
     assert resp.json()["code"] == "WEAK_PASSWORD"
+
+
+# ── reset-password (admin endpoint) ─────────────────────────────────────────
+
+async def test_platform_admin_reset_password_returns_temp_password(make_client):
+    with patch(VERIFY, return_value=ADMIN_CLAIMS), patch(UPDATE_FB):
+        async with make_client() as client:
+            client._transport.app.dependency_overrides[get_firestore_client] = (
+                lambda: _mock_client(profile_exists=True)
+            )
+            resp = await client.post(
+                "/api/v1/admin/tenants/t-1/users/u-1/reset-password",
+                headers={**AUTH, **ADMIN_HOST},
+            )
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["uid"] == "u-1"
+    assert "temp_password" in body
+
+
+async def test_platform_admin_reset_password_unknown_user_404(make_client):
+    with patch(VERIFY, return_value=ADMIN_CLAIMS):
+        async with make_client() as client:
+            client._transport.app.dependency_overrides[get_firestore_client] = (
+                lambda: _mock_client(profile_exists=False)
+            )
+            resp = await client.post(
+                "/api/v1/admin/tenants/t-1/users/ghost/reset-password",
+                headers={**AUTH, **ADMIN_HOST},
+            )
+    assert resp.status_code == 404
+    assert resp.json()["code"] == "USER_NOT_FOUND"
