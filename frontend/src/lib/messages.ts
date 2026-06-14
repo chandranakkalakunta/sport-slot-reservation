@@ -25,6 +25,12 @@ const CATALOG: Catalog = {
     NOT_FOUND: "Not found.",
     INTERNAL_ERROR: "Something went wrong — please try again.",
     UNKNOWN: "Something went wrong — please try again.",
+    TENANT_SLUG_TAKEN: "That slug is already in use — choose another.",
+    INVALID_SLUG: "Slug must be lowercase letters, numbers, and hyphens (3–30 chars).",
+    USER_EMAIL_TAKEN: "That email is already registered.",
+    USER_NOT_FOUND: "User not found.",
+    SELF_DEACTIVATION_FORBIDDEN: "You can't deactivate your own account.",
+    WEAK_PASSWORD: "Password must be at least 8 characters.",
   },
 };
 

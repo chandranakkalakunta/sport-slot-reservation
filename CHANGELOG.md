@@ -6,6 +6,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added (Phase 5.3)
+
+- Phase 5.3: platform-admin UI — role-based routing (PlatformRoute guard), tenant list +
+  create-tenant + create-user screens, one-time temp-password credential block with copy
+  button ("shown only once" warning), forced password-change screen (ForcePasswordChange),
+  admin error-catalog entries (6 new codes), Landing component with must_change_password
+  gate (fetches /users/me post-login via TanStack Query; platform_admin → /admin redirect).
+  7 test files, 22 tests. Build: 411 kB JS / 112 kB gzip. Tracker: 5.3 ✓.
+
 ### Fixed (Phase 5.2.1)
 
 - Phase 5.2.1: fix — platform-admin tokens accepted on any host in DEV (ADR-0014
