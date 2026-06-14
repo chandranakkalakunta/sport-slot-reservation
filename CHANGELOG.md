@@ -6,6 +6,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Fixed (Phase 5.2.1)
+
+- Phase 5.2.1: fix — platform-admin tokens accepted on any host in DEV (ADR-0014
+  route+role gating); admin-host segregation deferred to Phase 9 (charter exposure
+  logged). Fixes superadmin lockout on localhost. Removed `is_admin_host` gate from
+  `auth/dependency.py`; `require_platform_admin` is the sole authorization layer.
+  Inverted test `test_platform_admin_on_any_host_allowed_adr0014`; added regression
+  guard `test_platform_admin_on_localhost_allowed_regression_5221`. 99 tests, 90% coverage.
+  Tracker: 5.2.1 ✓.
+
 ### Added (Phase 5.2)
 
 - Phase 5.2: platform-admin backend provisioning — ADR-0017 (deletion/retention lifecycle,

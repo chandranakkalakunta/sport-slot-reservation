@@ -1,6 +1,6 @@
 # Security Charter — SportSlot Reservation
 
-**Version:** 1.3 | **Date:** 2026-06-13 | **Author:** Chandra Nakkalakunta
+**Version:** 1.4 | **Date:** 2026-06-14 | **Author:** Chandra Nakkalakunta
 
 ## Principles
 
@@ -123,6 +123,7 @@ recorded as part of the identity model.
 | Exposure | Risk | Mitigation in place | Closure |
 |----------|------|---------------------|---------|
 | Cloud Run service (sport-slot-api) accepts public unauthenticated ingress at its run.app URL, bypassing Firebase Hosting | Infrastructure-layer abuse (DoS, error-surface probing) not gated by the Hosting CDN/edge | App-layer enforces Firebase JWT auth + tenant isolation on every endpoint; JWT is the authoritative tenant source so X-Forwarded-Host spoofing on direct calls cannot cross tenants (ADR-0007, ADR-0012 §2) | Phase 7: Global External Load Balancer + Cloud Armor; set Cloud Run ingress to internal-and-cloud-load-balancing so traffic must transit the LB. Interim option logged: Hosting-injected shared-secret header checked by the backend. |
+| Platform-admin tokens accepted on any host in DEV (no admin-host segregation) | A leaked platform-admin token could be replayed against any host | Route+role gating (require_platform_admin) enforces authorization; platform tokens carry tenant_id=null and cannot act within a tenant's data path | Phase 9: dedicated admin host + host-segregation in the cross-check (ADR-0007 original intent), behind the load balancer |
 
 ## Review Schedule
 
@@ -142,6 +143,7 @@ recorded as part of the identity model.
 
 ## Changelog
 
+- **1.4 (2026-06-14):** Accepted Exposures — admin-host segregation deferred to Phase 9; route+role gating (require_platform_admin) is the DEV authorization layer per ADR-0014 §1.
 - **1.3 (2026-06-13):** Accepted Exposures section — Cloud Run direct ingress logged; Phase 7 LB closure path documented.
 - **1.2 (2026-06-12):** Org-policy exceptions section (domain-restricted-sharing override for sport-slot-dev); corrects fabricated v1.2 content from interrupted session.
 - **1.1 (2026-06-11):** Added Identity & Credential Model section; recorded accepted claims-staleness risk; added ADR-0006/0007 references.

@@ -85,17 +85,35 @@ async def test_platform_admin_on_admin_host_ok(make_client):
     assert resp.json()["role"] == "platform_admin"
 
 
-async def test_platform_admin_on_tenant_host_403_no_bypass(make_client):
+async def test_platform_admin_on_any_host_allowed_adr0014(make_client):
+    # ADR-0014 §1: host-segregation deferred to Phase 9. Platform-admin token
+    # is accepted on ANY host in DEV; require_platform_admin does route-level
+    # authorization. Intentional behavioral change from 5.2.1 — previous test
+    # asserted 403 TENANT_MISMATCH on non-admin hosts; that gate is removed.
     with patch(VERIFY, return_value=ADMIN_CLAIMS):
         async with make_client() as client:
             resp = await client.get(
                 "/api/v1/_test/whoami", headers={**AUTH, **TENANT_HOST}
             )
-    assert resp.status_code == 403
-    assert resp.json()["code"] == "TENANT_MISMATCH"
+    assert resp.status_code == 200
+    assert resp.json()["role"] == "platform_admin"
+
+
+async def test_platform_admin_on_localhost_allowed_regression_5221(make_client):
+    # Regression guard for phase 5.2.1: superadmin token on localhost (default
+    # testserver host — no host header) must not be rejected. This was the
+    # primary developer breakage fixed by ADR-0014 §1 relaxation.
+    with patch(VERIFY, return_value=ADMIN_CLAIMS):
+        async with make_client() as client:
+            resp = await client.get("/api/v1/_test/whoami", headers=AUTH)
+    assert resp.status_code == 200
+    assert resp.json()["role"] == "platform_admin"
 
 
 async def test_resident_token_on_admin_host_403(make_client):
+    # Still 403 — but now via the tenant cross-check (slug "admin" from
+    # admin.sportbook.chandraailabs.com mismatches JWT tenant_slug "demo"),
+    # not the removed admin-host gate.
     with patch(VERIFY, return_value=RESIDENT_CLAIMS):
         async with make_client() as client:
             resp = await client.get(

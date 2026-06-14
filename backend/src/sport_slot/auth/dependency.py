@@ -48,20 +48,15 @@ def get_tenant_context(
         raise ApiError(401, error_codes.AUTH_INVALID_TOKEN, "Token missing provisioned claims")
 
     host = _effective_host(request)
-    is_admin_host = host == settings.admin_host
 
-    # ADR-0007 Decision 4: no admin bypass of tenant isolation.
+    # ADR-0014 §1: route+role gating (require_platform_admin) is the
+    # authorization layer in DEV. Host-segregation is deferred to Phase 9
+    # (see charter accepted exposures). settings.admin_host is preserved
+    # for the Phase 9 migration but is not enforced here.
     if role == "platform_admin":
-        if not is_admin_host:
-            raise ApiError(
-                403, error_codes.TENANT_MISMATCH, "Admin tokens valid only on admin host"
-            )
         return TenantContext(
             uid=claims["uid"], tenant_id=None, tenant_slug=None, role=role, household_id=None
         )
-
-    if is_admin_host:
-        raise ApiError(403, error_codes.TENANT_MISMATCH, "Non-admin token on admin host")
 
     tenant_slug = claims.get("tenant_slug")
     tenant_id = claims.get("tenant_id")
