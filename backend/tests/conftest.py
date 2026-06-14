@@ -15,7 +15,6 @@ def make_client(monkeypatch):
     def _make(env: dict[str, str] | None = None) -> httpx.AsyncClient:
         defaults = {
             "SPORTSLOT_ENVIRONMENT": "development",
-            "SPORTSLOT_DEV_TENANT_SLUG": "demo",
         }
         for key, value in {**defaults, **(env or {})}.items():
             monkeypatch.setenv(key, value)

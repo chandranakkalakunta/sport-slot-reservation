@@ -6,7 +6,9 @@ from sport_slot.api.errors import register_exception_handlers
 from sport_slot.api.v1.admin import router as admin_router
 from sport_slot.api.v1.bookings import router as bookings_router
 from sport_slot.api.v1.branding import router as branding_router
+from sport_slot.api.v1.facility_catalog import router as catalog_router
 from sport_slot.api.v1.facilities import router as facilities_router
+from sport_slot.api.v1.facilities import tenant_facilities_router
 from sport_slot.api.v1.users import router as users_router
 from sport_slot.config import get_settings
 from sport_slot.health import router as health_router
@@ -39,7 +41,9 @@ def create_app() -> FastAPI:
 
     v1 = APIRouter(prefix="/api/v1")
     v1.include_router(users_router)
+    v1.include_router(catalog_router)
     v1.include_router(facilities_router)
+    v1.include_router(tenant_facilities_router)
     v1.include_router(bookings_router)
     v1.include_router(branding_router)
     v1.include_router(admin_router)

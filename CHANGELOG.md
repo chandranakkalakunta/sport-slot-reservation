@@ -6,6 +6,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added (Phase 5.4a)
+
+- Phase 5.4a: global facility catalog (seed + GET /facility-catalog), catalog-based tenant
+  facility CRUD (POST/GET/PATCH/DELETE `/tenant/facilities`) replacing 3.2 free-form creation
+  (ADR-0015). `seed_facility_catalog.py` seeds 7 types (badminton, tennis, swimming, gym,
+  turf-football, table-tennis, basketball) and back-links legacy free-form facilities via
+  sport-string migration. `POST /tenant/facilities` validates `facility_type_id` against
+  catalog and copies `sport` from catalog doc. `DELETE /tenant/facilities/{id}` soft-deactivates
+  (active=false). Removed free-form `POST /facilities` and `PATCH /facilities/{id}` (superseded).
+  Removed orphaned `models/facility.py`. `firebase.json` firestore block added (indexes path
+  wired). `make seed-facility-catalog` target added. 7 new tests (105 total, 90% coverage).
+  ADR-0015 §1 amended: brand_logo_url is a URL field; Cloud Storage upload deferred to Phase 7.
+  Tracker: 5.4a ✓.
+
 ### Fixed (Phase 5.3.1)
 
 - Phase 5.3.1: fix — removed dev-tenant-slug pin from `_slug_from_host`; unrecognized

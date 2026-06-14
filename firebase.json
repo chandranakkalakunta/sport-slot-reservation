@@ -1,4 +1,7 @@
 {
+  "firestore": {
+    "indexes": "infrastructure/firestore.indexes.json"
+  },
   "hosting": {
     "site": "sport-slot-dev",
     "public": "frontend/dist",

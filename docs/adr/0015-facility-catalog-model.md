@@ -17,6 +17,10 @@ table-tennis, basketball). Per-tenant facility instances (existing
 /tenants/{id}/facilities/{id}) gain facility_type_id linking to the
 catalog, plus an optional description (e.g. "North Side Court").
 
+> Amendment (2026-06-14): tenant branding includes brand_logo_url
+> (optional string). Logo is a URL field now; file upload to Cloud
+> Storage is deferred (own sub-phase, Phase 7-adjacent).
+
 ### 2. Selection then instantiation
 Tenant-admin browses the catalog, selects a type, and creates one
 or more named instances with that type and tenant-specific config

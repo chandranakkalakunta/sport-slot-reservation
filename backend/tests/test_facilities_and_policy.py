@@ -8,15 +8,9 @@ from sport_slot.services.policy import GLOBAL_DEFAULTS, PolicyService
 
 RESIDENT = {"uid": "u1", "role": "resident", "tenant_id": "t-1",
             "tenant_slug": "demo", "household_id": "h-1"}
-ADMIN = {"uid": "a1", "role": "tenant_admin", "tenant_id": "t-1",
-         "tenant_slug": "demo", "household_id": "h-0"}
 AUTH = {"authorization": "Bearer fake"}
 HOST = {"host": "demo.sportbook.chandraailabs.com"}
 VERIFY = "sport_slot.auth.dependency.fb_auth.verify_id_token"
-
-VALID = {"name": "Court 1", "sport": "badminton",
-         "slot_duration_minutes": 60, "open_time": "06:00",
-         "close_time": "22:00"}
 
 
 def _tenant_doc_client(policies=None, exists=True):
@@ -64,44 +58,6 @@ def _facility_client(existing=None):
     return client
 
 
-async def test_resident_cannot_create_facility(make_client):
-    with patch(VERIFY, return_value=RESIDENT):
-        async with make_client() as client:
-            client._transport.app.dependency_overrides[get_firestore_client] = (
-                lambda: _facility_client()
-            )
-            resp = await client.post("/api/v1/facilities",
-                                     json=VALID, headers={**AUTH, **HOST})
-    assert resp.status_code == 403
-    assert resp.json()["code"] == "FORBIDDEN_ROLE"
-
-
-async def test_admin_creates_facility(make_client):
-    with patch(VERIFY, return_value=ADMIN):
-        async with make_client() as client:
-            client._transport.app.dependency_overrides[get_firestore_client] = (
-                lambda: _facility_client()
-            )
-            resp = await client.post("/api/v1/facilities",
-                                     json=VALID, headers={**AUTH, **HOST})
-    assert resp.status_code == 201
-    body = resp.json()
-    assert body["name"] == "Court 1" and body["id"] and body["created_at"]
-
-
-async def test_create_rejects_bad_window(make_client):
-    bad = {**VALID, "open_time": "22:00", "close_time": "06:00"}
-    with patch(VERIFY, return_value=ADMIN):
-        async with make_client() as client:
-            client._transport.app.dependency_overrides[get_firestore_client] = (
-                lambda: _facility_client()
-            )
-            resp = await client.post("/api/v1/facilities",
-                                     json=bad, headers={**AUTH, **HOST})
-    assert resp.status_code == 422
-    assert resp.json()["code"] == "VALIDATION_FAILED"
-
-
 async def test_get_missing_facility_404(make_client):
     with patch(VERIFY, return_value=RESIDENT):
         async with make_client() as client:
@@ -114,13 +70,3 @@ async def test_get_missing_facility_404(make_client):
     assert resp.json()["code"] == "FACILITY_NOT_FOUND"
 
 
-async def test_resident_cannot_patch(make_client):
-    with patch(VERIFY, return_value=RESIDENT):
-        async with make_client() as client:
-            client._transport.app.dependency_overrides[get_firestore_client] = (
-                lambda: _facility_client(existing=VALID)
-            )
-            resp = await client.patch("/api/v1/facilities/abc",
-                                      json={"active": False},
-                                      headers={**AUTH, **HOST})
-    assert resp.status_code == 403
