@@ -6,8 +6,6 @@ from sport_slot.api.errors import ApiError
 from sport_slot.auth.context import TenantContext
 from sport_slot.config import Settings, get_settings
 
-_DEV_HOSTS = {"localhost", "127.0.0.1", "testserver"}
-
 
 def _effective_host(request: Request) -> str:
     # Prefer X-Forwarded-Host (set by Firebase Hosting rewrites); fall back to Host.
@@ -17,13 +15,12 @@ def _effective_host(request: Request) -> str:
 
 
 def _slug_from_host(host: str, settings: Settings) -> str | None:
-    # Dev override: ONLY in development environment (fail closed, ADR-0007).
-    if (
-        settings.environment == "development"
-        and settings.dev_tenant_slug
-        and host in _DEV_HOSTS
-    ):
-        return settings.dev_tenant_slug
+    # Recognized tenant subdomain → that slug; any other host
+    # (localhost, *.web.app, *.run.app) → None, meaning "no host-
+    # derived tenant; trust the JWT tenant_slug claim" (ADR-0012 §2,
+    # JWT authoritative per ADR-0007). No dev-tenant pin: it would
+    # override a valid claim and break every non-default tenant in
+    # local dev (5.3.1).
     suffix = "." + settings.base_domain
     if host.endswith(suffix):
         return host.removesuffix(suffix)

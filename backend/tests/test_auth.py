@@ -13,6 +13,15 @@ AUTH = {"authorization": "Bearer fake-token"}
 TENANT_HOST = {"host": "demo.sportbook.chandraailabs.com"}
 OTHER_TENANT_HOST = {"host": "other.sportbook.chandraailabs.com"}
 ADMIN_HOST = {"host": "admin.sportbook.chandraailabs.com"}
+RVRG_SUBDOMAIN_HOST = {"host": "rvrg.sportbook.chandraailabs.com"}
+
+RVRG_CLAIMS = {
+    "uid": "user-2",
+    "role": "resident",
+    "tenant_id": "t-2",
+    "tenant_slug": "rvrg",
+    "household_id": "h-7",
+}
 
 XFH_TENANT_HOST = {"x-forwarded-host": "demo.sportbook.chandraailabs.com"}
 XFH_OTHER_HOST = {"x-forwarded-host": "other.sportbook.chandraailabs.com"}
@@ -57,7 +66,10 @@ async def test_subdomain_mismatch_403(make_client):
     assert resp.json()["code"] == "TENANT_MISMATCH"
 
 
-async def test_dev_override_allows_localhost_in_development(make_client):
+async def test_localhost_no_host_header_trusts_jwt(make_client):
+    # testserver host does not match any tenant subdomain → _slug_from_host
+    # returns None → JWT tenant_slug is authoritative (ADR-0012 §2). No dev
+    # pin exists after 5.3.1; behavior is identical but reason changed.
     with patch(VERIFY, return_value=RESIDENT_CLAIMS):
         async with make_client() as client:  # base_url host = testserver
             resp = await client.get("/api/v1/_test/whoami", headers=AUTH)
@@ -130,6 +142,42 @@ async def test_token_missing_claims_401(make_client):
             )
     assert resp.status_code == 401
     assert resp.json()["code"] == "AUTH_INVALID_TOKEN"
+
+
+# ── Phase 5.3.1 regression guards (dev-tenant pin removed) ────────────────
+
+
+async def test_rvrg_tenant_on_localhost_allowed_regression_5311(make_client):
+    # Before 5.3.1: _slug_from_host returned dev_tenant_slug ("demo") for
+    # localhost, so a token with tenant_slug="rvrg" got 403 TENANT_MISMATCH.
+    # After fix: localhost is unrecognized → slug=None → JWT wins → 200.
+    with patch(VERIFY, return_value=RVRG_CLAIMS):
+        async with make_client() as client:
+            resp = await client.get("/api/v1/_test/whoami", headers=AUTH)
+    assert resp.status_code == 200
+    assert resp.json()["tenant_slug"] == "rvrg"
+
+
+async def test_demo_tenant_on_localhost_still_allowed(make_client):
+    # The "default" tenant (demo) was never broken; ensure it stays 200 after
+    # the pin removal — JWT trust works for all tenants on localhost.
+    with patch(VERIFY, return_value=RESIDENT_CLAIMS):
+        async with make_client() as client:
+            resp = await client.get("/api/v1/_test/whoami", headers=AUTH)
+    assert resp.status_code == 200
+    assert resp.json()["tenant_slug"] == "demo"
+
+
+async def test_rvrg_subdomain_with_demo_claim_still_403(make_client):
+    # Tenant enforcement is still intact: rvrg.sportbook... with a "demo" JWT
+    # claim must still 403. The pin removal must not weaken subdomain gating.
+    with patch(VERIFY, return_value=RESIDENT_CLAIMS):
+        async with make_client() as client:
+            resp = await client.get(
+                "/api/v1/_test/whoami", headers={**AUTH, **RVRG_SUBDOMAIN_HOST}
+            )
+    assert resp.status_code == 403
+    assert resp.json()["code"] == "TENANT_MISMATCH"
 
 
 # ── X-Forwarded-Host tests (ADR-0012 §2) ──────────────────────────────────

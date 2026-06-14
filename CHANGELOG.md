@@ -6,6 +6,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Fixed (Phase 5.3.1)
+
+- Phase 5.3.1: fix — removed dev-tenant-slug pin from `_slug_from_host`; unrecognized
+  hosts (localhost, *.web.app, *.run.app) now return None so the JWT tenant_slug claim
+  is always authoritative (ADR-0012 §2 / ADR-0007). Previously `SPORTSLOT_DEV_TENANT_SLUG`
+  silently overrode the JWT claim, breaking every non-default tenant in local dev.
+  Removed `_DEV_HOSTS` (dependency.py) and `dev_tenant_slug` field (config.py); renamed
+  `test_dev_override_allows_localhost_in_development` → `test_localhost_no_host_header_trusts_jwt`;
+  added 3 regression guards (rvrg-on-localhost-allowed, demo-on-localhost-still-allowed,
+  rvrg-subdomain-with-demo-claim-still-403). 102 tests, 90% coverage. Tracker: 5.3.1 ✓.
+
 ### Added (Phase 5.3)
 
 - Phase 5.3: platform-admin UI — role-based routing (PlatformRoute guard), tenant list +
