@@ -1,12 +1,10 @@
-import { useQuery } from "@tanstack/react-query";
 import { Navigate, Route, Routes } from "react-router-dom";
 
 import { AuthProvider } from "./auth/AuthContext";
+import { useAuth } from "./auth/AuthContext";
 import { PlatformRoute } from "./auth/PlatformRoute";
 import { ProtectedRoute } from "./auth/ProtectedRoute";
 import { TenantAdminRoute } from "./auth/TenantAdminRoute";
-import { useAuth } from "./auth/AuthContext";
-import { apiFetch } from "./lib/api";
 import Facilities from "./pages/Facilities";
 import FacilityAvailability from "./pages/FacilityAvailability";
 import ForcePasswordChange from "./pages/ForcePasswordChange";
@@ -21,25 +19,12 @@ import TenantFacilities from "./pages/tenant/TenantFacilities";
 import TenantPolicies from "./pages/tenant/TenantPolicies";
 import TenantUsers from "./pages/tenant/TenantUsers";
 
-/** Role-based landing: platform_admin → /admin first (seeded clean, own profile path).
- *  Everyone else: fetch /users/me — must_change_password gates BEFORE the role redirect
- *  so tenant admins with a forced reset are not skipped to /tenant. */
+/** Role-based landing: gate is handled by ProtectedRoute before Landing renders.
+ *  Just route by role. */
 function Landing() {
   const { claims } = useAuth();
-  const isAdmin = claims?.role === "platform_admin";
-  const isTenantAdmin = claims?.role === "tenant_admin";
-  const { data, isLoading } = useQuery({
-    queryKey: ["profile"],
-    queryFn: () => apiFetch<{ must_change_password?: boolean }>("/users/me"),
-    enabled: !isAdmin,   // run for tenant_admin + resident; platform_admin profile is elsewhere
-  });
-  // Platform admin: seeded clean, own profile path → straight to /admin.
-  if (isAdmin) return <Navigate to="/admin" replace />;
-  // Everyone else: wait for the profile flag before redirecting.
-  if (isLoading) return <p>Loading…</p>;
-  // Forced password change gates BEFORE the role landing.
-  if (data?.must_change_password) return <Navigate to="/force-password" replace />;
-  if (isTenantAdmin) return <Navigate to="/tenant" replace />;
+  if (claims?.role === "platform_admin") return <Navigate to="/admin" replace />;
+  if (claims?.role === "tenant_admin") return <Navigate to="/tenant" replace />;
   return <Facilities />;
 }
 

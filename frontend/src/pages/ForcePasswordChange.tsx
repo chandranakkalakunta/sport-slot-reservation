@@ -1,5 +1,6 @@
 import { type FormEvent, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
 
 import { ApiClientError } from "../lib/api";
 import { apiFetch } from "../lib/api";
@@ -7,6 +8,7 @@ import { messageForCode } from "../lib/messages";
 
 export default function ForcePasswordChange() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [pw, setPw] = useState("");
   const [confirm, setConfirm] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -22,6 +24,7 @@ export default function ForcePasswordChange() {
       await apiFetch("/users/me/change-password", {
         method: "POST", body: JSON.stringify({ new_password: pw }),
       });
+      await queryClient.invalidateQueries({ queryKey: ["profile"] });
       navigate("/");
     } catch (e) {
       setError(e instanceof ApiClientError ? messageForCode(e.code) : "Failed to change password.");

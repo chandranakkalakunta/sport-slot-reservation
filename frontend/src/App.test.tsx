@@ -5,6 +5,9 @@ import { beforeEach, expect, test, vi } from "vitest";
 
 vi.mock("./lib/branding", () => ({ loadBrandingForSlug: vi.fn() }));
 vi.mock("./lib/api", () => ({ apiFetch: vi.fn() }));
+vi.mock("./auth/usePasswordGate", () => ({
+  usePasswordGate: vi.fn().mockReturnValue({ mustChange: false, loading: false }),
+}));
 
 // Mock Firebase Auth at the module boundary (no real auth in unit tests).
 let idTokenCallback: ((u: unknown) => void) | null = null;
@@ -23,11 +26,12 @@ vi.mock("firebase/auth", () => ({
   GoogleAuthProvider: class {},
 }));
 
-import { apiFetch } from "./lib/api";
+import { usePasswordGate } from "./auth/usePasswordGate";
 import App from "./App";
 
 beforeEach(() => {
   idTokenCallback = null;
+  vi.mocked(usePasswordGate).mockReturnValue({ mustChange: false, loading: false });
 });
 
 test("unauthenticated user is redirected to sign-in", async () => {
@@ -53,7 +57,7 @@ test("loading state shows before auth resolves", () => {
 });
 
 test("tenant_admin with must_change_password=true is redirected to /force-password", async () => {
-  vi.mocked(apiFetch).mockResolvedValue({ must_change_password: true });
+  vi.mocked(usePasswordGate).mockReturnValue({ mustChange: true, loading: false });
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
 
   render(

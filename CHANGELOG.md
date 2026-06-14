@@ -6,6 +6,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added (Phase 5.5.2)
+
+- Phase 5.5.2: Forced password change is now enforced globally via the route guards
+  (`ProtectedRoute` + `TenantAdminRoute`), not just the Landing route — closes the bypass
+  where reaching `/tenant/*`, `/bookings`, or `/facilities/*` directly (post-login nav,
+  refresh, or direct URL) skipped the mandatory change entirely. New `usePasswordGate` hook
+  fetches `/users/me` once (shared `["profile"]` query key, cached across all guards) and
+  returns `{ mustChange, loading }`; platform admins excluded. `ForcePasswordChange`
+  invalidates `["profile"]` on success before navigating to `/` to prevent a redirect loop
+  from the stale cached flag. `/force-password` route remains un-gated. Landing simplified:
+  `must_change_password` check removed (guard handles it before Landing renders) — only
+  role-based routing remains. 43 frontend tests (+2: TenantAdminRoute password-gate tests).
+  Build: 115 kB gzip (128 backend tests unchanged). Tracker: 5.5.2 ✓.
+
 ### Added (Phase 5.5.1)
 
 - Phase 5.5.1: Fix forced-password-change routing for tenant_admin + shared `AppHeader` component.
