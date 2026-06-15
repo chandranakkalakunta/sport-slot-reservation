@@ -60,7 +60,7 @@ jobs:
       - name: Set up Cloud SDK
         uses: google-github-actions/setup-gcloud@v3
 
-      - name: Set up Node (for frontend build + firebase-tools)
+      - name: Set up Node (for frontend build)
         uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -70,21 +70,31 @@ jobs:
         with:
           package_json_file: frontend/package.json
 
-      # firebase-tools is not bundled with ubuntu-latest or the frontend
-      # devDeps — install globally. Uses WIF ADC (GOOGLE_APPLICATION_CREDENTIALS
-      # set by auth@v3 above); no interactive `firebase login` needed.
-      - name: Install firebase-tools
-        run: npm install -g firebase-tools
-
-      # Install frontend deps so deploy_hosting.sh's `pnpm build` succeeds.
       - name: Install frontend deps
         working-directory: frontend
         run: pnpm install --frozen-lockfile
 
-      - name: Build + push backend image, deploy Cloud Run, deploy Hosting
+      - name: Build + push backend image, deploy Cloud Run
         env:
-          CI: "true"   # skips the interactive DEPLOY prompts (STEP 1)
+          CI: "true"   # skips the interactive DEPLOY prompts
         run: |
           make build-push
           make deploy-dev
-          make deploy-hosting
+
+      - name: Build frontend
+        working-directory: frontend
+        run: pnpm build
+
+      # FirebaseExtended/action-hosting-deploy is purpose-built for CI and
+      # honours the GOOGLE_APPLICATION_CREDENTIALS set by auth@v3 (WIF ADC).
+      # firebaseServiceAccount is intentionally empty — we do not use a JSON
+      # key (org policy forbids static keys). The action falls through to ADC.
+      - name: Deploy Firebase Hosting
+        uses: FirebaseExtended/action-hosting-deploy@v0
+        with:
+          repoToken: ${{ secrets.GITHUB_TOKEN }}
+          firebaseServiceAccount: ""
+          projectId: sport-slot-dev
+          channelId: live
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ env.GOOGLE_APPLICATION_CREDENTIALS }}

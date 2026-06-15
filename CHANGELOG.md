@@ -6,6 +6,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Fixed (Phase 6.2.9)
+
+- Phase 6.2.9: CI Firebase Hosting deploy now uses FirebaseExtended/action-hosting-deploy@v0
+  (WIF/ADC), replacing the firebase-tools CLI shell invocation that failed to consume the
+  WIF external-account credential after 4 attempts. The action is purpose-built for CI and
+  honours GOOGLE_APPLICATION_CREDENTIALS from auth@v3; firebaseServiceAccount is empty
+  (org policy forbids static JSON keys; action falls through to ADC). build-push + deploy-dev
+  remain make targets (working correctly). Local make deploy-hosting unchanged.
+  Install firebase-tools step removed from deploy job (no longer needed). Tracker: 6.2.9 ✓.
+
 ### Fixed (Phase 6.2.8)
 
 - Phase 6.2.8: firebase Hosting deploy uses a gcloud-minted access token in CI —
