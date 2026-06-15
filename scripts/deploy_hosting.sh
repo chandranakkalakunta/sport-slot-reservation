@@ -7,9 +7,12 @@ echo "Building frontend (pnpm build)..."
 (cd frontend && pnpm build)
 
 echo "Deploying to Firebase Hosting (project sport-slot-dev)..."
-echo "Requires: firebase login as admin@chandraailabs.com"
-read -r -p "Type DEPLOY to proceed: " CONFIRM
-[[ "$CONFIRM" == "DEPLOY" ]] || { echo "Aborted."; exit 1; }
+echo "Requires: firebase login as admin@chandraailabs.com (or WIF ADC in CI)"
+# Skip interactive confirmation in CI (CI=true is set by GitHub Actions).
+if [ -z "${CI:-}" ]; then
+  read -r -p "Type DEPLOY to proceed: " CONFIRM
+  [[ "$CONFIRM" == "DEPLOY" ]] || { echo "Aborted."; exit 1; }
+fi
 
 firebase deploy --only hosting --project sport-slot-dev
 

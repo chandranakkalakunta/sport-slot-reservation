@@ -31,8 +31,11 @@ fi
 echo "About to deploy ${IMAGE}"
 echo "  service=${SERVICE} region=${REGION} sa=${SA}"
 echo "  min=0 max=2 mem=512Mi cpu=1 (ADR-0005)"
-read -r -p "Type DEPLOY to proceed: " CONFIRM
-[[ "$CONFIRM" == "DEPLOY" ]] || { echo "Aborted."; exit 1; }
+# Skip interactive confirmation in CI (CI=true is set by GitHub Actions).
+if [ -z "${CI:-}" ]; then
+  read -r -p "Type DEPLOY to proceed: " CONFIRM
+  [[ "$CONFIRM" == "DEPLOY" ]] || { echo "Aborted."; exit 1; }
+fi
 
 gcloud run deploy "$SERVICE" \
   --project="$PROJECT" --region="$REGION" \

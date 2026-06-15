@@ -1,0 +1,57 @@
+name: PR Gates
+
+on:
+  pull_request:
+    branches: [main]
+
+# No GCP access — gates only. (The WIF provider restricts auth to
+# main anyway; PRs cannot authenticate to GCP by design.)
+permissions:
+  contents: read
+
+jobs:
+  backend-gates:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+      - name: Set up Python
+        run: uv python install 3.12
+      - name: Sync deps
+        run: uv sync --all-extras --dev
+      - name: Ruff
+        run: uv run ruff check src/ tests/
+      - name: Bandit
+        run: uv run bandit -r src/
+      - name: Pytest (coverage gate >=90%)
+        run: uv run pytest --cov=src --cov-fail-under=90 -q
+
+  frontend-gates:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+      - name: Install deps
+        run: pnpm install --frozen-lockfile
+      - name: Lint
+        run: pnpm lint
+      - name: Test
+        run: pnpm test
+      - name: Build
+        run: pnpm build

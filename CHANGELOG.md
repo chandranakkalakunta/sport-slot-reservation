@@ -6,6 +6,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added (Phase 6.2)
+
+- Phase 6.2: GitHub Actions — pr-gates.yml (backend: ruff+bandit+pytest ≥90% coverage,
+  frontend: lint+test+build, no GCP access on PRs by design) + deploy.yml (same gate suite
+  on main for defense-in-depth, then keyless WIF auth + build/push backend via Cloud Build +
+  gcloud run deploy + firebase deploy hosting on push to main). Deploy make targets
+  (deploy_cloud_run.sh, deploy_hosting.sh) made CI-aware: interactive DEPLOY prompt skipped
+  when $CI is set; manual experience unchanged. firebase-tools installed in deploy job
+  (not pre-installed on runners, not in devDeps); uses WIF ADC — no interactive login needed.
+  Coverage threshold 90% (measured 92% − 2% buffer per global rule). Tracker: 6.2 ✓
+  (pipeline validated in 6.3).
+
 ### Added (Phase 6.1)
 
 - Phase 6.1: WIF pool + provider activated as managed Terraform resources (imported from
