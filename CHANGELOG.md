@@ -6,6 +6,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Fixed (Phase 6.2.4)
+
+- Phase 6.2.4: fix pnpm version mismatch — CI pinned pnpm v9 but the project uses v11
+  (allowBuilds syntax in pnpm-workspace.yaml, no packages field, is valid v11 and invalid
+  v9). Added "packageManager": "pnpm@11.5.2" to frontend/package.json as the single source
+  of truth; both workflows (pr-gates.yml, deploy.yml — 3 occurrences) now use
+  pnpm/action-setup@v4 with package_json_file: frontend/package.json instead of
+  hardcoded version: 9. Resolves "packages field missing or empty" in CI.
+  Local: lint 0 errors · 43 tests passed · build OK. Tracker: 6.2.4 ✓.
+
 ### Fixed (Phase 6.2.2)
 
 - Phase 6.2.2: fix non-hermetic test — test_validation_failed_includes_field_detail
