@@ -84,6 +84,7 @@ terraform/crash.*.log
 *firebase-adminsdk*.json
 *service-account*.json
 *gcp-key*.json
+gha-creds-*.json
 .firebase/
 firebase-debug.log
 firebase-debug.*.log

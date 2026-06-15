@@ -6,6 +6,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Fixed (Phase 6.2.6)
+
+- Phase 6.2.6: gitignore gha-creds-*.json — google-github-actions/auth@v3 writes a
+  credential file (gha-creds-<hash>.json) into the repo workspace root, which
+  build_push.sh's git status --porcelain clean-tree check saw as an untracked file,
+  causing "working tree not clean" error and aborting the deploy. Added gha-creds-*.json
+  to .gitignore under the GCP/Firebase section. Tracker: 6.2.6 ✓.
+
 ### Fixed (Phase 6.2.5)
 
 - Phase 6.2.5: bump CI Node 20 → 22 — pnpm v11 requires Node >=22.13 (uses node:sqlite
