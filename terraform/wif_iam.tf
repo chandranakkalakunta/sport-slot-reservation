@@ -41,6 +41,29 @@ resource "google_project_iam_member" "ci_firebasehosting_admin" {
   member  = local.github_principal_set
 }
 
+# `gcloud builds submit` calls the Service Usage API before queueing
+# the build. Without this the caller gets a serviceusage.services.use
+# permission denied even though cloudbuild.builds.editor is present.
+resource "google_project_iam_member" "ci_service_usage_consumer" {
+  project = var.project_id
+  role    = "roles/serviceusage.serviceUsageConsumer"
+  member  = local.github_principal_set
+}
+
+# `gcloud builds submit` uploads the source tarball to the Cloud Build
+# staging bucket (sport-slot-dev-cloudbuild). storage.admin at project
+# level is the simplest fix and matches the documented resolution.
+# SCOPE NOTE: project-level storage.admin is broader than strictly
+# necessary. A tighter alternative is a bucket-scoped
+# google_storage_bucket_iam_member on sport-slot-dev-cloudbuild +
+# roles/artifactregistry.writer already covers image push. Deferring
+# least-privilege tightening to Phase 9 hardening (dev environment).
+resource "google_project_iam_member" "ci_storage_admin" {
+  project = var.project_id
+  role    = "roles/storage.admin"
+  member  = local.github_principal_set
+}
+
 # CI must deploy a Cloud Run service that RUNS AS the runtime SA
 # (sa-cloud-run). Without this, `gcloud run deploy --service-account`
 # is rejected. Least privilege preserved: CI deploys; sa-cloud-run

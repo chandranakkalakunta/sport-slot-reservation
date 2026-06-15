@@ -6,6 +6,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added (Phase 6.1.1)
+
+- Phase 6.1.1: add CI IAM — serviceusage.serviceUsageConsumer + storage.admin (project)
+  to the WIF CI principalSet for `gcloud builds submit`. serviceUsageConsumer resolves
+  the "serviceusage.services.use permission" denied error; storage.admin resolves the
+  "forbidden from accessing the bucket [sport-slot-dev-cloudbuild]" error on source
+  tarball upload. Both added as google_project_iam_member in terraform/wif_iam.tf.
+  Scope note: storage.admin at project level is broader than strictly necessary; a
+  bucket-scoped binding on sport-slot-dev-cloudbuild is the tighter alternative —
+  deferred to Phase 9 least-privilege hardening. ADR-0018 updated. Tracker: 6.1.1 ✓
+  (pending Coordinator terraform apply).
+
 ### Fixed (Phase 6.2.6)
 
 - Phase 6.2.6: gitignore gha-creds-*.json — google-github-actions/auth@v3 writes a

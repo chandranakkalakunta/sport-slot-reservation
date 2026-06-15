@@ -24,11 +24,19 @@ Terraform as data sources but not managed.
   pool/provider when their projects exist) — the reproducibility
   goal.
 - **Deploy permissions** (run.admin, artifactregistry.writer,
-  cloudbuild.builds.editor, firebasehosting.admin) granted to the
+  cloudbuild.builds.editor, firebasehosting.admin,
+  serviceusage.serviceUsageConsumer, storage.admin) granted to the
   CI principalSet; plus serviceAccountUser on the runtime SA
   (sa-cloud-run) so CI can deploy a service that RUNS AS the narrow
   runtime identity — least privilege preserved (CI deploys; the
   service runs as the scoped SA).
+  - serviceUsageConsumer: required by `gcloud builds submit` to call
+    the Service Usage API before queueing a build.
+  - storage.admin (project-level): required for `gcloud builds submit`
+    to upload the source tarball to the Cloud Build staging bucket
+    (sport-slot-dev-cloudbuild). Project-level is broader than strictly
+    necessary; tightening to bucket-scoped storage.admin is deferred
+    to Phase 9 least-privilege hardening.
 - **Cloud Run is deployed via gcloud in CI**, not Terraform-managed
   — the service's image changes every deploy; Terraform managing it
   would create constant drift. Terraform manages the stable infra
