@@ -69,6 +69,10 @@ seed-dev: ## Seed dev Firebase user + profile (dev only)
 seed-platform-admin: ## Seed first platform-admin user (run once, idempotent — Coordinator runs this)
 	@cd backend && uv run python scripts/seed_platform_admin.py
 
+.PHONY: reset-superadmin
+reset-superadmin:  ## Reset dev superadmin password (NEWPW=...)
+	cd backend && NEWPW=$(NEWPW) uv run python scripts/reset_superadmin.py
+
 .PHONY: seed-facility-catalog
 seed-facility-catalog: ## Seed global facility-type catalog + migrate legacy facilities (idempotent — Coordinator runs this)
 	@cd backend && uv run python scripts/seed_facility_catalog.py

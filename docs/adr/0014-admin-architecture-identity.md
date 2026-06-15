@@ -23,6 +23,9 @@ A platform admin cannot be self-created (bootstrapping paradox).
 A seed script (seed_platform_admin.py) creates the first one:
 Firebase user, role=platform_admin, tenant_id=null, custom claims.
 Same pattern as the demo users.
+Dev seed email: admin@sportbook.chandraailabs.com (override via
+PLATFORM_ADMIN_EMAIL env var). Reconciled 2026-06-15: earlier drafts
+referenced "superadmin@…" — the actual seed uses "admin@sportbook…".
 
 ### 3. Uniform credential model — generate + force-change
 Every user-creation path (superadmin→tenant-admin, tenant-admin→

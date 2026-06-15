@@ -6,6 +6,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added (Phase 5.6)
+
+- Phase 5.6: Phase 5 retrospective (docs/retrospectives/phase-5.md — issue log, deferrals,
+  validation quality note, carried-forward items). ADR-0014 email reconciled: §2 now names
+  admin@sportbook.chandraailabs.com as the dev seed email (earlier drafts referenced
+  "superadmin@…"). make reset-superadmin target + backend/scripts/reset_superadmin.py: dev-only
+  one-command recovery for a lost superadmin password (NEWPW env var, refuses outside
+  development). docs/roadmap.md created: phase status table, Phase 5 deferrals tracker,
+  Phase 6–9 planned scope. PHASE 5 COMPLETE — Admin & Onboarding. Tracker: Phase 5 ✓.
+
 ### Added (Phase 5.5.2)
 
 - Phase 5.5.2: Forced password change is now enforced globally via the route guards
