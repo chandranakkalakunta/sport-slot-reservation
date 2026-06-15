@@ -6,6 +6,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Fixed (Phase 6.2.10)
+
+- Phase 6.2.10: Firebase Hosting CI deploy via pure WIF ADC + GOOGLE_CLOUD_PROJECT.
+  Official action (6.2.9) rejected — requires firebaseServiceAccount JSON key (incompatible
+  with keyless WIF org policy). Reverted to firebase-tools CLI. Removed FIREBASE_TOKEN bridge
+  (6.2.8). Now relies purely on GOOGLE_APPLICATION_CREDENTIALS (WIF external_account ADC, set
+  by auth@v3) + GOOGLE_CLOUD_PROJECT=sport-slot-dev (lets firebase-tools resolve the project,
+  which external_account files don't embed). --debug enabled until confirmed green.
+  ShellCheck clean · YAML valid. Tracker: 6.2.10 ✓.
+
 ### Fixed (Phase 6.2.9)
 
 - Phase 6.2.9: CI Firebase Hosting deploy now uses FirebaseExtended/action-hosting-deploy@v0

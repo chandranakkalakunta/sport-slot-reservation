@@ -18,17 +18,12 @@ if [ -z "${CI:-}" ]; then
 fi
 
 if [ -n "${CI:-}" ]; then
-  # firebase-tools 15.x does not reliably consume the WIF external-account
-  # ADC (gha-creds JSON). gcloud DOES authenticate correctly via WIF —
-  # mint a short-lived access token and hand it to firebase-tools.
-  # Keyless: no JSON service-account key, no deprecated login:ci token.
-  FIREBASE_TOKEN="$(gcloud auth print-access-token)"
-  export FIREBASE_TOKEN
-  firebase deploy --only hosting --project "${PROJECT}" --non-interactive || {
-    echo "ERROR: firebase deploy failed. Re-run locally with --debug for details:" >&2
-    echo "  FIREBASE_TOKEN=\$(gcloud auth print-access-token) firebase deploy --only hosting --project ${PROJECT} --non-interactive --debug" >&2
-    exit 1
-  }
+  # Keyless: firebase-tools uses the WIF external_account ADC
+  # (GOOGLE_APPLICATION_CREDENTIALS, set by google-github-actions/auth).
+  # GOOGLE_CLOUD_PROJECT lets it resolve the project (external_account
+  # files embed no project, unlike JSON keys). NO FIREBASE_TOKEN.
+  # --debug enabled until CI deploy is confirmed green.
+  firebase deploy --only hosting --project "${PROJECT}" --non-interactive --debug
 else
   firebase deploy --only hosting --project "${PROJECT}"
 fi
