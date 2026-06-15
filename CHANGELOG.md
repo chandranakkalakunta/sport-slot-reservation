@@ -6,6 +6,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Fixed (Phase 6.2.2)
+
+- Phase 6.2.2: fix non-hermetic test — test_validation_failed_includes_field_detail
+  constructed a real Firestore client (failing in CI without ADC); now overrides the
+  client dependency via dependency_overrides[get_firestore_client] = lambda: _prov_client()
+  like all 20 sibling tests. Test is credential-free: passes with GOOGLE_APPLICATION_CREDENTIALS
+  unset and GOOGLE_CLOUD_PROJECT="". Sibling scan: all 21 tests in test_tenant_config.py
+  now have the override — zero remaining hermeticity risks. Tracker: 6.2.2 ✓.
+
 ### Fixed (Phase 6.2.1)
 
 - Phase 6.2.1: Suppress 4 bandit B105 false positives (must_change_password Firestore field

@@ -425,6 +425,9 @@ async def test_validation_failed_includes_field_detail(make_client):
     """STEP 6: 422 envelope now includes a 'detail' array with loc+msg."""
     with patch(VERIFY, return_value=ADMIN):
         async with make_client() as c:
+            c._transport.app.dependency_overrides[get_firestore_client] = (
+                lambda: _prov_client()
+            )
             # Send an empty body to POST /tenant/users — email and display_name required
             resp = await c.post(
                 "/api/v1/tenant/users",
