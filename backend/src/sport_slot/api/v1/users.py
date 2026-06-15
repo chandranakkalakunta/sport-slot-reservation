@@ -46,6 +46,6 @@ async def change_password(
             .document(ctx.tenant_id)
             .collection("users")
             .document(ctx.uid)
-            .update({"must_change_password": False})
+            .update({"must_change_password": False})  # nosec B105 - Firestore field name, not a credential
         )
     return {"status": "ok"}

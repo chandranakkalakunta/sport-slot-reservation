@@ -89,7 +89,7 @@ class UserProvisioningService:
                 "flat_number": flat_number,
                 "household_id": hid,
                 "role": role,
-                "must_change_password": True,
+                "must_change_password": True,  # nosec B105 - Firestore field name, not a credential
                 "created_at": datetime.datetime.now(datetime.UTC),
             })
             AuditRepository(ctx, self._client).write_event(
@@ -143,7 +143,7 @@ class UserProvisioningService:
             raise ProvisioningError(404, error_codes.USER_NOT_FOUND, f"User {uid!r} not found")
         password = secrets.token_urlsafe(16)
         fb_auth.update_user(uid, password=password)
-        ref.update({"must_change_password": True})
+        ref.update({"must_change_password": True})  # nosec B105 - Firestore field name, not a credential
         AuditRepository(_ctx(tenant_id, self._caller_uid or "", self._caller_role or ""),
                         self._client).write_event(
             "user.password_reset", self._caller_uid or "", self._caller_role or "", uid,

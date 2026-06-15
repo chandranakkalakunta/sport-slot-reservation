@@ -6,6 +6,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Fixed (Phase 6.2.1)
+
+- Phase 6.2.1: Suppress 4 bandit B105 false positives (must_change_password Firestore field
+  names in users.py + provisioning.py ×2, and WEAK_PASSWORD error code constant in
+  error_codes.py) via per-line # nosec B105 with explanatory reason. B105 remains active
+  elsewhere. CI backend gate now green: bandit 0 issues · ruff clean · 128 passed 91.56%
+  coverage ≥ 90%. Tracker: 6.2.1 ✓.
+
 ### Added (Phase 6.2)
 
 - Phase 6.2: GitHub Actions — pr-gates.yml (backend: ruff+bandit+pytest ≥90% coverage,
