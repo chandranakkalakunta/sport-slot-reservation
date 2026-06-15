@@ -47,12 +47,18 @@ Terraform as data sources but not managed.
   manager found "No OAuth tokens found" and crashed on undefined.access_token even
   though the same ADC credential worked for cloudresourcemanager testIamPermissions.
   firebase-tools only understands `firebase login` user tokens or deprecated login:ci
-  refresh tokens. Solution: drive the Firebase Hosting REST API directly with a
-  gcloud-minted access token (`gcloud auth print-access-token`). gcloud authenticates
-  correctly via WIF (proven: build-push + Cloud Run). Fully keyless: no JSON key, no
-  FIREBASE_TOKEN, no firebase-tools. SPA rewrites + Cloud Run rewrites from firebase.json
-  are passed in the version-create config body so deep links don't 404. Local
-  `make deploy-hosting` still uses firebase-tools (interactive login works locally).
+  refresh tokens. Solution: drive the Firebase Hosting REST API directly. SPA rewrites
+  + Cloud Run rewrites from firebase.json are passed in the version-create config body
+  so deep links don't 404. Local `make deploy-hosting` still uses firebase-tools
+  (interactive login works locally).
+- **Direct-WIF federated tokens are rejected by the Firebase Hosting REST API** (401
+  UNAUTHENTICATED; token was 1484 chars — not a standard OAuth2 access token, confirmed
+  Phase 6.2.13). A real OAuth2 access token requires SA impersonation. Exception to the
+  no-intermediary-SA rule: the WIF CI principal is granted
+  `roles/iam.serviceAccountTokenCreator` on `sa-firebase-admin` and a dedicated
+  `google-github-actions/auth@v3` step with `token_format: access_token` mints a
+  scoped token before the Hosting deploy. The main WIF auth step (used by gcloud for
+  build/run) remains direct (no SA). Fully keyless: no JSON key stored anywhere.
 
 ## Consequences
 - Test/prod CI setup = terraform apply with new tfvars + the same

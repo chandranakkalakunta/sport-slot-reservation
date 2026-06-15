@@ -15,14 +15,16 @@ PUBLIC_DIR="${PUBLIC_DIR:-frontend/dist}"
 API="https://firebasehosting.googleapis.com/v1beta1"
 UPLOAD_API="https://upload-firebasehosting.googleapis.com/upload"
 
-# Plain `gcloud auth print-access-token` reads the WIF credential that
-# auth@v3 configured in the active-account store. DO NOT use
-# `application-default` — that re-exchanges the OIDC subject token,
-# which is already consumed by auth@v3 and can't be re-minted mid-job.
-# X-Goog-User-Project is required for ADC-style tokens: they carry no
-# implicit project context (unlike JSON service-account keys).
-TOKEN="$(gcloud auth print-access-token)"
-[[ -n "$TOKEN" ]] || { echo "ERROR: no gcloud access token (WIF auth@v3 ran?)" >&2; exit 1; }
+# In CI: FIREBASE_ACCESS_TOKEN is a real OAuth2 token minted by auth@v3
+# via SA impersonation (sa-firebase-admin). Direct-WIF federated tokens
+# are rejected by the Firebase Hosting REST API (401 UNAUTHENTICATED).
+# Locally: falls back to gcloud auth print-access-token (interactive login).
+if [[ -n "${FIREBASE_ACCESS_TOKEN:-}" ]]; then
+  TOKEN="$FIREBASE_ACCESS_TOKEN"
+else
+  TOKEN="$(gcloud auth print-access-token)"
+fi
+[[ -n "$TOKEN" ]] || { echo "ERROR: no access token (CI: FIREBASE_ACCESS_TOKEN set? Local: gcloud auth login?)" >&2; exit 1; }
 echo "Access token acquired (len ${#TOKEN})."
 AUTH=( -H "Authorization: Bearer ${TOKEN}" -H "X-Goog-User-Project: ${PROJECT}" )
 

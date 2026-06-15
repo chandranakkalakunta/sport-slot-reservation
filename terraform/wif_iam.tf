@@ -72,6 +72,15 @@ resource "google_project_iam_member" "ci_redis_viewer" {
   member  = local.github_principal_set
 }
 
+# Allow the CI WIF principal to impersonate sa-firebase-admin to mint
+# a real OAuth2 access token for the Firebase Hosting REST API
+# (direct-WIF federated tokens are not accepted by that API).
+resource "google_service_account_iam_member" "ci_token_creator_firebase" {
+  service_account_id = data.google_service_account.firebase_admin.name
+  role               = "roles/iam.serviceAccountTokenCreator"
+  member             = local.github_principal_set
+}
+
 # CI must deploy a Cloud Run service that RUNS AS the runtime SA
 # (sa-cloud-run). Without this, `gcloud run deploy --service-account`
 # is rejected. Least privilege preserved: CI deploys; sa-cloud-run

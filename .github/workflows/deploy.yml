@@ -81,10 +81,23 @@ jobs:
           make build-push
           make deploy-dev
 
-      # firebase-tools 15.x cannot consume WIF external_account ADC (confirmed
-      # via --debug in 6.2.10). Deploy via REST API with a gcloud-minted token.
-      # gcloud authenticates via WIF correctly (proven: build-push + Cloud Run).
-      - name: Deploy Firebase Hosting (REST API, keyless WIF)
+      # Direct-WIF federated tokens are rejected by the Firebase Hosting REST
+      # API (401 UNAUTHENTICATED). Mint a real OAuth2 access token by
+      # impersonating sa-firebase-admin (which has Firebase perms). The main
+      # auth step above stays direct-WIF for gcloud build/run commands.
+      - name: Mint Firebase access token (SA impersonation)
+        id: fb_auth
+        uses: google-github-actions/auth@v3
+        with:
+          workload_identity_provider: ${{ env.WIF_PROVIDER }}
+          service_account: sa-firebase-admin@sport-slot-dev.iam.gserviceaccount.com
+          token_format: access_token
+          access_token_scopes: https://www.googleapis.com/auth/cloud-platform
+
+      - name: Deploy Firebase Hosting (REST API, SA-impersonated token)
+        env:
+          FIREBASE_ACCESS_TOKEN: ${{ steps.fb_auth.outputs.access_token }}
+          FIREBASE_PROJECT: sport-slot-dev
         run: |
           (cd frontend && pnpm build)
           ./scripts/deploy_hosting_rest.sh

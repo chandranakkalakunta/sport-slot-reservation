@@ -6,6 +6,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added (Phase 6.2.14)
+
+- Phase 6.2.14: mint Firebase Hosting REST access token via sa-firebase-admin
+  impersonation (token_format=access_token). Root cause confirmed: direct-WIF
+  federated tokens (1484 chars) are rejected by the Firebase Hosting REST API with
+  401 UNAUTHENTICATED — a real OAuth2 access token requires SA impersonation.
+  Added google_service_account_iam_member.ci_token_creator_firebase in wif_iam.tf
+  (principalSet→serviceAccountTokenCreator on sa-firebase-admin). Added dedicated
+  auth@v3 step in deploy.yml (service_account + token_format: access_token) before
+  the Hosting deploy; token passed as FIREBASE_ACCESS_TOKEN env var. REST script
+  uses FIREBASE_ACCESS_TOKEN if set, else falls back to gcloud (local use).
+  build/run keep direct WIF. ADR-0018 updated. terraform fmt OK · validate OK.
+  ShellCheck clean · YAML valid. Tracker: 6.2.14 ✓ (pending Coordinator tf-apply).
+
 ### Fixed (Phase 6.2.13)
 
 - Phase 6.2.13: REST Hosting deploy — revert token command to plain
