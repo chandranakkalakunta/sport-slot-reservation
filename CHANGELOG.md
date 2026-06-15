@@ -6,6 +6,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Fixed (Phase 6.2.12)
+
+- Phase 6.2.12: REST Hosting deploy uses `gcloud auth application-default print-access-token`
+  (mint token from WIF ADC, not the empty active-account store that `gcloud auth
+  print-access-token` reads in CI). Added X-Goog-User-Project: sport-slot-dev header to AUTH
+  array so every API call carries the quota/project context (required for ADC tokens, per
+  gcloud docs; firebase-tools --debug also sends x-goog-user-project). Added token-length
+  echo for debug visibility (token itself never logged). Fixes the 401 on version-create.
+  ShellCheck clean · bash -n clean. Tracker: 6.2.12 ✓.
+
 ### Added (Phase 6.2.11)
 
 - Phase 6.2.11: keyless Firebase Hosting deploy via REST API + gcloud access token.

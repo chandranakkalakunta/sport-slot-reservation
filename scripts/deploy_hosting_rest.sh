@@ -15,9 +15,13 @@ PUBLIC_DIR="${PUBLIC_DIR:-frontend/dist}"
 API="https://firebasehosting.googleapis.com/v1beta1"
 UPLOAD_API="https://upload-firebasehosting.googleapis.com/upload"
 
-TOKEN="$(gcloud auth print-access-token)"
-[[ -n "$TOKEN" ]] || { echo "ERROR: no gcloud access token (WIF ADC present?)" >&2; exit 1; }
-AUTH=( -H "Authorization: Bearer ${TOKEN}" )
+# Mint the token FROM the ADC (the WIF external_account credential).
+# Plain `gcloud auth print-access-token` reads the active-account
+# store (empty in CI); the WIF cred lives in ADC.
+TOKEN="$(gcloud auth application-default print-access-token)"
+[[ -n "$TOKEN" ]] || { echo "ERROR: no gcloud ADC access token (GOOGLE_APPLICATION_CREDENTIALS set?)" >&2; exit 1; }
+echo "Access token acquired (len ${#TOKEN})."
+AUTH=( -H "Authorization: Bearer ${TOKEN}" -H "X-Goog-User-Project: ${PROJECT}" )
 
 echo "Deploying ${PUBLIC_DIR} -> Hosting site '${SITE}' (project ${PROJECT})"
 [[ -d "$PUBLIC_DIR" ]] || { echo "ERROR: '$PUBLIC_DIR' not found (frontend built?)" >&2; exit 1; }
