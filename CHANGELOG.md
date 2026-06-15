@@ -6,6 +6,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Fixed (Phase 6.2.5)
+
+- Phase 6.2.5: bump CI Node 20 → 22 — pnpm v11 requires Node >=22.13 (uses node:sqlite
+  builtin); CI pinned node-version: 20 caused "ERR_UNKNOWN_BUILTIN_MODULE: node:sqlite".
+  Changed all 3 node-version occurrences (pr-gates.yml:47, deploy.yml:40, deploy.yml:66).
+  Added "engines": {"node": ">=22.13"} to frontend/package.json as single source of truth,
+  mirroring the packageManager approach. Local Node v22.17.1 — no local issue.
+  YAML valid; local: install OK · lint 0 errors · 43 tests passed · build OK.
+  Clears Node-20 deprecation warning ahead of GitHub's Node-24 default. Tracker: 6.2.5 ✓.
+
 ### Fixed (Phase 6.2.4)
 
 - Phase 6.2.4: fix pnpm version mismatch — CI pinned pnpm v9 but the project uses v11
