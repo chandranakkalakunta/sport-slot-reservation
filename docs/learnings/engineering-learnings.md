@@ -247,3 +247,98 @@ suite guards regressions, the live pass finds the gaps the suite didn't imagine.
 
 *Compiled mid-Phase-5 (through 5.4b). Living document — append as Phase 5
 completes and Phases 6+ proceed.*
+
+---
+
+# APPENDIX A — Phase 5 (Admin & Onboarding) additions
+
+Phase 5 reinforced several earlier themes and added new ones. Appended on
+project-day for Phase 5 close.
+
+## 11. A security gate must be one unbypassable choke point
+
+The forced-password-change requirement was first implemented as a check in the
+*Landing* component (route `/`). Every other authenticated route was auth- and
+role-gated but never checked the flag — so a tenant admin reaching `/tenant`
+directly (post-login nav, refresh, or typed URL) bypassed the mandatory change
+entirely. The fix that *held* moved the check into the shared route guards
+(`ProtectedRoute`, `TenantAdminRoute`), making it impossible to render any
+authenticated screen with the flag set. A follow-on bug: after a successful
+change, a stale cached profile bounced the user back — fixed by invalidating the
+profile query on success.
+
+**Rules:** (a) a security/lifecycle gate belongs at the *single choke point* all
+protected routes pass through, never as a per-route check — locking one door
+leaves the others open. (b) After a state change that a gate reads, invalidate
+the cache the gate consults, or it will re-fire on stale data.
+
+## 12. The deployed runtime identity is weaker than your dev identity — on purpose
+
+User provisioning worked locally but 500'd in the cloud. Cause: local dev
+impersonates `sa-firebase-admin` (broad — can manage Firebase Auth), but the
+deployed Cloud Run service runs as `sa-cloud-run` (narrow — Firestore only, by
+least-privilege design). Creating users calls Firebase Auth admin APIs the
+runtime SA wasn't granted. The fix (grant `firebaseauth.admin`) is a deliberate,
+time-boxed privilege escalation, recorded in the charter to be narrowed when
+provisioning moves to a background job (Phase 7).
+
+**Rule:** least privilege guarantees that a new capability will fail on first
+*deployed* use even when it works in dev. When an operation needs a Google API
+beyond your baseline (Auth, Storage, Pub/Sub), grant it to the *runtime* SA and
+document the grant with a closure plan — don't infer from dev success.
+
+## 13. Stop fixing environment limitations in the wrong environment
+
+Multi-tenant branding was "fixed" three times and kept resurfacing, because the
+real cause is the absence of tenant subdomains on localhost/`.web.app` — which
+only Phase 7 (LB + wildcard domain) provides. The branding *data* was always
+correct; only the *applied theme* on non-subdomain hosts was wrong. The right
+move, reached late, was to stop fixing it in dev and defer verification to the
+environment where it can actually be correct.
+
+**Rule:** distinguish a bug from an environment limitation. If a fix keeps
+half-working and resurfacing, ask whether the environment can even express the
+correct behavior. If not, document the limitation and defer to the environment
+that can — continuing to patch is whack-a-mole.
+
+## 14. Diagnose with one decisive observation before proposing a fix
+
+Phase 5's hardest stretch was a "many issues" pile that felt overwhelming.
+Triaging each symptom with a single decisive observation — the `code` in a 403
+body, a `/users/me` response, a 200-vs-500 on one request, the actual deployed
+image tag — repeatedly collapsed the pile: several "bugs" were stale deployments,
+one was an environment limitation, one was a non-issue the user retracted, and
+only a few were real. Guessing-and-patching would have churned through all of
+them; one observation each sorted signal from noise.
+
+**Rule:** when symptoms cluster, resist the fix-everything prompt. Get one
+decisive datum per symptom first (response body, log line, deployed version).
+The real-bug list is usually a fraction of the apparent one, and the data tells
+you *which* layer to fix instead of guessing.
+
+## 15. Defer UI optimization to a dedicated pass, not piecemeal
+
+The card-per-user list works for ten users and collapses at a thousand. The
+decision was *not* to optimize it mid-build (which would optimize a moving target
+and get rebuilt as new screens land) but to do one coherent UI-scalability pass —
+table layouts, cursor pagination, search, filters, a shared list component —
+once the functional surface is complete.
+
+**Rule:** cross-cutting UI/UX optimization is best done once, against a stable
+functional surface, as a dedicated pass — not retrofitted per-screen during
+feature build. Track the need; schedule the pass.
+
+## Updated top carry-forward rules (Phases 2–5)
+
+1. Mirror cross-layer rules explicitly; a boundary rule lives in several layers.
+2. Deployed != local: verify the runtime SA's permissions and the deployed image
+   version. Automate deploys so committed = deployed (Phase 6 CI/CD).
+3. Walk every entity's full lifecycle and actor matrix at design time; the verbs
+   (delete/retain) and actors (cross-tenant) you skip become mid-flight ADRs.
+4. Validate multi-X with two X's, early — isolation bugs need a second instance.
+5. Make errors loud in dev; diagnose with one decisive observation before fixing.
+6. A security gate is one unbypassable choke point; invalidate caches it reads.
+7. Distinguish bugs from environment limitations; don't patch the wrong env.
+8. Defer cross-cutting UI optimization to a dedicated post-functional pass.
+
+*Appended at Phase 5 close. Continue through Phases 6+.*
