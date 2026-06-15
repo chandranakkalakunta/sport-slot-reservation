@@ -6,6 +6,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added (Phase 6.2.11)
+
+- Phase 6.2.11: keyless Firebase Hosting deploy via REST API + gcloud access token.
+  firebase-tools 15.x cannot consume WIF external_account ADC (confirmed via --debug:
+  "No OAuth tokens found", crash on undefined.access_token). Solution: scripts/
+  deploy_hosting_rest.sh drives the Firebase Hosting REST API directly with
+  `gcloud auth print-access-token` (gcloud authenticates via WIF correctly — proven).
+  No JSON key, no FIREBASE_TOKEN, no firebase-tools in CI. SPA rewrites + Cloud Run
+  rewrites from firebase.json passed in version-create config (deep links preserved).
+  Local make deploy-hosting unchanged (interactive firebase-tools login). ADR-0018
+  updated with the firebase-tools WIF incompatibility finding. ShellCheck clean.
+  Tracker: 6.2.11 ✓.
+
 ### Fixed (Phase 6.2.10)
 
 - Phase 6.2.10: Firebase Hosting CI deploy via pure WIF ADC + GOOGLE_CLOUD_PROJECT.

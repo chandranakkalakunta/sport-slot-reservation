@@ -41,6 +41,18 @@ Terraform as data sources but not managed.
   — the service's image changes every deploy; Terraform managing it
   would create constant drift. Terraform manages the stable infra
   (WIF, IAM); gcloud manages the mutable deploys.
+- **Firebase Hosting is deployed via the REST API** (scripts/deploy_hosting_rest.sh),
+  not firebase-tools. Finding (Phase 6.2.10, confirmed via --debug): firebase-tools
+  15.x cannot consume a WIF external_account ADC credential — its internal token
+  manager found "No OAuth tokens found" and crashed on undefined.access_token even
+  though the same ADC credential worked for cloudresourcemanager testIamPermissions.
+  firebase-tools only understands `firebase login` user tokens or deprecated login:ci
+  refresh tokens. Solution: drive the Firebase Hosting REST API directly with a
+  gcloud-minted access token (`gcloud auth print-access-token`). gcloud authenticates
+  correctly via WIF (proven: build-push + Cloud Run). Fully keyless: no JSON key, no
+  FIREBASE_TOKEN, no firebase-tools. SPA rewrites + Cloud Run rewrites from firebase.json
+  are passed in the version-create config body so deep links don't 404. Local
+  `make deploy-hosting` still uses firebase-tools (interactive login works locally).
 
 ## Consequences
 - Test/prod CI setup = terraform apply with new tfvars + the same

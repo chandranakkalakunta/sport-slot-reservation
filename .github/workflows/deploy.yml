@@ -70,9 +70,6 @@ jobs:
         with:
           package_json_file: frontend/package.json
 
-      - name: Install firebase-tools
-        run: npm install -g firebase-tools
-
       - name: Install frontend deps
         working-directory: frontend
         run: pnpm install --frozen-lockfile
@@ -84,12 +81,10 @@ jobs:
           make build-push
           make deploy-dev
 
-      - name: Deploy Firebase Hosting (keyless WIF ADC)
-        env:
-          CI: "true"
-          # GOOGLE_APPLICATION_CREDENTIALS is already in the runner env from
-          # auth@v3. GOOGLE_CLOUD_PROJECT lets firebase-tools resolve the
-          # project from the external_account ADC (which embeds no project,
-          # unlike a JSON service-account key).
-          GOOGLE_CLOUD_PROJECT: sport-slot-dev
-        run: make deploy-hosting
+      # firebase-tools 15.x cannot consume WIF external_account ADC (confirmed
+      # via --debug in 6.2.10). Deploy via REST API with a gcloud-minted token.
+      # gcloud authenticates via WIF correctly (proven: build-push + Cloud Run).
+      - name: Deploy Firebase Hosting (REST API, keyless WIF)
+        run: |
+          (cd frontend && pnpm build)
+          ./scripts/deploy_hosting_rest.sh
