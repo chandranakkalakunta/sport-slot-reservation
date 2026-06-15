@@ -81,6 +81,17 @@ resource "google_service_account_iam_member" "ci_token_creator_firebase" {
   member             = local.github_principal_set
 }
 
+# The Firebase Hosting REST deploy runs as sa-firebase-admin (its
+# impersonated token) and sends X-Goog-User-Project=sport-slot-dev,
+# so the SA itself needs serviceusage.services.use on the project.
+# (The principalSet has this from 6.1.1, but the impersonated SA is
+# the effective caller for the Hosting REST API.)
+resource "google_project_iam_member" "firebase_admin_service_usage_consumer" {
+  project = var.project_id
+  role    = "roles/serviceusage.serviceUsageConsumer"
+  member  = "serviceAccount:${data.google_service_account.firebase_admin.email}"
+}
+
 # CI must deploy a Cloud Run service that RUNS AS the runtime SA
 # (sa-cloud-run). Without this, `gcloud run deploy --service-account`
 # is rejected. Least privilege preserved: CI deploys; sa-cloud-run

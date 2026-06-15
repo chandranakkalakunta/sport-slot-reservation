@@ -6,6 +6,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added (Phase 6.1.3)
+
+- Phase 6.1.3: grant serviceUsageConsumer to sa-firebase-admin (the impersonated
+  caller for the Hosting REST deploy with X-Goog-User-Project). The principalSet
+  already had this role from 6.1.1, but when auth@v3 mints a token via SA
+  impersonation, the Firebase Hosting REST API enforces serviceusage.services.use
+  against the impersonated SA — not the WIF principalSet. Root cause: X-Goog-User-
+  Project triggers quota+billing checks on the SA's own IAM, not the WIF credential.
+  Added google_project_iam_member.firebase_admin_service_usage_consumer in wif_iam.tf.
+  terraform fmt OK · validate OK. Tracker: 6.1.3 ✓ (pending Coordinator apply).
+
 ### Fixed (Phase 6.2.15)
 
 - Phase 6.2.15: translate firebase.json CLI syntax → Firebase Hosting REST API

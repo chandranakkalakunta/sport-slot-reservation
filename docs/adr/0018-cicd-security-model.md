@@ -59,6 +59,14 @@ Terraform as data sources but not managed.
   `google-github-actions/auth@v3` step with `token_format: access_token` mints a
   scoped token before the Hosting deploy. The main WIF auth step (used by gcloud for
   build/run) remains direct (no SA). Fully keyless: no JSON key stored anywhere.
+- **Impersonation shifts IAM requirements from principalSet to the SA** (Phase 6.1.3):
+  when the REST deploy sends `X-Goog-User-Project: sport-slot-dev`, the API enforces
+  `serviceusage.services.use` against the *impersonated SA's* own IAM — not the WIF
+  principalSet. The principalSet already had `serviceUsageConsumer` (6.1.1), but
+  `sa-firebase-admin` did not. Added `google_project_iam_member.firebase_admin_service_usage_consumer`
+  (`roles/serviceusage.serviceUsageConsumer` on the SA email). General rule: any role
+  required for REST calls made with the SA-impersonated token must be granted to the SA,
+  not just the principalSet.
 
 ## Consequences
 - Test/prod CI setup = terraform apply with new tfvars + the same
