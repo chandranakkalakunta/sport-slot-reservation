@@ -6,6 +6,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Fixed (Phase 6.2.15)
+
+- Phase 6.2.15: translate firebase.json CLI syntax → Firebase Hosting REST API
+  schema in deploy_hosting_rest.sh. firebase.json uses `source`/`destination`
+  fields (CLI format) but the REST API Version.config requires `glob`/`path`.
+  Sending the raw CLI fields caused 400 INVALID_ARGUMENT on version-create.
+  Replaced the raw CONFIG_JSON builder with a translate() python function that
+  maps source→glob, destination→path, regex→regex (passthrough), run→run
+  (passthrough), and handles redirects (destination→location, type→statusCode)
+  and headers (source→glob) for completeness. Verified against real firebase.json:
+  output has glob/path, no source/destination keys. ShellCheck clean.
+  Expected REST config: 3 Cloud Run rewrites (glob+run) + 1 SPA catch-all
+  (glob:**→path:/index.html). Tracker: 6.2.15 ✓.
+
 ### Added (Phase 6.2.14)
 
 - Phase 6.2.14: mint Firebase Hosting REST access token via sa-firebase-admin

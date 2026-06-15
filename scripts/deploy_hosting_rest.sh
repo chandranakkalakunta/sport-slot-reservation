@@ -70,22 +70,49 @@ done < <(find "$PUBLIC_DIR" -type f -print0)
 printf '}' >> "$manifest"
 echo "Prepared $(wc -l < "$maplist" | tr -d ' ') files."
 
-# ---- CONFIG: read hosting rewrites/headers from firebase.json (SPA!) ----
-# Passes the config object (rewrites etc.) to the version-create call so
-# the SPA catch-all rewrite {"source":"**","destination":"/index.html"} and
-# Cloud Run rewrites are active — without this, deep links return 404.
+# ---- CONFIG: translate firebase.json (CLI syntax) → REST API Version.config ----
+# firebase.json uses CLI fields (source/destination); REST API requires glob/path.
+# Without this translation the version-create returns 400 INVALID_ARGUMENT.
+# Result: SPA catch-all {"glob":"**","path":"/index.html"} + Cloud Run rewrites.
 CONFIG_JSON="$(python3 - <<'PY'
-import json, sys
+import json
+def translate(h):
+    cfg={}
+    rw=[]
+    for r in h.get("rewrites",[]):
+        item={}
+        if "source" in r: item["glob"]=r["source"]
+        elif "regex" in r: item["regex"]=r["regex"]
+        if "destination" in r: item["path"]=r["destination"]
+        elif "function" in r: item["function"]=r["function"]
+        elif "run" in r: item["run"]=r["run"]
+        rw.append(item)
+    if rw: cfg["rewrites"]=rw
+    rd=[]
+    for r in h.get("redirects",[]):
+        item={}
+        if "source" in r: item["glob"]=r["source"]
+        elif "regex" in r: item["regex"]=r["regex"]
+        if "destination" in r: item["location"]=r["destination"]
+        if "type" in r: item["statusCode"]=r["type"]
+        rd.append(item)
+    if rd: cfg["redirects"]=rd
+    hd=[]
+    for r in h.get("headers",[]):
+        item={}
+        if "source" in r: item["glob"]=r["source"]
+        elif "regex" in r: item["regex"]=r["regex"]
+        item["headers"]=r.get("headers",[])
+        hd.append(item)
+    if hd: cfg["headers"]=hd
+    for k in ("cleanUrls","trailingSlash","appAssociation","i18n"):
+        if k in h: cfg[k]=h[k]
+    return cfg
 try:
-    fb = json.load(open("firebase.json"))
-    h = fb.get("hosting", {})
-    if isinstance(h, list):
-        h = h[0]
-    cfg = {}
-    for k in ("rewrites", "redirects", "headers", "cleanUrls", "trailingSlash", "appAssociation", "i18n"):
-        if k in h:
-            cfg[k] = h[k]
-    print(json.dumps({"config": cfg}))
+    fb=json.load(open("firebase.json"))
+    h=fb.get("hosting",{})
+    if isinstance(h,list): h=h[0]
+    print(json.dumps({"config":translate(h)}))
 except Exception:
     print('{"config":{}}')
 PY
