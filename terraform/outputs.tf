@@ -46,15 +46,15 @@ output "service_account_monitoring_email" {
   value       = data.google_service_account.monitoring.email
 }
 
-# Workload Identity Federation
+# Workload Identity Federation (managed resources since Phase 6.1)
 output "workload_identity_pool_name" {
   description = "Full resource name of the WIF pool"
-  value       = data.google_iam_workload_identity_pool.github_actions.name
+  value       = google_iam_workload_identity_pool.github_actions.name
 }
 
 output "workload_identity_provider_name" {
   description = "Full resource name of the WIF provider"
-  value       = data.google_iam_workload_identity_pool_provider.github_actions.name
+  value       = google_iam_workload_identity_pool_provider.github_actions.name
 }
 
 # Firestore (no data source available in provider v6 — using locals)

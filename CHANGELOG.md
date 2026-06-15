@@ -6,6 +6,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added (Phase 6.1)
+
+- Phase 6.1: WIF pool + provider activated as managed Terraform resources (imported from
+  Phase-1 gcloud-created resources via IMPORT_6.1.md); data sources in wif.tf replaced by
+  resource blocks; outputs.tf updated to reference resource addresses. Direct-WIF IAM bindings
+  for CI deploy in wif_iam.tf: run.admin, artifactregistry.writer, cloudbuild.builds.editor,
+  firebasehosting.admin + serviceAccountUser on sa-cloud-run (CI deploys as runtime SA) +
+  serviceAccountUser on sa-cloud-build (flagged for Coordinator confirmation). ADR-0018 CI/CD
+  security model: keyless direct WIF, repo+main-only attribute condition enforced at identity
+  layer, Cloud Run deployed via gcloud (not Terraform) to avoid image-tag drift.
+  Terraform fmt ✓ · validate ✓. Pending: Coordinator import + apply. Tracker: 6.1 ✓ (pending
+  Coordinator import+apply).
+
 ### Added (Phase 5.6)
 
 - Phase 5.6: Phase 5 retrospective (docs/retrospectives/phase-5.md — issue log, deferrals,
