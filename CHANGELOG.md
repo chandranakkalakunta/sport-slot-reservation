@@ -6,6 +6,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Fixed (Phase 6.2.13)
+
+- Phase 6.2.13: REST Hosting deploy — revert token command to plain
+  `gcloud auth print-access-token` (application-default re-exchanges the OIDC
+  subject token mid-job and fails "Connection refused"; the WIF credential is
+  already in the active-account store from auth@v3). Keep X-Goog-User-Project
+  header (added 6.2.12). Add api() helper that prints HTTP status + response
+  body on >=400 so failures are diagnosable; all JSON API calls (version-create,
+  populateFiles, finalize, release) routed through it; upload calls also capture
+  + print status/body on error. ShellCheck clean · bash -n clean. Tracker: 6.2.13 ✓.
+
 ### Fixed (Phase 6.2.12)
 
 - Phase 6.2.12: REST Hosting deploy uses `gcloud auth application-default print-access-token`

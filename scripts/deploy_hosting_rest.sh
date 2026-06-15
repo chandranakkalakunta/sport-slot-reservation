@@ -15,13 +15,33 @@ PUBLIC_DIR="${PUBLIC_DIR:-frontend/dist}"
 API="https://firebasehosting.googleapis.com/v1beta1"
 UPLOAD_API="https://upload-firebasehosting.googleapis.com/upload"
 
-# Mint the token FROM the ADC (the WIF external_account credential).
-# Plain `gcloud auth print-access-token` reads the active-account
-# store (empty in CI); the WIF cred lives in ADC.
-TOKEN="$(gcloud auth application-default print-access-token)"
-[[ -n "$TOKEN" ]] || { echo "ERROR: no gcloud ADC access token (GOOGLE_APPLICATION_CREDENTIALS set?)" >&2; exit 1; }
+# Plain `gcloud auth print-access-token` reads the WIF credential that
+# auth@v3 configured in the active-account store. DO NOT use
+# `application-default` — that re-exchanges the OIDC subject token,
+# which is already consumed by auth@v3 and can't be re-minted mid-job.
+# X-Goog-User-Project is required for ADC-style tokens: they carry no
+# implicit project context (unlike JSON service-account keys).
+TOKEN="$(gcloud auth print-access-token)"
+[[ -n "$TOKEN" ]] || { echo "ERROR: no gcloud access token (WIF auth@v3 ran?)" >&2; exit 1; }
 echo "Access token acquired (len ${#TOKEN})."
 AUTH=( -H "Authorization: Bearer ${TOKEN}" -H "X-Goog-User-Project: ${PROJECT}" )
+
+# Wrapper: prints HTTP status + response body on >=400 so failures are
+# diagnosable rather than a terse curl exit code.
+api() {
+  local method="$1" url="$2"; shift 2
+  local body http
+  body="$(curl -sS -w $'\n%{http_code}' "${AUTH[@]}" -X "$method" "$url" "$@")" || {
+    echo "ERROR: curl transport failure: $method $url" >&2; return 1; }
+  http="$(printf '%s' "$body" | tail -n1)"
+  body="$(printf '%s' "$body" | sed '$d')"
+  if [[ "$http" -ge 400 ]]; then
+    echo "ERROR: $method $url -> HTTP $http" >&2
+    echo "$body" >&2
+    return 1
+  fi
+  printf '%s' "$body"
+}
 
 echo "Deploying ${PUBLIC_DIR} -> Hosting site '${SITE}' (project ${PROJECT})"
 [[ -d "$PUBLIC_DIR" ]] || { echo "ERROR: '$PUBLIC_DIR' not found (frontend built?)" >&2; exit 1; }
@@ -69,14 +89,14 @@ except Exception:
 PY
 )"
 
-ver_resp="$(curl -fsS "${AUTH[@]}" -H "Content-Type: application/json" \
-  -X POST "${API}/sites/${SITE}/versions" -d "${CONFIG_JSON}")"
-VERSION="$(echo "$ver_resp" | python3 -c 'import sys,json;print(json.load(sys.stdin)["name"])')"
+ver_resp="$(api POST "${API}/sites/${SITE}/versions" \
+  -H "Content-Type: application/json" -d "${CONFIG_JSON}")"
+VERSION="$(printf '%s' "$ver_resp" | python3 -c 'import sys,json;print(json.load(sys.stdin)["name"])')"
 echo "Created version: $VERSION"
 
-pop_resp="$(curl -fsS "${AUTH[@]}" -H "Content-Type: application/json" \
-  -X POST "${API}/${VERSION}:populateFiles" -d "{\"files\": $(cat "$manifest")}")"
-echo "$pop_resp" | python3 -c \
+pop_resp="$(api POST "${API}/${VERSION}:populateFiles" \
+  -H "Content-Type: application/json" -d "{\"files\": $(cat "$manifest")}")"
+printf '%s' "$pop_resp" | python3 -c \
   'import sys,json;[print(h) for h in (json.load(sys.stdin).get("uploadRequiredHashes") or [])]' \
   > "$work/required.txt" || true
 echo "Hosting requests $(wc -l < "$work/required.txt" | tr -d ' ') uploads."
@@ -86,15 +106,23 @@ while IFS= read -r need; do
   [[ -z "$need" ]] && continue
   gz="$(awk -v h="$need" '$1==h{print $2; exit}' "$maplist")"
   [[ -n "$gz" ]] || { echo "WARN: no file for hash $need" >&2; continue; }
-  curl -fsS "${AUTH[@]}" -H "Content-Type: application/octet-stream" \
-    -X POST "${uploadUrl}/${need}" --data-binary "@${gz}" >/dev/null
+  up_body="$(curl -sS -w $'\n%{http_code}' "${AUTH[@]}" \
+    -H "Content-Type: application/octet-stream" \
+    -X POST "${uploadUrl}/${need}" --data-binary "@${gz}")" || {
+    echo "ERROR: curl transport failure uploading $need" >&2; exit 1; }
+  up_http="$(printf '%s' "$up_body" | tail -n1)"
+  if [[ "$up_http" -ge 400 ]]; then
+    echo "ERROR: upload $need -> HTTP $up_http" >&2
+    printf '%s' "$up_body" | sed '$d' >&2
+    exit 1
+  fi
   echo "  uploaded $need"
 done < "$work/required.txt"
 
-curl -fsS "${AUTH[@]}" -H "Content-Type: application/json" \
-  -X PATCH "${API}/${VERSION}?update_mask=status" -d '{"status":"FINALIZED"}' >/dev/null
+api PATCH "${API}/${VERSION}?update_mask=status" \
+  -H "Content-Type: application/json" -d '{"status":"FINALIZED"}' >/dev/null
 echo "Finalized."
 
-curl -fsS "${AUTH[@]}" -H "Content-Type: application/json" \
-  -X POST "${API}/sites/${SITE}/releases?versionName=${VERSION}" -d '{}' >/dev/null
+api POST "${API}/sites/${SITE}/releases?versionName=${VERSION}" \
+  -H "Content-Type: application/json" -d '{}' >/dev/null
 echo "Released to live: https://${SITE}.web.app"
