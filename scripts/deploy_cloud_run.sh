@@ -17,14 +17,16 @@ if [[ -z "$TAG" ]]; then
 fi
 IMAGE="${IMAGE_BASE}:${TAG}"
 
-REDIS_HOST=$(gcloud redis instances describe sport-slot-redis \
-  --region="$REGION" --project="$PROJECT" --format="value(host)" \
-  2>/dev/null || true)
-REDIS_PORT=$(gcloud redis instances describe sport-slot-redis \
-  --region="$REGION" --project="$PROJECT" --format="value(port)" \
-  2>/dev/null || true)
+REDIS_INFO=$(gcloud redis instances describe sport-slot-redis \
+  --region="$REGION" --project="$PROJECT" --format="value(host,port)") || {
+  echo "ERROR: could not describe Redis instance sport-slot-redis in $REGION." >&2
+  echo "  (Check the instance exists AND the caller has roles/redis.viewer.)" >&2
+  exit 1
+}
+REDIS_HOST=$(echo "$REDIS_INFO" | cut -f1)
+REDIS_PORT=$(echo "$REDIS_INFO" | cut -f2)
 if [[ -z "$REDIS_HOST" ]]; then
-  echo "ERROR: Redis instance not found — run setup_redis_infra.sh first" >&2
+  echo "ERROR: Redis instance returned empty host — run setup_redis_infra.sh first" >&2
   exit 1
 fi
 

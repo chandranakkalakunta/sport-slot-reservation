@@ -6,6 +6,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Fixed (Phase 6.1.2)
+
+- Phase 6.1.2: add roles/redis.viewer to CI WIF principal (deploy reads Redis host/port
+  to wire SPORTSLOT_REDIS_* env vars on Cloud Run). deploy_cloud_run.sh no longer silences
+  the Redis describe error (2>/dev/null || true removed): a permission denial was being
+  masked as "not found". Now runs a single describe with value(host,port), fails loudly
+  with actionable message if the call fails, and derives both values from one gcloud call.
+  ShellCheck clean. terraform fmt OK · validate OK. Tracker: 6.1.2 ✓ (pending Coordinator
+  tf-plan + tf-apply-dev).
+
 ### Added (Phase 6.1.1)
 
 - Phase 6.1.1: add CI IAM — serviceusage.serviceUsageConsumer + storage.admin (project)

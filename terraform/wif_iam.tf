@@ -64,6 +64,14 @@ resource "google_project_iam_member" "ci_storage_admin" {
   member  = local.github_principal_set
 }
 
+# CI describes the Memorystore Redis instance at deploy time
+# (deploy_cloud_run.sh reads its host/port to wire SPORTSLOT_REDIS_*).
+resource "google_project_iam_member" "ci_redis_viewer" {
+  project = var.project_id
+  role    = "roles/redis.viewer"
+  member  = local.github_principal_set
+}
+
 # CI must deploy a Cloud Run service that RUNS AS the runtime SA
 # (sa-cloud-run). Without this, `gcloud run deploy --service-account`
 # is rejected. Least privilege preserved: CI deploys; sa-cloud-run
