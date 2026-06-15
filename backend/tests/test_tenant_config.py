@@ -375,7 +375,6 @@ async def test_tenant_admin_reset_password_returns_temp_password(make_client):
 
 async def test_tenant_admin_reset_password_sets_must_change(make_client):
     """Firestore ref.update must be called with must_change_password=True."""
-    from unittest.mock import call
     with patch(VERIFY, return_value=ADMIN), patch(UPDATE_FB):
         async with make_client() as c:
             client = _prov_client(profile_exists=True)
