@@ -6,6 +6,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Fixed (Phase 6.2.7)
+
+- Phase 6.2.7: fix firebase Hosting deploy in CI — added --non-interactive so
+  firebase-tools doesn't hang or emit "An unexpected error has occurred" when stdin
+  is not a TTY (the root cause of the vague CI failure). --project already present;
+  parametrised to ${FIREBASE_PROJECT:-sport-slot-dev} for flexibility. Added
+  firebase --version echo as a debug aid before each deploy. ShellCheck clean.
+  Tracker: 6.2.7 ✓.
+
 ### Fixed (Phase 6.1.2)
 
 - Phase 6.1.2: add roles/redis.viewer to CI WIF principal (deploy reads Redis host/port
