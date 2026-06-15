@@ -6,6 +6,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Fixed (Phase 6.2.8)
+
+- Phase 6.2.8: firebase Hosting deploy uses a gcloud-minted access token in CI —
+  firebase-tools 15.x does not reliably consume the WIF external-account ADC
+  (gha-creds JSON) that auth@v3 sets. gcloud authenticates correctly via WIF;
+  `gcloud auth print-access-token` mints a short-lived token exported as FIREBASE_TOKEN
+  for firebase-tools to consume. Keyless: no JSON service-account key, no deprecated
+  login:ci token. Local deploys unchanged (interactive firebase login path). On failure
+  a --debug rerun hint is printed. ShellCheck clean. Tracker: 6.2.8 ✓.
+
 ### Fixed (Phase 6.2.7)
 
 - Phase 6.2.7: fix firebase Hosting deploy in CI — added --non-interactive so

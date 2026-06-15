@@ -17,10 +17,21 @@ if [ -z "${CI:-}" ]; then
   [[ "$CONFIRM" == "DEPLOY" ]] || { echo "Aborted."; exit 1; }
 fi
 
-# --non-interactive: required in CI (no TTY); firebase-tools will hang or
-# emit "unexpected error" without it when stdin is not a terminal.
-# --project: explicit to avoid ADC project inference failures in CI.
-firebase deploy --only hosting --project "${PROJECT}" --non-interactive
+if [ -n "${CI:-}" ]; then
+  # firebase-tools 15.x does not reliably consume the WIF external-account
+  # ADC (gha-creds JSON). gcloud DOES authenticate correctly via WIF —
+  # mint a short-lived access token and hand it to firebase-tools.
+  # Keyless: no JSON service-account key, no deprecated login:ci token.
+  FIREBASE_TOKEN="$(gcloud auth print-access-token)"
+  export FIREBASE_TOKEN
+  firebase deploy --only hosting --project "${PROJECT}" --non-interactive || {
+    echo "ERROR: firebase deploy failed. Re-run locally with --debug for details:" >&2
+    echo "  FIREBASE_TOKEN=\$(gcloud auth print-access-token) firebase deploy --only hosting --project ${PROJECT} --non-interactive --debug" >&2
+    exit 1
+  }
+else
+  firebase deploy --only hosting --project "${PROJECT}"
+fi
 
 echo "Deployed. Live at https://${PROJECT}.web.app"
 echo "API reachable same-origin via /api/** rewrite to Cloud Run."
