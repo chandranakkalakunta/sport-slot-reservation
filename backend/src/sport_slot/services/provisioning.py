@@ -3,12 +3,17 @@ import datetime
 import secrets
 
 import firebase_admin.auth as fb_auth
+import structlog
 
 from sport_slot.api import error_codes
 from sport_slot.api.errors import ApiError
 from sport_slot.auth.context import TenantContext
+from sport_slot.config import get_settings
+from sport_slot.notifications.tasks import enqueue_notification
 from sport_slot.repositories.bookings import AuditRepository
 from sport_slot.repositories.user_profiles import UserProfileRepository
+
+log = structlog.get_logger()
 
 _VALID_ROLES = {"resident", "tenant_admin"}
 
@@ -106,6 +111,30 @@ class UserProvisioningService:
         except Exception:
             fb_auth.delete_user(user.uid)
             raise ApiError(500, error_codes.INTERNAL_ERROR, "User creation failed") from None
+
+        # Best-effort (ADR-0019): the user is already created above, so a
+        # notification failure here must never roll back provisioning.
+        try:
+            tenant_doc = tenant_snap.to_dict() if tenant_snap.exists else None
+            tenant_name = (tenant_doc or {}).get("display_name", "")
+            base_domain = get_settings().base_domain
+            login_url = (
+                f"https://{tenant_slug}.{base_domain}/login"
+                if tenant_slug else f"https://{base_domain}/login"
+            )
+            enqueue_notification(
+                event_type="user_welcome",
+                to=email,
+                params={
+                    "user_name": display_name,
+                    "tenant_name": tenant_name,
+                    "login_url": login_url,
+                    "temp_password": temp_password,
+                },
+            )
+        except Exception as exc:  # noqa: BLE001 - best-effort; user already created
+            log.warning("notification_enqueue_failed", event_type="user_welcome",
+                        uid=user.uid, error=str(exc))
 
         return {"uid": user.uid, "temp_password": temp_password}
 

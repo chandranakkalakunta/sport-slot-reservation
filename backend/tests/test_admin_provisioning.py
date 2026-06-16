@@ -21,6 +21,7 @@ CLAIMS_FB = "sport_slot.services.provisioning.fb_auth.set_custom_user_claims"
 DELETE_FB = "sport_slot.services.provisioning.fb_auth.delete_user"
 UPDATE_FB = "sport_slot.services.provisioning.fb_auth.update_user"
 PW_FB = "sport_slot.api.v1.users.fb_auth.update_user"
+ENQUEUE_PROV = "sport_slot.services.provisioning.enqueue_notification"
 
 
 def _mock_client(
@@ -36,7 +37,9 @@ def _mock_client(
     # Tenant doc: collection("tenants").document(id).get()
     tenant_snap = MagicMock()
     tenant_snap.exists = tenant_exists
-    tenant_snap.to_dict.return_value = {"slug": tenant_slug} if tenant_exists else {}
+    tenant_snap.to_dict.return_value = (
+        {"slug": tenant_slug, "display_name": "Demo Society"} if tenant_exists else {}
+    )
     client.collection.return_value.document.return_value.get.return_value = tenant_snap
 
     # User profile: collection().document().collection().document().get()
@@ -204,6 +207,70 @@ async def test_create_user_profile_failure_triggers_rollback(make_client):
             )
     assert resp.status_code == 500
     mock_delete.assert_called_once_with("new-uid-rollback")
+
+
+async def test_create_user_enqueues_welcome_notification(make_client):
+    fake_user = MagicMock()
+    fake_user.uid = "new-uid-2"
+    with patch(VERIFY, return_value=ADMIN_CLAIMS), \
+         patch(CREATE_FB, return_value=fake_user), \
+         patch(CLAIMS_FB), \
+         patch(DELETE_FB), \
+         patch(ENQUEUE_PROV) as enqueue:
+        async with make_client() as client:
+            client._transport.app.dependency_overrides[get_firestore_client] = lambda: _mock_client()
+            resp = await client.post(
+                "/api/v1/admin/tenants/t-1/users",
+                json={
+                    "email": "bob@demo.com",
+                    "display_name": "Bob",
+                    "flat_number": "C-303",
+                    "role": "resident",
+                },
+                headers={**AUTH, **ADMIN_HOST},
+            )
+    assert resp.status_code == 201
+    body = resp.json()
+    enqueue.assert_called_once()
+    kwargs = enqueue.call_args.kwargs
+    assert kwargs["event_type"] == "user_welcome"
+    assert kwargs["to"] == "bob@demo.com"
+    assert kwargs["params"] == {
+        "user_name": "Bob",
+        "tenant_name": "Demo Society",
+        "login_url": "https://demo.sportbook.chandraailabs.com/login",
+        "temp_password": body["temp_password"],
+    }
+    # Proves the params are accepted by the real renderer (no 422 at the worker).
+    from sport_slot.notifications.email.templates import render_user_welcome
+    rendered = render_user_welcome(**kwargs["params"])
+    assert "Bob" in rendered.html
+
+
+async def test_create_user_succeeds_even_if_enqueue_fails(make_client):
+    """Best-effort proof: enqueue failure must never roll back provisioning."""
+    fake_user = MagicMock()
+    fake_user.uid = "new-uid-3"
+    with patch(VERIFY, return_value=ADMIN_CLAIMS), \
+         patch(CREATE_FB, return_value=fake_user), \
+         patch(CLAIMS_FB), \
+         patch(DELETE_FB) as mock_delete, \
+         patch(ENQUEUE_PROV, side_effect=Exception("Cloud Tasks unavailable")):
+        async with make_client() as client:
+            client._transport.app.dependency_overrides[get_firestore_client] = lambda: _mock_client()
+            resp = await client.post(
+                "/api/v1/admin/tenants/t-1/users",
+                json={
+                    "email": "carl@demo.com",
+                    "display_name": "Carl",
+                    "flat_number": "D-404",
+                    "role": "resident",
+                },
+                headers={**AUTH, **ADMIN_HOST},
+            )
+    assert resp.status_code == 201
+    assert resp.json()["uid"] == "new-uid-3"
+    mock_delete.assert_not_called()
 
 
 # ── deactivate_user ──────────────────────────────────────────────────────────
