@@ -6,6 +6,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Fixed (Add User field order)
+
+- UX: reorder Add User form so Role precedes the (resident-only) Flat
+  number field.
+
 ### Fixed (flat-number resident-only)
 
 - Fix: flat_number is resident-only. API model made flat_number optional
