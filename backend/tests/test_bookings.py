@@ -1,6 +1,7 @@
 from unittest.mock import MagicMock, patch
 
 from sport_slot.dependencies import get_firestore_client, get_lock_service
+from sport_slot.notifications.email.templates import render_booking_confirmed
 from sport_slot.repositories.bookings import (
     AlreadyBookedError,
     QuotaExceededError,
@@ -13,9 +14,11 @@ HOST = {"host": "demo.sportbook.chandraailabs.com"}
 VERIFY = "sport_slot.auth.dependency.fb_auth.verify_id_token"
 BOOKED = "sport_slot.api.v1.bookings.BookingRepository.booked_starts"
 CREATE = "sport_slot.api.v1.bookings.create_booking_with_quota"
+ENQUEUE = "sport_slot.api.v1.bookings.enqueue_notification"
 
 FACILITY = {"id": "f1", "active": True, "slot_duration_minutes": 60,
-            "open_time": "06:00", "close_time": "22:00"}
+            "open_time": "06:00", "close_time": "22:00",
+            "name": "Court 1", "sport": "Tennis"}
 # Wide-horizon policy so a far-future date is cleanly bookable in tests
 TENANT = {"policies": {"booking_horizon_days": 3650},
           "timezone": "Asia/Kolkata"}
@@ -41,15 +44,24 @@ class FakeLock:
         self.released = True
 
 
-def _client(facility=FACILITY, tenant=TENANT):
+def _client(facility=FACILITY, tenant=TENANT, profile=None):
     client = MagicMock()
-    fac = (client.collection.return_value.document.return_value
-           .collection.return_value.document.return_value
-           .get.return_value)
-    fac.exists = facility is not None
-    fac.to_dict.return_value = facility
-    ten = (client.collection.return_value.document.return_value
-           .get.return_value)
+    tenant_doc = client.collection.return_value.document.return_value
+
+    def _sub_collection(name):
+        col = MagicMock()
+        snap = col.document.return_value.get.return_value
+        if name == "facilities":
+            snap.exists = facility is not None
+            snap.to_dict.return_value = facility
+        elif name == "users":
+            snap.exists = profile is not None
+            snap.to_dict.return_value = profile
+        return col
+
+    tenant_doc.collection.side_effect = _sub_collection
+
+    ten = tenant_doc.get.return_value
     ten.exists = True
     ten.to_dict.return_value = tenant
     return client
@@ -167,6 +179,69 @@ async def test_audit_written_on_create(make_client):
     assert resp.status_code == 201
     assert audit.call_args.args[0] == "booking.created"
     assert audit.call_args.args[1] == "u1"
+
+
+async def test_booking_confirmed_enqueues_notification(make_client):
+    lock = FakeLock()
+    profile = {"email": "jane@example.com", "display_name": "Jane Doe"}
+    tenant = {**TENANT, "display_name": "Demo Society"}
+    with patch(VERIFY, return_value=RESIDENT), \
+         patch(BOOKED, return_value=set()), \
+         patch(CREATE), \
+         patch(ENQUEUE) as enqueue:
+        async with make_client() as client:
+            _wire(_client(tenant=tenant, profile=profile), client, lock)
+            resp = await client.post("/api/v1/bookings", json=BODY,
+                                     headers={**AUTH, **HOST})
+    assert resp.status_code == 201
+    enqueue.assert_called_once()
+    kwargs = enqueue.call_args.kwargs
+    assert kwargs["event_type"] == "booking_confirmed"
+    assert kwargs["to"] == "jane@example.com"
+    assert kwargs["params"] == {
+        "user_name": "Jane Doe",
+        "tenant_name": "Demo Society",
+        "facility": "Court 1",
+        "sport": "Tennis",
+        "date": "2027-01-15",
+        "start_time": "18:00",
+        "end_time": "19:00",
+        "booking_id": "f1_2027-01-15_18:00",
+    }
+    # Proves the params are accepted by the real renderer (no 422 at the worker).
+    rendered = render_booking_confirmed(**kwargs["params"])
+    assert "Court 1" in rendered.html
+
+
+async def test_booking_succeeds_even_if_enqueue_fails(make_client):
+    """Best-effort proof: enqueue failure must never block a confirmed booking."""
+    lock = FakeLock()
+    profile = {"email": "jane@example.com", "display_name": "Jane Doe"}
+    with patch(VERIFY, return_value=RESIDENT), \
+         patch(BOOKED, return_value=set()), \
+         patch(CREATE), \
+         patch(ENQUEUE, side_effect=Exception("Cloud Tasks unavailable")):
+        async with make_client() as client:
+            _wire(_client(profile=profile), client, lock)
+            resp = await client.post("/api/v1/bookings", json=BODY,
+                                     headers={**AUTH, **HOST})
+    assert resp.status_code == 201
+    assert resp.json()["status"] == "confirmed"
+
+
+async def test_booking_confirmed_skips_enqueue_when_no_profile_email(make_client):
+    """No profile/email resolvable → enqueue is skipped, not crashed."""
+    lock = FakeLock()
+    with patch(VERIFY, return_value=RESIDENT), \
+         patch(BOOKED, return_value=set()), \
+         patch(CREATE), \
+         patch(ENQUEUE) as enqueue:
+        async with make_client() as client:
+            _wire(_client(profile=None), client, lock)
+            resp = await client.post("/api/v1/bookings", json=BODY,
+                                     headers={**AUTH, **HOST})
+    assert resp.status_code == 201
+    enqueue.assert_not_called()
 
 
 def test_cancelled_document_is_superseded():

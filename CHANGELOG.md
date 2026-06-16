@@ -6,6 +6,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added (Phase 7.1.3)
+
+- Phase 7.1.3: wire booking-confirmed and user-welcome notification enqueues
+  at their event sites; best-effort (never blocks the user action); hermetic
+  tests incl. enqueue-failure isolation. `api/v1/bookings.py::create_booking`
+  calls `enqueue_notification(event_type="booking_confirmed", ...)` after the
+  booking is durably written (after `create_booking_with_quota` + the audit
+  write, before `return doc`), resolving the booking user's email/display name
+  via `UserProfileRepository(ctx, client).get(ctx.uid)` (the same pattern as
+  `/users/me`) and the tenant's `display_name` via a direct tenant-doc fetch.
+  `services/provisioning.py::UserProvisioningService.create_user` calls
+  `enqueue_notification(event_type="user_welcome", ...)` after the existing
+  create/profile/audit try-except block succeeds (deliberately outside that
+  block, so an enqueue failure can never trigger the `fb_auth.delete_user`
+  rollback path) — `login_url` is built from `Settings.base_domain` +
+  `tenant_slug`; `temp_password` is included since it's already surfaced
+  in-app via `CredentialDisplay`, the profile is created with
+  `must_change_password=True` bounding its exposure window, and it's never
+  logged anywhere in the enqueue/worker path. Both call sites wrap enqueue in
+  a `try/except Exception` that logs a `structlog` warning and never
+  re-raises — Cloud Tasks delivery failures are covered by the queue's own
+  retry policy (7.1.2); this guard is only for enqueue-time failures, and the
+  booking/provisioning write has already succeeded by the time it runs.
+  Testability follows the codebase's existing convention for plain-function
+  collaborators (matching `fb_auth.create_user`/`create_booking_with_quota`):
+  `enqueue_notification` is imported directly and patched by module path in
+  tests, rather than introducing a new dependency-injection wrapper. 5 new
+  tests: booking-confirmed enqueue with correct `to`/params (params also fed
+  through the real `render_booking_confirmed` to prove worker-side
+  acceptance), booking succeeds when the enqueuer raises, enqueue skipped
+  (not crashed) when no profile/email is resolvable, user-welcome enqueue
+  with correct `to`/params (params fed through `render_user_welcome`), and
+  provisioning succeeds when the enqueuer raises (rollback NOT triggered).
+  ruff clean · bandit clean · 157 passed · coverage 92.94% (gate 90%). No
+  infra/Terraform change — pure application wiring. Tracker: 7.1.3 ✓.
+
 ### Added (Phase 7.1.2)
 
 - Phase 7.1.2: Cloud Tasks notification pipeline — queue + OIDC-authenticated
