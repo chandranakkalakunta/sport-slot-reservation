@@ -158,6 +158,70 @@ async def test_create_user_success(make_client):
     assert "temp_password" in body
 
 
+async def test_create_tenant_admin_without_flat_number_succeeds(make_client):
+    """flat_number is resident-only; omitting it for tenant_admin must NOT 422."""
+    fake_user = MagicMock()
+    fake_user.uid = "new-uid-admin"
+    with patch(VERIFY, return_value=ADMIN_CLAIMS), \
+         patch(CREATE_FB, return_value=fake_user), \
+         patch(CLAIMS_FB), \
+         patch(DELETE_FB):
+        async with make_client() as client:
+            client._transport.app.dependency_overrides[get_firestore_client] = lambda: _mock_client()
+            resp = await client.post(
+                "/api/v1/admin/tenants/t-1/users",
+                json={
+                    "email": "admin@demo.com",
+                    "display_name": "Tenant Admin",
+                    "role": "tenant_admin",
+                },
+                headers={**AUTH, **ADMIN_HOST},
+            )
+    assert resp.status_code == 201
+    assert resp.json()["uid"] == "new-uid-admin"
+
+
+async def test_create_resident_without_flat_number_422(make_client):
+    """Service rule intact: flat_number is still required for residents."""
+    with patch(VERIFY, return_value=ADMIN_CLAIMS):
+        async with make_client() as client:
+            client._transport.app.dependency_overrides[get_firestore_client] = lambda: _mock_client()
+            resp = await client.post(
+                "/api/v1/admin/tenants/t-1/users",
+                json={
+                    "email": "noflat@demo.com",
+                    "display_name": "No Flat",
+                    "role": "resident",
+                },
+                headers={**AUTH, **ADMIN_HOST},
+            )
+    assert resp.status_code == 422
+    assert resp.json()["code"] == "VALIDATION_FAILED"
+
+
+async def test_create_resident_with_flat_number_succeeds(make_client):
+    fake_user = MagicMock()
+    fake_user.uid = "new-uid-resident"
+    with patch(VERIFY, return_value=ADMIN_CLAIMS), \
+         patch(CREATE_FB, return_value=fake_user), \
+         patch(CLAIMS_FB), \
+         patch(DELETE_FB):
+        async with make_client() as client:
+            client._transport.app.dependency_overrides[get_firestore_client] = lambda: _mock_client()
+            resp = await client.post(
+                "/api/v1/admin/tenants/t-1/users",
+                json={
+                    "email": "withflat@demo.com",
+                    "display_name": "With Flat",
+                    "flat_number": "E-505",
+                    "role": "resident",
+                },
+                headers={**AUTH, **ADMIN_HOST},
+            )
+    assert resp.status_code == 201
+    assert resp.json()["uid"] == "new-uid-resident"
+
+
 async def test_create_user_duplicate_email(make_client):
     with patch(VERIFY, return_value=ADMIN_CLAIMS), \
          patch(CREATE_FB, side_effect=fb_auth.EmailAlreadyExistsError("", "", "")):

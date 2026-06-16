@@ -37,7 +37,7 @@ export function useCreateTenant() {
 export function useCreateUser(tenantId: string) {
   return useMutation({
     mutationFn: (body: {
-      email: string; display_name: string; flat_number: string;
+      email: string; display_name: string; flat_number?: string;
       role: string; household_id?: string | null;
     }) =>
       apiFetch<CreatedUser>(`/admin/tenants/${tenantId}/users`, {

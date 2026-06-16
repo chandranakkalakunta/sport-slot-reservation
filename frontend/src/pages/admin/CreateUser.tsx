@@ -1,4 +1,4 @@
-import { type FormEvent, useState } from "react";
+import { type ChangeEvent, type FormEvent, useState } from "react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 
 import { CredentialDisplay } from "../../components/CredentialDisplay";
@@ -19,12 +19,20 @@ export default function CreateUser() {
   const [error, setError] = useState<string | null>(null);
   const [created, setCreated] = useState<{ email: string; temp: string } | null>(null);
 
+  function handleRoleChange(e: ChangeEvent<HTMLSelectElement>) {
+    setRole(e.target.value);
+    setFlat(""); // clear so a stale flat value can't survive a role switch
+  }
+
   async function submit(e: FormEvent) {
     e.preventDefault();
     setError(null);
     try {
       const res = await createUser.mutateAsync({
-        email, display_name: displayName, flat_number: flat, role,
+        email, display_name: displayName, role,
+        // flat_number is resident-only; omit the key entirely for
+        // tenant_admin (the API model accepts it missing or null).
+        ...(role === "resident" ? { flat_number: flat } : {}),
       });
       setCreated({ email, temp: res.temp_password });
     } catch (e) {
@@ -65,11 +73,15 @@ export default function CreateUser() {
         <label>Display name</label>
         <input style={field} value={displayName}
           onChange={(e) => setDisplayName(e.target.value)} required />
-        <label>Flat number</label>
-        <input style={field} value={flat}
-          onChange={(e) => setFlat(e.target.value)} placeholder="A-101" required />
+        {role === "resident" && (
+          <>
+            <label>Flat number</label>
+            <input style={field} value={flat}
+              onChange={(e) => setFlat(e.target.value)} placeholder="A-101" required />
+          </>
+        )}
         <label>Role</label>
-        <select style={field} value={role} onChange={(e) => setRole(e.target.value)}>
+        <select style={field} value={role} onChange={handleRoleChange}>
           <option value="resident">Resident</option>
           <option value="tenant_admin">Tenant admin</option>
         </select>
