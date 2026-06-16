@@ -21,6 +21,8 @@ class Settings(BaseSettings):
     redis_host: str = "localhost"
     redis_port: int = 6379
     redis_auth: str | None = None
+    resend_api_key: str | None = None
+    email_from_addr: str = "no-reply@mail.chandraailabs.com"
 
 
 @lru_cache
