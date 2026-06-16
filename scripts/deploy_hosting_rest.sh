@@ -25,7 +25,7 @@ else
   TOKEN="$(gcloud auth print-access-token)"
 fi
 [[ -n "$TOKEN" ]] || { echo "ERROR: no access token (CI: FIREBASE_ACCESS_TOKEN set? Local: gcloud auth login?)" >&2; exit 1; }
-echo "Access token acquired (len ${#TOKEN})."
+echo "Access token acquired."
 AUTH=( -H "Authorization: Bearer ${TOKEN}" -H "X-Goog-User-Project: ${PROJECT}" )
 
 # Wrapper: prints HTTP status + response body on >=400 so failures are

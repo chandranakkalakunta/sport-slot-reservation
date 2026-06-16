@@ -6,6 +6,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Changed (Phase 6.3.1)
+
+- Phase 6.3.1: remove temporary diagnostic noise from deploy_hosting_rest.sh
+  (the token-length echo added during auth investigation 6.2.11–6.2.14). The
+  permanent api() loud-error helper is retained. Pipeline confirmed green
+  end-to-end (run 27562387259) before this cleanup. Tracker: 6.3.1 ✓.
+
 ### Added (Phase 6.1.3)
 
 - Phase 6.1.3: grant serviceUsageConsumer to sa-firebase-admin (the impersonated
