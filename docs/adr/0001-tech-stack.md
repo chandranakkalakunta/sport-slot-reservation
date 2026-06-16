@@ -4,6 +4,8 @@
 
 Accepted — 2026-06-09
 
+> **Note (2026-06-16):** The frontend compute decision in this ADR was superseded by ADR-0012 (Firebase Hosting). As-built: one Cloud Run service (backend `sport-slot-api`) + Firebase Hosting (frontend). See ADR-0012.
+
 ## Context
 
 We are building SportBook, a production-grade multi-tenant Sport Slot Reservation System on Google Cloud Platform for Indian residential communities. Before any code is written, we need to lock down the technology stack across all dimensions: backend language and framework, frontend framework, containerisation, compute platform, runtime versions, and package managers.
@@ -30,11 +32,11 @@ Selection criteria, in priority order:
 ### Containerisation
 - **Strategy:** Multi-stage Dockerfile for both backend and frontend
 - **Backend runtime image:** python:3.12-slim
-- **Frontend runtime image:** nginx:alpine
+- **Frontend runtime image:** ~~nginx:alpine~~ — **Superseded by ADR-0012:** the frontend is a static PWA served via Firebase Hosting (no container/runtime image).
 
 ### Compute Platform
 - **Backend:** Cloud Run (serverless containers)
-- **Frontend:** Cloud Run with nginx serving static files
+- **Frontend:** ~~Cloud Run with nginx serving static files~~ — **Superseded by ADR-0012:** served as a static PWA via **Firebase Hosting** (CDN-delivered static assets; no Cloud Run service for the frontend). ADR-0001's "single Cloud Run service" assumption applies to the **backend** (`sport-slot-api`) only.
 - **Why not GKE:** Cloud Run is sufficient for SportBook's scale, requires no Kubernetes overhead, scales to zero when idle, and is significantly cheaper to operate
 
 ### Runtime Versions (Locked)
