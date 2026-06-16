@@ -6,6 +6,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Fixed (Phase 7.x)
+
+- Phase 7.x: forced-password gate re-prompting after a successful change.
+  Root cause was NOT a query-key mismatch (`usePasswordGate.ts` and
+  `ForcePasswordChange.tsx` both already used `["profile"]`) — invalidate/
+  refetch defaulted to active observers; the standalone /force-password
+  route has none, so the refresh was a no-op and ProtectedRoute read stale
+  cached must_change_password=true on mount. Fixed by forcing type:'all'
+  refetch + optimistic setQueryData before navigation. `usePasswordGate.ts`
+  now exports `PASSWORD_GATE_QUERY_KEY` as the single shared key constant.
+  Regression test seeds the cache with `must_change_password:true` and no
+  active gate observer (mirroring the real standalone route), runs the
+  change-password flow, then mounts a brand-new `ProtectedRoute` observer
+  and asserts the value is correct on its very first render (no `waitFor`,
+  which would mask a transient bounce back to /force-password) — confirmed
+  to fail against the pre-fix code (plain `invalidateQueries`) and pass
+  against the fix, per the Phase 5 false-positive lesson. Tracker: 7.x ✓.
+
 ### Added (Phase 7.1.3)
 
 - Phase 7.1.3: wire booking-confirmed and user-welcome notification enqueues
