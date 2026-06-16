@@ -33,7 +33,7 @@ class CreateTenantBody(BaseModel):
 class CreateUserBody(BaseModel):
     email: str
     display_name: str
-    flat_number: str
+    flat_number: str | None = None
     role: str = "resident"
     household_id: str | None = None
 

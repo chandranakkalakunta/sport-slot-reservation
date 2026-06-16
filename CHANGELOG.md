@@ -6,6 +6,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Fixed (flat-number resident-only)
+
+- Fix: flat_number is resident-only. API model made flat_number optional
+  (was required str -> 422 when creating a tenant_admin without a flat —
+  the tenant-creation 422). Frontend hides/omits the flat field unless
+  role=resident. Service already enforced resident-only; now consistent
+  across all three layers. Tracker: fixes the flat-field UX +
+  tenant-creation 422.
+
 ### Fixed (Phase 7.x)
 
 - Phase 7.x: forced-password gate re-prompting after a successful change.
