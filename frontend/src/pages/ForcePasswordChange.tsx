@@ -2,6 +2,7 @@ import { type FormEvent, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 
+import { PASSWORD_GATE_QUERY_KEY } from "../auth/usePasswordGate";
 import { ApiClientError } from "../lib/api";
 import { apiFetch } from "../lib/api";
 import { messageForCode } from "../lib/messages";
@@ -24,7 +25,24 @@ export default function ForcePasswordChange() {
       await apiFetch("/users/me/change-password", {
         method: "POST", body: JSON.stringify({ new_password: pw }),
       });
-      await queryClient.invalidateQueries({ queryKey: ["profile"] });
+      // /force-password has no active usePasswordGate observer (it's
+      // a standalone route), so a default refetch ("active" only) is
+      // a silent no-op and the gate's first render after navigate()
+      // would read the stale cached true synchronously. type: "all"
+      // forces it regardless of observers; setQueryData below is the
+      // final guarantee even if this refetch fails.
+      try {
+        await queryClient.refetchQueries({ queryKey: PASSWORD_GATE_QUERY_KEY, type: "all" });
+      } catch {
+        // Best-effort refresh; the password change above already
+        // succeeded. setQueryData below still guarantees a correct
+        // gate read regardless of this failing.
+      }
+      queryClient.setQueryData(
+        PASSWORD_GATE_QUERY_KEY,
+        (old: { must_change_password?: boolean } | undefined) =>
+          old ? { ...old, must_change_password: false } : old,
+      );
       navigate("/");
     } catch (e) {
       setError(e instanceof ApiClientError ? messageForCode(e.code) : "Failed to change password.");
