@@ -6,6 +6,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added (Phase 7.1.1)
+
+- Phase 7.1.1: EmailProvider abstraction + ResendEmailProvider + booking-
+  confirmed/user-welcome templates + FakeEmailProvider + unit tests (per
+  ADR-0019). `EmailProvider` is a structural Protocol (single `send()` method);
+  `ResendEmailProvider` posts to the Resend HTTP API via httpx (promoted from
+  dev-only to a runtime dependency), raises `EmailSendError` on non-2xx/network
+  failure/missing key. Templates are pure functions returning subject+HTML+text,
+  HTML-escaped via stdlib `html.escape`. `FakeEmailProvider` records sent
+  messages for hermetic tests. 13 new tests, all hermetic (no network, no
+  Firestore). ruff clean · bandit clean · coverage 92.05% (gate 90%).
+  No Cloud Tasks / event wiring / worker endpoint yet — that's 7.1.2/7.1.3.
+  Tracker: 7.1.1 ✓.
+
 ### Changed (Phase 6.3.1)
 
 - Phase 6.3.1: remove temporary diagnostic noise from deploy_hosting_rest.sh
