@@ -10,6 +10,7 @@ def test_handlers_do_not_import_firestore():
         rel = path.relative_to(src)
         if rel.parts[0] in allowed or rel.name in allowed:
             continue
-        if "google.cloud" in path.read_text():
+        text = path.read_text()
+        if "google.cloud import firestore" in text or "google.cloud.firestore" in text:
             offenders.append(str(rel))
-    assert offenders == [], f"google.cloud imported outside repository layer: {offenders}"
+    assert offenders == [], f"google.cloud.firestore imported outside repository layer: {offenders}"
