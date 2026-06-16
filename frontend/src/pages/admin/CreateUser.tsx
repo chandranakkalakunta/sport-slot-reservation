@@ -73,6 +73,11 @@ export default function CreateUser() {
         <label>Display name</label>
         <input style={field} value={displayName}
           onChange={(e) => setDisplayName(e.target.value)} required />
+        <label>Role</label>
+        <select style={field} value={role} onChange={handleRoleChange}>
+          <option value="resident">Resident</option>
+          <option value="tenant_admin">Tenant admin</option>
+        </select>
         {role === "resident" && (
           <>
             <label>Flat number</label>
@@ -80,11 +85,6 @@ export default function CreateUser() {
               onChange={(e) => setFlat(e.target.value)} placeholder="A-101" required />
           </>
         )}
-        <label>Role</label>
-        <select style={field} value={role} onChange={handleRoleChange}>
-          <option value="resident">Resident</option>
-          <option value="tenant_admin">Tenant admin</option>
-        </select>
         <button type="submit" disabled={createUser.isPending} style={{ width: "100%",
           padding: 10, background: "var(--color-primary)", color: "#fff", border: "none",
           borderRadius: "var(--radius)", cursor: "pointer" }}>
