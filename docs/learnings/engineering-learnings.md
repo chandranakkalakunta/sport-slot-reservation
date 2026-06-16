@@ -342,3 +342,126 @@ feature build. Track the need; schedule the pass.
 8. Defer cross-cutting UI optimization to a dedicated post-functional pass.
 
 *Appended at Phase 5 close. Continue through Phases 6+.*
+
+---
+
+# APPENDIX B — Phase 6 (CI/CD) additions
+
+Phase 6 built the keyless deployment pipeline (WIF + Cloud Run + Firebase
+Hosting REST API). New themes from the CI/CD surface. Appended at Phase 6 close.
+
+## 16. Pin every toolchain version explicitly so local == clean CI
+
+Phase 6 surfaced five toolchain-drift mismatches — all invisible locally,
+all hard failures in CI's clean environment: linter working directory, test
+hermeticity (no ADC in CI), pnpm v9-vs-v11, Node 20-vs-22, and interactive
+firebase-tools vs. keyless CI. In every case the local environment silently
+masked the mismatch; CI's cold, clean environment revealed it.
+
+The root fix was to encode the correct version as an explicit declaration in
+the project — `packageManager: pnpm@11.5.2` + `engines.node: >=22.13` in
+`package.json`, `.python-version` in the backend, `working-directory` in the
+workflow. Once the version is a checked-in fact, both local and CI read from
+the same source of truth.
+
+**Rule:** pin every toolchain version explicitly in the project (not in CI
+config alone, not ambient from the local environment). `packageManager`,
+`engines.node`, `.python-version`, and `working-directory` are two-line fixes
+that prevent entire classes of "works locally, fails in CI" surprises. Add them
+at project creation, not when CI first breaks.
+
+## 17. Least-privilege discovered wall-by-wall and Terraform-codified beats "grant editor"
+
+The CI pipeline needed 10 distinct IAM bindings across two principals (the WIF
+principalSet and the impersonated SA). None were pre-granted. Each was
+discovered by a precise permission error, confirmed by reading the error body,
+and added as a single Terraform resource with a comment explaining why. The
+result is an exact, auditable inventory: `wif_iam.tf` documents what CI can do
+and what it cannot.
+
+The alternative — granting `editor` to the CI principal — would have
+immediately unblocked every failure but left no trace of which permissions are
+actually used, why, or what the blast radius is if the WIF configuration were
+misconfigured.
+
+**Rule:** add IAM grants one-at-a-time, only when a failure proves the need,
+and record each grant in version-controlled Terraform with a comment explaining
+the exact operation that requires it. "Grant editor and move on" is fast today
+and a security debt forever. Wall-by-wall is slow once and correct permanently.
+
+## 18. firebase-tools cannot consume WIF external_account ADC for deploys
+
+firebase-tools 15.x's internal token manager only understands `firebase login`
+(interactive user token) and `login:ci` (deprecated refresh token). When the
+`GOOGLE_APPLICATION_CREDENTIALS` file contains a WIF `external_account`
+credential, firebase-tools finds "No OAuth tokens found" and crashes on
+`undefined.access_token`. This is not a configuration error; it is a hard
+limitation of the tool's token manager.
+
+The correct keyless path for CI Firebase Hosting deploys is the Firebase Hosting
+REST API (`firebasehosting.googleapis.com/v1beta1`) with an SA-impersonated
+OAuth2 access token. `firebase-tools` is the right tool for human-interactive
+use where `firebase login` works; it is the wrong tool for keyless CI.
+
+**Rule:** for any Firebase Hosting deploy in CI without a JSON key, skip
+firebase-tools entirely and drive the REST API directly. Check any CLI tool's
+token-manager documentation before building a keyless CI path around it; "works
+with ADC" is not the same as "works with WIF external_account ADC."
+
+## 19. SA impersonation shifts the effective caller identity for all downstream IAM checks
+
+When `google-github-actions/auth@v3` mints a token via SA impersonation and
+that token is used to call a REST API, the *impersonated SA* is the effective
+caller for every IAM check the API performs — not the WIF principalSet. This
+matters when the API call includes `X-Goog-User-Project`: the service usage
+check runs against the SA's own IAM bindings.
+
+In Phase 6, the WIF principalSet had `serviceUsageConsumer` (6.1.1). After SA
+impersonation was introduced (6.2.14), the same REST call started returning 403
+`USER_PROJECT_DENIED` because `sa-firebase-admin` lacked the role. Two
+identical permissions, two different principals, discovered in sequence.
+
+**Rule:** when you introduce SA impersonation, audit every IAM check the
+downstream call performs and verify it passes for the *SA's* identity, not just
+the WIF principal. Keep a mental (or documented) map of "which identity is the
+effective caller at each step" — it changes the moment impersonation is in the
+chain.
+
+## 20. Loud, specific errors are how least-privilege converges; never silence auth stderr
+
+Phase 6's IAM discovery worked because every failure was loud: the `api()`
+helper in `deploy_hosting_rest.sh` always printed HTTP status + response body on
+≥400. The 401→400→403→success progression each took one sub-phase. Each was
+immediately actionable.
+
+The contrasting anti-pattern appeared in `deploy_cloud_run.sh`: the Redis
+describe command had `2>/dev/null || true`, silently converting a permission
+error ("caller lacks redis.viewer") into an empty string that looked like "Redis
+not found." The symptom was far removed from the cause.
+
+**Rule:** never silence stderr on auth/permission calls. `2>/dev/null || true`
+on a gcloud or curl command is a diagnostic time bomb: the next person sees
+an empty result and debugs the wrong thing. Let permission errors be loud; they
+are the signal that tells you exactly what to grant.
+
+## Updated top carry-forward rules (Phases 2–6)
+
+1. Mirror cross-layer rules explicitly; a boundary rule lives in several layers.
+2. Deployed != local: verify the runtime SA's permissions and the deployed image
+   version. CI makes committed = deployed.
+3. Walk every entity's full lifecycle and actor matrix at design time; the verbs
+   (delete/retain) and actors (cross-tenant) you skip become mid-flight ADRs.
+4. Validate multi-X with two X's, early — isolation bugs need a second instance.
+5. Make errors loud in dev and in CI scripts; diagnose with one decisive observation.
+6. A security gate is one unbypassable choke point; invalidate caches it reads.
+7. Distinguish bugs from environment limitations; don't patch the wrong env.
+8. Defer cross-cutting UI optimization to a dedicated post-functional pass.
+9. Pin every toolchain version explicitly in the project (packageManager,
+   engines.node, .python-version). Add at project creation, not when CI breaks.
+10. Grant IAM wall-by-wall, one permission per proven failure, in Terraform with
+    a comment. Never silence auth stderr — the error is the diagnosis.
+11. For keyless CI Firebase Hosting: skip firebase-tools, use the REST API +
+    SA-impersonated OAuth2 token. SA impersonation shifts the IAM caller identity
+    for all downstream checks.
+
+*Appended at Phase 6 close.*

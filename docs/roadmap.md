@@ -9,8 +9,8 @@
 | 3 | Booking Core | ✓ Complete |
 | 4 | Frontend Core | ✓ Complete |
 | 5 | Admin & Onboarding | ✓ Complete |
-| 6 | CI/CD | Next |
-| 7 | Notifications & Self-Service | Planned |
+| 6 | CI/CD | ✓ Complete |
+| 7 | Notifications & Self-Service | Next |
 | 8 | Scalability & Observability | Planned |
 | 9 | Security Hardening | Planned |
 
@@ -32,15 +32,26 @@ assigned to a specific future phase or sub-phase.
 | Composite index (uid+sport+date) + per-sport quota fix | Booking-core sub-phase with tests |
 | Platform-admin host-based hardening (currently route+role in dev) | Phase 9 (per ADR-0014 §1) |
 
-## Phase 6 — CI/CD (next)
+## Phase 6 — CI/CD ✓ Complete
 
-Planned scope:
-- GitHub Actions pipeline: lint → test → build → deploy
-- Workload Identity Federation (WIF) for keyless Cloud Run deploy
-- Coverage gate wired to measured baseline
-- Smoke test hitting live service URL dynamically
-- Secret Manager integration in CI
-- detect-secrets pre-commit hook
+Shipped:
+- GitHub Actions pipeline: pr-gates (ruff, bandit, pytest ≥90%, ESLint,
+  Vitest, pnpm build) + deploy-on-main (Cloud Run + Firebase Hosting)
+- Workload Identity Federation (WIF) — keyless, no JSON keys anywhere
+- Firebase Hosting via REST API + SA-impersonated OAuth2 token
+  (firebase-tools incompatible with WIF external_account ADC)
+- Branch protection on main: PR + passing gates required
+- All CI IAM in version-controlled Terraform (`wif_iam.tf`)
+
+## Phase 6 deferrals (tracked)
+
+| Item | Deferred to |
+|------|-------------|
+| storage.admin tighten to bucket-scoped on sport-slot-dev-cloudbuild | Phase 9 (least-privilege hardening) |
+| detect-secrets pre-commit hook | Phase 9 |
+| Smoke test hitting live service URL | Phase 9 |
+| Secret Manager integration in CI (no new secrets needed in Phase 6) | Phase 9 if new secrets added |
+| deploy_hosting.sh CI branch cleanup (vestigial; CI uses REST script) | Phase 9 cleanup |
 
 ## Phase 7 — Notifications & Self-Service
 
