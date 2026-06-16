@@ -23,6 +23,10 @@ class Settings(BaseSettings):
     redis_auth: str | None = None
     resend_api_key: str | None = None
     email_from_addr: str = "no-reply@mail.chandraailabs.com"
+    tasks_queue: str = "notifications"
+    tasks_location: str = "asia-south1"
+    worker_base_url: str | None = None
+    tasks_invoker_sa: str | None = None
 
 
 @lru_cache

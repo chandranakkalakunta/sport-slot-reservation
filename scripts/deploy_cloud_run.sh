@@ -6,6 +6,8 @@ PROJECT="sport-slot-dev"
 REGION="asia-south1"
 SERVICE="sport-slot-api"
 SA="sa-cloud-run@${PROJECT}.iam.gserviceaccount.com"
+TASKS_INVOKER_SA="sa-tasks-invoker@${PROJECT}.iam.gserviceaccount.com"
+TASKS_QUEUE="notifications"
 IMAGE_BASE="${REGION}-docker.pkg.dev/${PROJECT}/sport-slot-repo/${SERVICE}"
 
 cd "$(dirname "$0")/.."
@@ -30,6 +32,23 @@ if [[ -z "$REDIS_HOST" ]]; then
   exit 1
 fi
 
+# SPORTSLOT_WORKER_BASE_URL is the worker's own Cloud Tasks OIDC
+# audience (auth/tasks_auth.py), so it must come from the service's
+# EXISTING URL, not the revision about to be deployed. Cloud Run
+# service URLs are stable across revisions, so reading it before this
+# deploy is safe. This requires the service to already exist — true
+# for every deploy after the first.
+WORKER_URL=$(gcloud run services describe "$SERVICE" --project="$PROJECT" \
+  --region="$REGION" --format="value(status.url)") || {
+  echo "ERROR: could not describe existing service ${SERVICE} for SPORTSLOT_WORKER_BASE_URL." >&2
+  echo "  (First-ever deploy? Deploy once without the worker URL, then redeploy.)" >&2
+  exit 1
+}
+if [[ -z "$WORKER_URL" ]]; then
+  echo "ERROR: service ${SERVICE} returned an empty URL." >&2
+  exit 1
+fi
+
 echo "About to deploy ${IMAGE}"
 echo "  service=${SERVICE} region=${REGION} sa=${SA}"
 echo "  min=0 max=2 mem=512Mi cpu=1 (ADR-0005)"
@@ -46,10 +65,10 @@ gcloud run deploy "$SERVICE" \
   --allow-unauthenticated \
   --min-instances=0 --max-instances=2 \
   --memory=512Mi --cpu=1 \
-  --set-env-vars="SPORTSLOT_ENVIRONMENT=development,SPORTSLOT_GCP_PROJECT=${PROJECT},SPORTSLOT_BASE_DOMAIN=sportbook.chandraailabs.com,SPORTSLOT_ADMIN_HOST=admin.sportbook.chandraailabs.com,SPORTSLOT_REDIS_HOST=${REDIS_HOST},SPORTSLOT_REDIS_PORT=${REDIS_PORT}" \
+  --set-env-vars="SPORTSLOT_ENVIRONMENT=development,SPORTSLOT_GCP_PROJECT=${PROJECT},SPORTSLOT_BASE_DOMAIN=sportbook.chandraailabs.com,SPORTSLOT_ADMIN_HOST=admin.sportbook.chandraailabs.com,SPORTSLOT_REDIS_HOST=${REDIS_HOST},SPORTSLOT_REDIS_PORT=${REDIS_PORT},SPORTSLOT_TASKS_QUEUE=${TASKS_QUEUE},SPORTSLOT_TASKS_LOCATION=${REGION},SPORTSLOT_WORKER_BASE_URL=${WORKER_URL},SPORTSLOT_TASKS_INVOKER_SA=${TASKS_INVOKER_SA}" \
   --network=default --subnet=default \
   --vpc-egress=private-ranges-only \
-  --set-secrets="SPORTSLOT_REDIS_AUTH=redis-auth:latest"
+  --set-secrets="SPORTSLOT_REDIS_AUTH=redis-auth:latest,SPORTSLOT_RESEND_API_KEY=resend-api-key:latest"
 
 URL=$(gcloud run services describe "$SERVICE" --project="$PROJECT" \
   --region="$REGION" --format="value(status.url)")

@@ -6,6 +6,45 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added (Phase 7.1.2)
+
+- Phase 7.1.2: Cloud Tasks notification pipeline — queue + OIDC-authenticated
+  worker endpoint + enqueue helper + invoker SA/IAM (Terraform) + resend-api-key
+  secret wiring. No event triggers yet (7.1.3). `POST /internal/tasks/notify`
+  (new `api/internal/` router, mounted outside `/api/v1`) verifies the Cloud
+  Tasks OIDC bearer token via `google-auth`'s `id_token.verify_oauth2_token`
+  (audience = worker URL, caller email pinned to `sa-tasks-invoker`); dispatches
+  to the booking-confirmed/user-welcome templates and the configured
+  `EmailProvider` (`ResendEmailProvider` in prod, `FakeEmailProvider` via
+  `dependency_overrides` in tests); runs the sync `provider.send()` off the
+  event loop via Starlette's `run_in_threadpool`. Returns 2xx on success, 503
+  on `EmailSendError` (Cloud Tasks retries per the queue's `retry_config`), 422
+  on unknown `event_type`/bad params (no retry), 401/403 on missing/invalid/
+  wrong-SA OIDC. `notifications/tasks.py::enqueue_notification()` builds the
+  Cloud Tasks HTTP task (OIDC token signed as `sa-tasks-invoker`,
+  audience = worker URL); raises `TasksConfigError` loudly if queue/worker
+  settings are missing rather than failing silently. Terraform
+  (`terraform/cloud_tasks.tf`, Coordinator-applied): `google_cloud_tasks_queue`
+  "notifications" (asia-south1, max_attempts=5, 5 dispatches/sec — Resend's
+  100/day free-tier cap), new `sa-tasks-invoker` SA, `roles/run.invoker` on
+  `sport-slot-api` (gcloud-deployed, not TF-managed, so bound by name/location)
+  for that SA, queue-scoped `roles/cloudtasks.enqueuer` + SA-scoped
+  `roles/iam.serviceAccountUser` (actAs) for `sa-cloud-run`, and
+  `roles/secretmanager.secretAccessor` on the pre-existing `resend-api-key`
+  secret for `sa-cloud-run`. `deploy_cloud_run.sh` now reads the service's
+  existing URL before deploy (for `SPORTSLOT_WORKER_BASE_URL`) and adds
+  `SPORTSLOT_TASKS_QUEUE`/`SPORTSLOT_TASKS_LOCATION`/`SPORTSLOT_TASKS_INVOKER_SA`
+  env vars + `SPORTSLOT_RESEND_API_KEY=resend-api-key:latest` to `--set-secrets`.
+  Narrowed `test_architecture.py`'s blanket `google.cloud` import check to
+  `google.cloud.firestore` specifically (ADR-0008 Decision 3 is Firestore-only;
+  the blanket match was a false positive against the new, legitimate
+  `google.cloud.tasks_v2` import in `notifications/tasks.py`). 11 new tests,
+  all hermetic (OIDC verification mocked, Cloud Tasks client mocked, no
+  network, no real GCP). ruff clean · bandit clean · 152 passed · coverage
+  92.44% (gate 90%). terraform fmt/validate clean (init-only; no plan/apply —
+  Coordinator-run). Tracker: 7.1.2 ✓ (pending Coordinator `terraform apply` +
+  redeploy before live).
+
 ### Added (Phase 7.1.1)
 
 - Phase 7.1.1: EmailProvider abstraction + ResendEmailProvider + booking-

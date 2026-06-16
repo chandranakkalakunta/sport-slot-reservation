@@ -4,6 +4,8 @@ import redis.asyncio as redis_asyncio
 from google.cloud import firestore
 
 from sport_slot.config import get_settings
+from sport_slot.notifications.email.provider import EmailProvider
+from sport_slot.notifications.email.resend_provider import ResendEmailProvider
 from sport_slot.services.lock import LockService
 
 
@@ -26,3 +28,9 @@ def get_redis_client():
 
 def get_lock_service() -> LockService:
     return LockService(get_redis_client())
+
+
+@lru_cache
+def get_email_provider() -> EmailProvider:
+    settings = get_settings()
+    return ResendEmailProvider(api_key=settings.resend_api_key, from_addr=settings.email_from_addr)
