@@ -6,6 +6,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added (Phase 7.2.2a)
+
+- feat(auth): self-service password reset request endpoint
+  (/auth/forgot-password) — token mint, fail-closed per-email cooldown,
+  branded Resend email, enumeration-safe. ADR-0020 A2 (7.2.2a).
+
 ### Fixed (Add User field order)
 
 - UX: reorder Add User form so Role precedes the (resident-only) Flat

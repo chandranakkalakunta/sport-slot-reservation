@@ -80,6 +80,42 @@ def render_booking_confirmed(
     return RenderedEmail(subject=subject, html=html, text=text)
 
 
+def render_password_reset(
+    *,
+    user_name: str,
+    tenant_name: str,
+    reset_url: str,
+) -> RenderedEmail:
+    e_user_name = escape(user_name)
+    e_tenant_name = escape(tenant_name)
+    e_reset_url = escape(reset_url)
+
+    subject = "Reset your password"
+
+    body = f"""\
+<h2 style="margin-top: 0;">Reset your password</h2>
+<p>Hi {e_user_name},</p>
+<p>We received a request to reset your password for your \
+<strong>{e_tenant_name}</strong> account.</p>
+<p><a href="{e_reset_url}" style="color: #1a73e8;">Reset password</a></p>
+<p style="color: #555; font-size: 13px;">This link expires in 1 hour. \
+If you did not request a password reset, you can safely ignore this email.</p>
+"""
+    html = _HTML_WRAPPER.format(body=body, tenant_name=e_tenant_name)
+
+    text = (
+        f"Reset your password\n\n"
+        f"Hi {user_name},\n\n"
+        f"We received a request to reset your password for your {tenant_name} account.\n\n"
+        f"Reset password: {reset_url}\n\n"
+        f"This link expires in 1 hour. "
+        f"If you did not request a password reset, you can safely ignore this email.\n\n"
+        f"{tenant_name} - SportSlot Reservation\n"
+    )
+
+    return RenderedEmail(subject=subject, html=html, text=text)
+
+
 def render_user_welcome(
     *,
     user_name: str,
