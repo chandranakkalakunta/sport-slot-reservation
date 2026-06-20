@@ -19,7 +19,7 @@ TENANT = {"policies": {}, "timezone": "Asia/Kolkata"}
 
 
 def _booking(uid="u1", status="confirmed", days_ahead=5):
-    date = (datetime.date(2026, 6, 12)
+    date = (datetime.date.today()
             + datetime.timedelta(days=days_ahead)).isoformat()
     return {"id": f"f1_{date}_18:00", "uid": uid, "status": status,
             "date": date, "start": "18:00", "facility_id": "f1"}
