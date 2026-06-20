@@ -11,6 +11,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - feat(auth): self-service password reset request endpoint
   (/auth/forgot-password) — token mint, fail-closed per-email cooldown,
   branded Resend email, enumeration-safe. ADR-0020 A2 (7.2.2a).
+### Added (Phase 7.2.1)
+
+- feat(auth): shared password policy (zxcvbn + HIBP), enforced on
+  /me/change-password; closed logging redaction gap (new_password,
+  oobCode). ADR-0020 (7.2.1).
 
 ### Fixed (Add User field order)
 
