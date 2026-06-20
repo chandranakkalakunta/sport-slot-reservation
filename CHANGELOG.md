@@ -6,6 +6,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added (Phase 7.2.1)
+
+- feat(auth): shared password policy (zxcvbn + HIBP), enforced on
+  /me/change-password; closed logging redaction gap (new_password,
+  oobCode). ADR-0020 (7.2.1).
+
 ### Fixed (Add User field order)
 
 - UX: reorder Add User form so Role precedes the (resident-only) Flat

@@ -6,6 +6,7 @@ from sport_slot.api import error_codes
 from sport_slot.api.errors import ApiError
 from sport_slot.auth.context import TenantContext
 from sport_slot.auth.dependency import get_tenant_context
+from sport_slot.auth.password_policy import validate_password
 from sport_slot.dependencies import get_firestore_client
 from sport_slot.repositories.user_profiles import UserProfileRepository
 
@@ -37,8 +38,9 @@ async def change_password(
     ctx: TenantContext = Depends(get_tenant_context),
     client=Depends(get_firestore_client),
 ):
-    if len(body.new_password) < 8:
-        raise ApiError(422, error_codes.WEAK_PASSWORD, "Password must be at least 8 characters")
+    result = await validate_password(body.new_password)
+    if not result.ok:
+        raise ApiError(422, error_codes.WEAK_PASSWORD, " ".join(result.errors))
     fb_auth.update_user(ctx.uid, password=body.new_password)
     if ctx.tenant_id:
         (

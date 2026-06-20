@@ -5,12 +5,20 @@ import structlog
 from sport_slot.middleware.request_id import get_request_id
 
 REDACTED_KEYS = {"email", "authorization", "token", "id_token", "password", "phone"}
+_REDACT_SUBSTRINGS = ("password", "token")
+_REDACT_EXACT = REDACTED_KEYS | {"oobcode"}
 
 
 def _redact(logger, method_name, event_dict):
-    """Charter Phase 2 control: no PII / credentials in logs."""
+    """Charter Phase 2 control: no PII / credentials in logs.
+
+    Redacts any field whose lowercased name matches an exact key OR
+    contains a sensitive substring ("password", "token"), covering
+    new_password, oobCode, and any future variants automatically.
+    """
     for key in list(event_dict):
-        if key.lower() in REDACTED_KEYS:
+        k = key.lower()
+        if k in _REDACT_EXACT or any(s in k for s in _REDACT_SUBSTRINGS):
             event_dict[key] = "[REDACTED]"
     return event_dict
 

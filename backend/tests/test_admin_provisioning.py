@@ -1,5 +1,5 @@
 """Tests for platform-admin provisioning endpoints (Phase 5.2)."""
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import firebase_admin.auth as fb_auth
 
@@ -388,9 +388,13 @@ async def test_deactivate_user_not_found(make_client):
 
 # ── change-password ──────────────────────────────────────────────────────────
 
+HIBP = "sport_slot.auth.password_policy._is_pwned"
+
+
 async def test_change_password_success(make_client):
     with patch(VERIFY, return_value=RESIDENT_CLAIMS), \
-         patch(PW_FB) as mock_pw:
+         patch(PW_FB) as mock_pw, \
+         patch(HIBP, new=AsyncMock(return_value=False)):
         async with make_client() as client:
             client._transport.app.dependency_overrides[get_firestore_client] = lambda: _mock_client()
             resp = await client.post(
@@ -404,6 +408,7 @@ async def test_change_password_success(make_client):
 
 
 async def test_change_password_too_short(make_client):
+    # "short" is 5 chars — fails length check before HIBP; no mock needed.
     with patch(VERIFY, return_value=RESIDENT_CLAIMS):
         async with make_client() as client:
             client._transport.app.dependency_overrides[get_firestore_client] = lambda: _mock_client()
@@ -414,6 +419,38 @@ async def test_change_password_too_short(make_client):
             )
     assert resp.status_code == 422
     assert resp.json()["code"] == "WEAK_PASSWORD"
+
+
+async def test_change_password_weak_but_long_now_rejected(make_client):
+    """Regression: 'password1' (9 chars) passed old len>=8 gate but is weak.
+    Under the new policy it fails on length (<12); 422 WEAK_PASSWORD."""
+    with patch(VERIFY, return_value=RESIDENT_CLAIMS):
+        async with make_client() as client:
+            client._transport.app.dependency_overrides[get_firestore_client] = lambda: _mock_client()
+            resp = await client.post(
+                "/api/v1/users/me/change-password",
+                json={"new_password": "password1"},
+                headers={**AUTH, **TENANT_HOST},
+            )
+    assert resp.status_code == 422
+    assert resp.json()["code"] == "WEAK_PASSWORD"
+
+
+async def test_change_password_strong_password_accepted(make_client):
+    """Strong, unique password passes all policy checks and 200s."""
+    with patch(VERIFY, return_value=RESIDENT_CLAIMS), \
+         patch(PW_FB) as mock_pw, \
+         patch(HIBP, new=AsyncMock(return_value=False)):
+        async with make_client() as client:
+            client._transport.app.dependency_overrides[get_firestore_client] = lambda: _mock_client()
+            resp = await client.post(
+                "/api/v1/users/me/change-password",
+                json={"new_password": "Tr0ub4dor&3xtr@Strong!QzXp9"},
+                headers={**AUTH, **TENANT_HOST},
+            )
+    assert resp.status_code == 200
+    assert resp.json()["status"] == "ok"
+    mock_pw.assert_called_once_with("u-1", password="Tr0ub4dor&3xtr@Strong!QzXp9")
 
 
 # ── reset-password (admin endpoint) ─────────────────────────────────────────
