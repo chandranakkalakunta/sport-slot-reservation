@@ -1,10 +1,13 @@
 # ADR-0020: Self-Service Password Reset & Password Policy
 
-- **Status:** Approved 
+
+- **Status:** Accepted (amended 2026-06-20 — see Amendment 1)
 - **Date:** 2026-06-20
 - **Deciders:** Coordinator (Chandra), Strategist
 - **Phase:** 7.2
 - **Relates to:** ADR-0007 (auth & authorization), ADR-0019 (notification architecture), ADR-0011 (audit logging), ADR-0016 (user provisioning), ADR-0017 (deletion/retention lifecycle)
+
+> ⚠️ Superseded by Amendment 1 (see end of document). Confirm now uses A2.
 
 > Reconcile section formatting against `docs/adr/template.md` before placing; content below is house-style-agnostic.
 
@@ -107,3 +110,29 @@ Distinct events from the admin path: `auth.password_reset_requested` and `auth.p
 - **Secure by Default** — uniform `200`, fail-closed verification on the OIDC/worker path is unchanged.
 - **Privacy by Design** — HIBP k-anonymity (password never leaves the server); no PII in audit beyond ADR-0011.
 - **Fail Closed — documented exception:** HIBP fails **open**, deliberately. The *gate never fully opens*: `zxcvbn ≥ 3` and the length rule always run and always close. HIBP is an additive check whose unavailability degrades to zxcvbn-only rather than self-inflicting a denial of all password resets. This is a conscious availability-vs-strictness trade, recorded here so it is not mistaken for an oversight.
+
+## Amendment 1 — 2026-06-20: Confirm mechanism A1 → A2
+
+**Supersedes Decision §1's confirm step.** Implementation review found the
+backend is uniformly Firebase Admin SDK and carries **no Firebase Web API
+key** in Settings (config.py). A1's `accounts:resetPassword` REST call would
+require importing that public frontend key into the backend solely for one
+external call. A2 — own single-use token (`secrets.token_urlsafe(32)`, stored
+SHA-256-hashed in a top-level `password_reset_tokens` collection with TTL +
+used-flag), committed via the already-used `fb_auth.update_user(uid,
+password=…)` — needs no Web API key, no REST detour, and no new external
+dependency.
+
+The original "don't hand-roll token systems" caution still holds but the
+surface here is minimal and standard (random token, hashed at rest, single-use,
+TTL). **Password policy is unchanged:** `validate_password` (zxcvbn + HIBP,
+7.2.1) runs authoritatively before the `update_user` commit in both designs.
+
+Rate limiting (§4): the live limiter is in-memory per-IP (no Redis per-email).
+7.2.2 adds a Redis per-email cooldown reusing the lock-service client,
+**fail-closed** (Redis is already a hard dependency for bookings; uniform
+policy). Branding (§3) currently resolves to passing `tenant_name`, since
+templates defer logo/color branding to 7.5.
+
+
+
