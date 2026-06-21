@@ -1,4 +1,21 @@
-from sport_slot.logging import _redact
+import json
+
+import structlog
+
+from sport_slot.logging import _redact, configure_logging
+
+
+def test_configure_logging_emits_json_to_stdout(capsys):
+    """PrintLoggerFactory routes events to stdout — verifies Cloud Run visibility."""
+    configure_logging("WARNING")
+    log = structlog.get_logger()
+    log.warning("test_stdout_event", canary="ping")
+    captured = capsys.readouterr()
+    assert captured.out != "", "expected a JSON line on stdout"
+    parsed = json.loads(captured.out.strip())
+    assert parsed["event"] == "test_stdout_event"
+    assert parsed["canary"] == "ping"
+    assert parsed["level"] == "warning"
 
 
 def test_redaction_masks_sensitive_keys():

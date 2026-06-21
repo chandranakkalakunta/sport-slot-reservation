@@ -31,6 +31,10 @@ def _bind_request_id(logger, method_name, event_dict):
 
 
 def configure_logging(level: str = "INFO") -> None:
+    # PrintLoggerFactory writes JSON lines to stdout — the stream Cloud Run
+    # captures. Without an explicit factory structlog falls back to an
+    # implementation-defined destination that doesn't reliably hit stdout
+    # in all environments (Cloud Run, uvicorn workers).
     structlog.configure(
         processors=[
             structlog.processors.add_log_level,
@@ -42,4 +46,5 @@ def configure_logging(level: str = "INFO") -> None:
         wrapper_class=structlog.make_filtering_bound_logger(
             getattr(logging, level.upper(), logging.INFO)
         ),
+        logger_factory=structlog.PrintLoggerFactory(),
     )

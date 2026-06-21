@@ -1,7 +1,8 @@
 """Single-turn read-only agent orchestrator (ADR-0021 §2).
 
 Flow:
-1. Build system prompt with tenant facilities (hallucination context).
+1. Build system prompt with tenant facilities + today's date (hallucination context
+   + relative-date anchor).
 2. Call Vertex (generate) — may return a function_call or text.
 3. If function_call: validate facility_id (hallucination guard), dispatch service,
    build result content, call Vertex again for final reply.
@@ -11,7 +12,9 @@ Flow:
 
 from __future__ import annotations
 
+import datetime
 import json
+import zoneinfo
 
 import structlog
 
@@ -23,6 +26,7 @@ from sport_slot.services.agent.vertex_client import AgentResponse
 from sport_slot.services.availability import get_availability
 from sport_slot.services.bookings import list_my_bookings
 from sport_slot.services.facilities import list_facilities
+from sport_slot.services.policy import PolicyService
 
 log = structlog.get_logger()
 
@@ -34,6 +38,9 @@ _SAFE_FALLBACK = (
 _SYSTEM_TEMPLATE = """\
 You are a read-only sports-facility booking assistant.
 You may ONLY call the tools provided. Never invent data.
+
+Today is {today} ({weekday}) in the facility's timezone.
+Resolve relative dates ("tomorrow", "Saturday", "next week") to YYYY-MM-DD before calling check_availability.
 
 Known facilities for this tenant:
 {facility_list}
@@ -65,8 +72,15 @@ async def run_agent(
     """Execute one agent turn. Returns safe text or fallback. Never raises."""
     try:
         facilities = list_facilities(ctx, client)
+
+        tz_name = PolicyService(ctx, client).tenant_timezone()
+        tz = zoneinfo.ZoneInfo(tz_name)
+        today_local = datetime.datetime.now(tz).date()
+
         system_instruction = _SYSTEM_TEMPLATE.format(
-            facility_list=_facility_list_text(facilities)
+            facility_list=_facility_list_text(facilities),
+            today=today_local.isoformat(),
+            weekday=today_local.strftime("%A"),
         )
         valid_ids = _valid_facility_ids(facilities)
 
@@ -87,8 +101,12 @@ async def run_agent(
 
             # --- Turn 2: LLM converts tool result to human reply ---
             tool_result_content = (
-                f"Tool '{tool_name}' returned:\n{tool_result_text}\n\n"
-                f"Original user question: {user_message}"
+                f"AUTHORITATIVE system data retrieved to answer the user's question.\n"
+                f"Tool: {tool_name}\n"
+                f"Data:\n{tool_result_text}\n\n"
+                f"User question: {user_message}\n\n"
+                f"Answer accurately from the data above. "
+                f"Do not say the data is unavailable — it is provided above."
             )
             second: AgentResponse = await vertex_client.generate(
                 message=tool_result_content,
@@ -123,7 +141,7 @@ def _dispatch_tool(
     args: dict,
     valid_ids: set[str],
 ) -> str:
-    """Call the appropriate service function. Returns JSON string or error description."""
+    """Call the appropriate service function. Returns a text summary for Turn 2."""
     if tool_name == "check_availability":
         facility_id = args.get("facility_id", "")
         date_str = args.get("date", "")
@@ -148,7 +166,21 @@ def _dispatch_tool(
             limit = 10
         try:
             result = list_my_bookings(ctx, client, limit=limit)
-            return json.dumps(result)
+            items = result.get("items", [])
+            count = len(items)
+            log.info("agent_bookings_dispatched", count=count)
+            # Pre-summarize: Turn 2 gets facts, not raw JSON the model may distrust.
+            lines = [f"total_bookings={count}"]
+            for item in items:
+                lines.append(
+                    f"  facility={item.get('facility_id', '?')} "
+                    f"date={item.get('date', '?')} "
+                    f"time={item.get('start', '?')} "
+                    f"status={item.get('status', '?')}"
+                )
+            if result.get("next_cursor"):
+                lines.append("(additional bookings exist beyond this page)")
+            return "\n".join(lines)
         except Exception as exc:
             log.warning("agent_tool_bookings_error", error=str(exc))
             return json.dumps({"error": str(exc)})

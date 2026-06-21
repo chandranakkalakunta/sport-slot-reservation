@@ -6,6 +6,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Fixed (1b.1)
+
+- fix(logging): structlog output now reaches stdout via PrintLoggerFactory —
+  Cloud Run logs now show structured JSON lines from all service code (agent,
+  auth, bookings). Previously no logger_factory was set, so structlog events
+  were lost. PII redaction processors and order unchanged.
+- fix(agent): system prompt now anchors current date (YYYY-MM-DD + weekday) in
+  the tenant's timezone so the model can resolve relative dates ("tomorrow",
+  "Saturday") before calling check_availability.
+- fix(agent): list_my_bookings Turn 2 framing now pre-summarizes the tool result
+  (total_bookings=N + per-booking lines) and marks it AUTHORITATIVE data, fixing
+  the "wasn't able to retrieve bookings" false-failure. Diagnostic log added:
+  agent_bookings_dispatched with count (no PII). [1b.1]
+
 ### Added (Slice 1b)
 
 - feat(backend): read-only AI query agent — residents-only single-turn

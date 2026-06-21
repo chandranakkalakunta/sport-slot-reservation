@@ -1,4 +1,4 @@
-"""Hermetic tests for the read-only AI agent (Slice 1b).
+"""Hermetic tests for the read-only AI agent (Slice 1b / 1b.1).
 
 ALL Vertex calls are mocked — ZERO real network calls.
 Mock targets:
@@ -7,11 +7,14 @@ Mock targets:
 
 Tests cover: happy paths (tool call + direct text), hallucination guard,
 output guard blocking, fail-closed on Vertex error, unknown tool,
-endpoint role gate, and output guard disabled path.
+endpoint role gate, output guard disabled path, date-anchor injection,
+and booking-summary framing (1b.1 fixes).
 """
 
 from __future__ import annotations
 
+import datetime
+import zoneinfo
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -279,6 +282,94 @@ async def test_fail_closed_empty_vertex_response():
         reply = await run_agent(CTX, _firestore_client(), "Any question")
 
     assert "sorry" in reply.lower() or "only" in reply.lower()
+
+
+# ── date anchor in system prompt (1b.1 fix #2) ───────────────────────────────
+
+@pytest.mark.asyncio
+async def test_system_prompt_contains_today_date():
+    """System prompt includes today's date so the model can resolve relative dates.
+
+    POLICY_SNAP has timezone=UTC, so today_str should be today in UTC.
+    We check that the injected date appears in the system_instruction kwarg
+    passed to the first vertex_client.generate call.
+    """
+    text_response = AgentResponse(function_call=None, text="I can help.")
+
+    with (
+        patch("sport_slot.services.agent.vertex_client.generate",
+              new_callable=AsyncMock, return_value=text_response) as mock_gen,
+        patch("sport_slot.services.agent.vertex_client.classify_output",
+              new_callable=AsyncMock, return_value=True),
+    ):
+        await run_agent(CTX, _firestore_client(), "Hello")
+
+    system_instruction = mock_gen.call_args_list[0].kwargs["system_instruction"]
+    assert "Today is" in system_instruction
+
+    today_utc = datetime.datetime.now(zoneinfo.ZoneInfo("UTC")).date().isoformat()
+    assert today_utc in system_instruction
+
+    weekday = datetime.datetime.now(zoneinfo.ZoneInfo("UTC")).date().strftime("%A")
+    assert weekday in system_instruction
+
+
+# ── booking summarization framing (1b.1 fix #3) ──────────────────────────────
+
+@pytest.mark.asyncio
+async def test_list_my_bookings_turn2_receives_presummary_with_count():
+    """list_my_bookings result is pre-summarized before Turn 2.
+
+    Turn 2 receives 'total_bookings=N' + per-booking lines, not raw JSON.
+    This ensures the model sees facts and counts, not a JSON blob it may distrust.
+    """
+    fc_response = AgentResponse(function_call=("list_my_bookings", {}), text=None)
+    text_response = AgentResponse(function_call=None, text="You have 3 confirmed bookings.")
+    bookings = [
+        {"facility_id": "f-1", "date": "2027-01-15", "start": "09:00", "status": "confirmed",
+         "cancellable": True},
+        {"facility_id": "f-1", "date": "2027-01-16", "start": "10:00", "status": "confirmed",
+         "cancellable": True},
+        {"facility_id": "f-2", "date": "2027-01-17", "start": "08:00", "status": "confirmed",
+         "cancellable": False},
+    ]
+
+    with (
+        patch("sport_slot.services.agent.vertex_client.generate",
+              new_callable=AsyncMock, side_effect=[fc_response, text_response]) as mock_gen,
+        patch("sport_slot.services.agent.vertex_client.classify_output",
+              new_callable=AsyncMock, return_value=True),
+        patch("sport_slot.services.bookings.BookingRepository.list_for_uid",
+              return_value=(bookings, None)),
+    ):
+        reply = await run_agent(CTX, _firestore_client(), "How many bookings do I have?")
+
+    assert reply == "You have 3 confirmed bookings."
+
+    # Turn 2 message (second generate call) must contain the count line
+    turn2_message = mock_gen.call_args_list[1].kwargs["message"]
+    assert "total_bookings=3" in turn2_message
+    # Turn 2 framing must be authoritative
+    assert "AUTHORITATIVE" in turn2_message
+
+
+@pytest.mark.asyncio
+async def test_list_my_bookings_empty_result_shows_zero():
+    """Zero bookings → Turn 2 framing says total_bookings=0."""
+    fc_response = AgentResponse(function_call=("list_my_bookings", {}), text=None)
+    text_response = AgentResponse(function_call=None, text="You have no bookings.")
+
+    with (
+        patch("sport_slot.services.agent.vertex_client.generate",
+              new_callable=AsyncMock, side_effect=[fc_response, text_response]),
+        patch("sport_slot.services.agent.vertex_client.classify_output",
+              new_callable=AsyncMock, return_value=True),
+        patch("sport_slot.services.bookings.BookingRepository.list_for_uid",
+              return_value=([], None)),
+    ):
+        reply = await run_agent(CTX, _firestore_client(), "How many bookings?")
+
+    assert reply == "You have no bookings."
 
 
 # ── output guard disabled ─────────────────────────────────────────────────────
