@@ -6,6 +6,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added (Phase 7.2.4a)
+
+- feat(frontend): voluntary /account change-password page (no re-auth,
+  ≥12 gate, stays on page on success). "Account" link in AppHeader.
+- fix(frontend): ForcePasswordChange session guard — redirects to /signin
+  when unauthenticated instead of failing on submit; sign-out escape hatch
+  added below form.
+- fix(backend): welcome-email login_url now config-driven via
+  welcome_login_url setting (was hardcoded dead subdomain /login path).
+- fix(frontend): admin "Reset password" button → "Issue temp password"
+  to disambiguate from self-service forgot-password. ADR-0020 A2 (7.2.4a).
+
 ### Added (Phase 7.2.3)
 
 - feat(frontend): self-service password reset pages — /forgot-password

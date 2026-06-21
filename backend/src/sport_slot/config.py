@@ -30,6 +30,7 @@ class Settings(BaseSettings):
     reset_token_ttl_seconds: int = 3600
     reset_cooldown_seconds: int = 900
     reset_continue_url: str = "https://sport-slot-dev.web.app/reset"
+    welcome_login_url: str = "https://sport-slot-dev.web.app/signin"
 
 
 @lru_cache

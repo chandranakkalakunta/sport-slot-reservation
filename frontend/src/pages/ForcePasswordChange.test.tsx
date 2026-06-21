@@ -1,6 +1,6 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeEach, expect, test, vi } from "vitest";
 
 vi.mock("../lib/api", () => ({
@@ -85,4 +85,29 @@ test("a freshly-mounted gate observer reads must_change_password=false on its FI
   );
 
   expect(screen.getByText("Home")).toBeInTheDocument();
+});
+
+test("no user (loading=false, user=null) -> redirects to /signin", () => {
+  vi.mocked(useAuth).mockReturnValue({
+    user: null,
+    idToken: null,
+    claims: null,
+    loading: false,
+    signIn: vi.fn(),
+    signInWithGoogle: vi.fn(),
+    signOut: vi.fn(),
+  });
+  const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  render(
+    <QueryClientProvider client={qc}>
+      <MemoryRouter initialEntries={["/force-password"]}>
+        <Routes>
+          <Route path="/force-password" element={<ForcePasswordChange />} />
+          <Route path="/signin" element={<div>Sign-in sentinel</div>} />
+        </Routes>
+      </MemoryRouter>
+    </QueryClientProvider>,
+  );
+  expect(screen.getByText("Sign-in sentinel")).toBeInTheDocument();
+  expect(screen.queryByPlaceholderText("New password")).not.toBeInTheDocument();
 });
