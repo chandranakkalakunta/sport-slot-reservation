@@ -1,6 +1,4 @@
-import datetime
 import uuid
-import zoneinfo
 
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
@@ -11,10 +9,9 @@ from sport_slot.auth.context import TenantContext
 from sport_slot.auth.dependency import get_tenant_context
 from sport_slot.auth.roles import require_role
 from sport_slot.dependencies import get_firestore_client
-from sport_slot.repositories.bookings import BookingRepository
+from sport_slot.repositories.bookings import BookingRepository  # noqa: F401 — test patch compat
 from sport_slot.repositories.facilities import FacilityRepository
-from sport_slot.services.availability import compute_slots
-from sport_slot.services.policy import PolicyService
+from sport_slot.services.availability import get_availability
 
 # ── Reader router (any authenticated user) ─────────────────────────────────
 router = APIRouter(prefix="/facilities", tags=["facilities"])
@@ -52,29 +49,7 @@ async def facility_availability(
     ctx: TenantContext = Depends(get_tenant_context),
     client=Depends(get_firestore_client),
 ):
-    try:
-        target = datetime.date.fromisoformat(date)
-    except ValueError:
-        raise ApiError(422, error_codes.INVALID_DATE, "date must be YYYY-MM-DD")
-
-    facility = FacilityRepository(ctx, client).get(facility_id)
-    if facility is None or not facility.get("active", False):
-        raise ApiError(404, error_codes.FACILITY_NOT_FOUND, "Facility not found")
-
-    policy = PolicyService(ctx, client)
-    tz = zoneinfo.ZoneInfo(policy.tenant_timezone())
-    now_local = datetime.datetime.now(tz)
-
-    booked = BookingRepository(ctx, client).booked_starts(facility_id, date)
-    slots = compute_slots(
-        facility,
-        target,
-        booked,
-        now_local,
-        int(policy.get("booking_horizon_days")),
-        str(policy.get("booking_window_open_time")),
-    )
-    return {"facility_id": facility_id, "date": date, "slots": slots}
+    return get_availability(ctx, client, facility_id, date)
 
 
 # ── Catalog-based tenant-admin management router (ADR-0015 §2, §5) ─────────
