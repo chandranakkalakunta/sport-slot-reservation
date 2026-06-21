@@ -36,8 +36,17 @@ def _get_client() -> Any:
 def _build_tool(schema: dict) -> Any:
     """Convert a plain-dict tool schema to a google.genai types.Tool."""
     from google.genai import types
+    _TYPE_MAP = {
+        "string": types.Type.STRING,
+        "integer": types.Type.INTEGER,
+        "number": types.Type.NUMBER,
+        "boolean": types.Type.BOOLEAN,
+    }
     props = {
-        k: types.Schema(type=types.Type.STRING, description=v.get("description", ""))
+        k: types.Schema(
+            type=_TYPE_MAP.get(v.get("type", "string"), types.Type.STRING),
+            description=v.get("description", ""),
+        )
         for k, v in schema["parameters"].get("properties", {}).items()
     }
     return types.Tool(function_declarations=[

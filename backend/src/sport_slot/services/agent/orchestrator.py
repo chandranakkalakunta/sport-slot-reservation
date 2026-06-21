@@ -141,9 +141,9 @@ def _dispatch_tool(
             return json.dumps({"error": str(exc)})
 
     elif tool_name == "list_my_bookings":
-        limit_str = args.get("limit", "10")
+        raw = args.get("limit", 10)
         try:
-            limit = max(1, min(int(limit_str), 20))
+            limit = max(1, min(int(raw), 20))
         except (ValueError, TypeError):
             limit = 10
         try:

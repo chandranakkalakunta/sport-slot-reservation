@@ -18,6 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   parse error. Uses google-genai unified SDK v2.9.0 with ADC (no API key).
   Lazy Vertex client init avoids import-time credential failures.
   14 hermetic tests — ZERO real network/Vertex calls. ADR-0021 §2 (1b).
+  (review fixes: hallucination-guard test wiring; tool-schema type fidelity)
 
 ### Refactored (Slice 1a)
 

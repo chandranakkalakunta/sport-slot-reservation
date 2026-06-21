@@ -44,19 +44,26 @@ POLICY_SNAP = {
 
 
 def _firestore_client():
-    """Minimal Firestore mock for tests that reach list_facilities."""
+    """Minimal Firestore mock for tests that reach list_facilities.
+
+    list() uses order_by("__name__").limit(n).stream(), NOT .stream() directly.
+    Both chains are set so tests that call list_facilities AND get_availability
+    work with the same mock.
+    """
     client = MagicMock()
-    # Facility list (collection.stream)
     fac_doc = MagicMock()
     fac_doc.to_dict.return_value = FACILITY
     fac_doc.id = FACILITY["id"]
-    client.collection.return_value.document.return_value.collection.return_value.stream.return_value = [fac_doc]
-    # Facility get (for get_availability)
+    # Facility list: collection.order_by().limit().stream()
+    (client.collection.return_value.document.return_value
+     .collection.return_value.order_by.return_value.limit.return_value
+     .stream.return_value) = [fac_doc]
+    # Facility get (for get_availability / FacilityRepository.get)
     fac_snap = (client.collection.return_value.document.return_value
                 .collection.return_value.document.return_value.get.return_value)
     fac_snap.exists = True
     fac_snap.to_dict.return_value = FACILITY
-    # Tenant/policy doc
+    # Tenant/policy doc (PolicyService._tenant_doc)
     ten_snap = client.collection.return_value.document.return_value.get.return_value
     ten_snap.exists = True
     ten_snap.to_dict.return_value = POLICY_SNAP
@@ -155,7 +162,12 @@ async def test_agent_list_my_bookings_tool():
 
 @pytest.mark.asyncio
 async def test_hallucination_guard_blocks_invalid_facility_id():
-    """LLM hallucinates a facility_id not in the real list → service NOT called → error JSON dispatched."""
+    """LLM hallucinates a facility_id not in the real list → service NOT called → error JSON dispatched.
+
+    Patches sport_slot.services.agent.orchestrator.get_availability — the bound
+    name in the module that calls it — so removing the guard would cause this
+    test to fail (mock_avail would be called, not skipped).
+    """
     fc_response = AgentResponse(function_call=("check_availability",
                                                {"facility_id": "FAKE-123", "date": "2027-01-15"}),
                                 text=None)
@@ -166,12 +178,47 @@ async def test_hallucination_guard_blocks_invalid_facility_id():
               new_callable=AsyncMock, side_effect=[fc_response, text_response]),
         patch("sport_slot.services.agent.vertex_client.classify_output",
               new_callable=AsyncMock, return_value=True),
-        patch("sport_slot.services.availability.get_availability") as mock_avail,
+        patch("sport_slot.services.agent.orchestrator.get_availability") as mock_avail,
     ):
         reply = await run_agent(CTX, _firestore_client(), "Check FAKE-123 availability")
 
     mock_avail.assert_not_called()
     assert reply == "Sorry, that facility was not found."
+
+
+@pytest.mark.asyncio
+async def test_valid_facility_id_DOES_call_get_availability():
+    """Positive control: valid facility_id drives orchestrator.get_availability with correct args.
+
+    _firestore_client() returns FACILITY from list_facilities (via the corrected
+    order_by/limit/stream chain), so valid_ids = {"f-court1"}.  The guard passes
+    and get_availability (patched at the orchestrator binding) is called once with
+    the resident ctx, facility_id, and date.  This proves the patch site is correct,
+    making the negative hallucination test meaningful.
+    """
+    fc_response = AgentResponse(
+        function_call=("check_availability", {"facility_id": "f-court1", "date": "2027-01-15"}),
+        text=None,
+    )
+    text_response = AgentResponse(function_call=None, text="Slots available.")
+    avail_result = {"facility_id": "f-court1", "date": "2027-01-15", "slots": []}
+
+    with (
+        patch("sport_slot.services.agent.vertex_client.generate",
+              new_callable=AsyncMock, side_effect=[fc_response, text_response]),
+        patch("sport_slot.services.agent.vertex_client.classify_output",
+              new_callable=AsyncMock, return_value=True),
+        patch("sport_slot.services.agent.orchestrator.get_availability",
+              return_value=avail_result) as mock_avail,
+    ):
+        reply = await run_agent(CTX, _firestore_client(), "Is f-court1 free on 2027-01-15?")
+
+    mock_avail.assert_called_once()
+    call_args = mock_avail.call_args
+    assert call_args.args[0] == CTX          # resident ctx
+    assert call_args.args[2] == "f-court1"   # facility_id
+    assert call_args.args[3] == "2027-01-15" # date
+    assert reply == "Slots available."
 
 
 # ── output guard blocking ─────────────────────────────────────────────────────

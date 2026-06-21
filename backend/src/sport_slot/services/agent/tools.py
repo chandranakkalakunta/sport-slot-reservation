@@ -38,7 +38,7 @@ LIST_MY_BOOKINGS: dict = {
         "type": "object",
         "properties": {
             "limit": {
-                "type": "string",
+                "type": "integer",
                 "description": "Maximum number of bookings to return (default 10).",
             },
         },
