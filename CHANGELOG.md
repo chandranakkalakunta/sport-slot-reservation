@@ -6,6 +6,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Fixed (1b.2)
+
+- fix(docker): set PYTHONUNBUFFERED=1 so structlog JSON logs flush to stdout and
+  reach Cloud Run. 1b.1's PrintLoggerFactory was correct but Python stdout is
+  block-buffered in the container by default — events sat in the buffer and were
+  never scraped. One ENV line in the runtime stage; no app code change. [1b.2]
+
 ### Fixed (1b.1)
 
 - fix(logging): structlog output now reaches stdout via PrintLoggerFactory —

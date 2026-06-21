@@ -16,6 +16,7 @@ RUN groupadd -r app && useradd -r -g app app
 WORKDIR /app
 COPY --from=builder /app/.venv /app/.venv
 ENV PATH="/app/.venv/bin:$PATH"
+ENV PYTHONUNBUFFERED=1
 
 USER app
 EXPOSE 8080
