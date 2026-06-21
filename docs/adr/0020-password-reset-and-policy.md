@@ -1,7 +1,7 @@
 # ADR-0020: Self-Service Password Reset & Password Policy
 
 
-- **Status:** Accepted (amended 2026-06-20 — see Amendment 1)
+- **Status:** Accepted (amended 2026-06-21 — see Amendment 1& 2)
 - **Date:** 2026-06-20
 - **Deciders:** Coordinator (Chandra), Strategist
 - **Phase:** 7.2
@@ -135,4 +135,19 @@ policy). Branding (§3) currently resolves to passing `tenant_name`, since
 templates defer logo/color branding to 7.5.
 
 
+## Amendment 2 — 2026-06-21: Client strength feedback — no bundled zxcvbn
 
+**Refines Decision §2's client-side guidance.** §2 specified a client-side
+zxcvbn strength meter mirroring the server algorithm. Implementation review of
+the frontend (minimal inline-style PWA, no component library) found the JS
+zxcvbn package (~400KB) disproportionate to the bundle, and — because the HIBP
+breach check is server-only — a client meter can never be fully authoritative
+(it could show "strong" for a breached password the server rejects).
+
+The frontend therefore enforces only the cheap, certain rule client-side
+(**length ≥ 12**) for instant feedback, and renders the server's already
+user-readable policy messages (e.g. "Add another word or two") from the 422
+response as the authoritative verdict. This honors §2's intent — fast client
+feedback, server stays authoritative — without the bundle cost or the
+client/server-disagreement failure mode. The existing /force-password client
+gate is updated from <8 to <12 to match the unified policy.

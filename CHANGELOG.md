@@ -6,6 +6,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added (Phase 7.2.3)
+
+- feat(frontend): self-service password reset pages — /forgot-password
+  (enumeration-safe, uniform confirmation on success + error) and
+  /reset?token=... (strips token from URL on mount, client gate ≥12
+  chars, RESET_TOKEN_INVALID link-to-request). Public routes, no new
+  dependencies. "Forgot password?" link on SignIn. ForcePasswordChange
+  client gate bumped 8→12 for policy consistency. ADR-0020 A2 (7.2.3).
+
 ### Added (Phase 7.2.2b)
 
 - feat(auth): self-service password reset confirm endpoint
