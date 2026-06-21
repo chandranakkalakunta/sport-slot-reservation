@@ -16,6 +16,7 @@ dependencies = [
   "httpx>=0.28",
   "google-cloud-tasks>=2.16",
   "google-auth>=2.36",
+  "google-genai>=1.0",
   "zxcvbn>=4.5.0",
 ]
 

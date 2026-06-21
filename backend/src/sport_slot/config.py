@@ -31,6 +31,10 @@ class Settings(BaseSettings):
     reset_cooldown_seconds: int = 900
     reset_continue_url: str = "https://sport-slot-dev.web.app/reset"
     welcome_login_url: str = "https://sport-slot-dev.web.app/signin"
+    vertex_project: str = "sport-slot-dev"
+    vertex_location: str = "asia-south1"
+    agent_model: str = "gemini-2.5-flash"
+    agent_output_guard_enabled: bool = True
 
 
 @lru_cache

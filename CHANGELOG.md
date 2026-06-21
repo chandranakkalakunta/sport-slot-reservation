@@ -6,6 +6,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added (Slice 1b)
+
+- feat(backend): read-only AI query agent — residents-only single-turn
+  assistant (POST /api/v1/agent/query). Two tools: check_availability +
+  list_my_bookings; book/cancel gated out by capability schema.
+  Hallucination guard validates LLM-returned facility_id against real
+  tenant list before any service call. Dual output guard: rules-based
+  (email/password/uid patterns, 2 KB cap) + LLM classifier (second Flash
+  call, agent_output_guard_enabled setting). Fail-closed on any Vertex or
+  parse error. Uses google-genai unified SDK v2.9.0 with ADC (no API key).
+  Lazy Vertex client init avoids import-time credential failures.
+  14 hermetic tests — ZERO real network/Vertex calls. ADR-0021 §2 (1b).
+
 ### Refactored (Slice 1a)
 
 - refactor(api): extract get_availability and list_my_bookings into the
