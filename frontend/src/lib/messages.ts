@@ -30,7 +30,7 @@ const CATALOG: Catalog = {
     USER_EMAIL_TAKEN: "That email is already registered.",
     USER_NOT_FOUND: "User not found.",
     SELF_DEACTIVATION_FORBIDDEN: "You can't deactivate your own account.",
-    WEAK_PASSWORD: "Password must be at least 8 characters.",
+    WEAK_PASSWORD: "Password must be at least 12 characters or stronger.",
     RESET_TOKEN_INVALID: "This reset link is invalid or has expired. Please request a new one.",
   },
 };
