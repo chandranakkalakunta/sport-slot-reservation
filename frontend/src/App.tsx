@@ -7,8 +7,10 @@ import { ProtectedRoute } from "./auth/ProtectedRoute";
 import { TenantAdminRoute } from "./auth/TenantAdminRoute";
 import Facilities from "./pages/Facilities";
 import FacilityAvailability from "./pages/FacilityAvailability";
+import ForgotPassword from "./pages/ForgotPassword";
 import ForcePasswordChange from "./pages/ForcePasswordChange";
 import MyBookings from "./pages/MyBookings";
+import ResetPassword from "./pages/ResetPassword";
 import SignIn from "./pages/SignIn";
 import CreateTenant from "./pages/admin/CreateTenant";
 import CreateUser from "./pages/admin/CreateUser";
@@ -33,6 +35,8 @@ export default function App() {
     <AuthProvider>
       <Routes>
         <Route path="/signin" element={<SignIn />} />
+        <Route path="/forgot-password" element={<ForgotPassword />} />
+        <Route path="/reset" element={<ResetPassword />} />
         <Route path="/" element={<ProtectedRoute><Landing /></ProtectedRoute>} />
         <Route path="/facilities/:facilityId"
           element={<ProtectedRoute><FacilityAvailability /></ProtectedRoute>} />

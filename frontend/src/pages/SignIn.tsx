@@ -1,5 +1,5 @@
 import { type FormEvent, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 
 import { useAuth } from "../auth/AuthContext";
 
@@ -71,6 +71,11 @@ export default function SignIn() {
         Continue with Google
       </button>
       {error && <p style={{ color: "var(--color-danger)" }}>{error}</p>}
+      <p style={{ marginTop: "var(--spacing)", fontSize: 14, textAlign: "center" }}>
+        <Link to="/forgot-password" style={{ color: "var(--color-primary)" }}>
+          Forgot password?
+        </Link>
+      </p>
     </main>
   );
 }
