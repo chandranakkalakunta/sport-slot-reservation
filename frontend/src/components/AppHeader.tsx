@@ -31,6 +31,9 @@ export function AppHeader({ children }: { children?: React.ReactNode }) {
             {user.email}{roleLabel ? ` · ${roleLabel}` : ""}
           </span>
         )}
+        <Link to="/account" style={{ padding: "6px 12px",
+          borderRadius: "var(--radius)", border: "1px solid var(--color-text-muted)",
+          color: "inherit", textDecoration: "none", fontSize: "inherit" }}>Account</Link>
         <button onClick={() => signOut()} style={{ padding: "6px 12px",
           borderRadius: "var(--radius)", border: "1px solid var(--color-text-muted)",
           background: "transparent", cursor: "pointer" }}>Sign out</button>

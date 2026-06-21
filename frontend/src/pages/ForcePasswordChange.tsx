@@ -1,8 +1,9 @@
 import { type FormEvent, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Navigate, useNavigate } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 
 import { PASSWORD_GATE_QUERY_KEY } from "../auth/usePasswordGate";
+import { useAuth } from "../auth/AuthContext";
 import { ApiClientError } from "../lib/api";
 import { apiFetch } from "../lib/api";
 import { messageForCode } from "../lib/messages";
@@ -10,6 +11,7 @@ import { messageForCode } from "../lib/messages";
 export default function ForcePasswordChange() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { user, loading, signOut } = useAuth();
   const [pw, setPw] = useState("");
   const [confirm, setConfirm] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -51,6 +53,9 @@ export default function ForcePasswordChange() {
     }
   }
 
+  if (loading) return <p style={{ padding: 24 }}>Loading…</p>;
+  if (!user) return <Navigate to="/signin" replace />;
+
   const field = { display: "block", width: "100%", padding: 8,
     marginBottom: "var(--spacing)", borderRadius: "var(--radius)",
     border: "1px solid var(--color-text-muted)" } as const;
@@ -73,6 +78,13 @@ export default function ForcePasswordChange() {
         </button>
       </form>
       {error && <p style={{ color: "var(--color-danger)" }}>{error}</p>}
+      <p style={{ marginTop: "var(--spacing)", fontSize: 13 }}>
+        <button type="button" onClick={() => signOut().then(() => navigate("/signin"))}
+          style={{ background: "none", border: "none", cursor: "pointer", padding: 0,
+            color: "var(--color-text-muted)", fontSize: 13 }}>
+          Sign out
+        </button>
+      </p>
     </main>
   );
 }

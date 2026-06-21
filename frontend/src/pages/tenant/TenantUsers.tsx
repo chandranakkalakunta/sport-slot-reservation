@@ -136,7 +136,7 @@ export default function TenantUsers() {
                 style={{ padding: "4px 10px", borderRadius: "var(--radius)",
                   border: "1px solid var(--color-primary)", color: "var(--color-primary)",
                   background: "transparent", cursor: "pointer", fontSize: 13 }}>
-                Reset password
+                Issue temp password
               </button>
               <button onClick={() => deactivate.mutate(u.uid)}
                 disabled={deactivate.isPending}
@@ -151,7 +151,7 @@ export default function TenantUsers() {
         {resetError && <p style={{ color: "var(--color-danger)" }}>{resetError}</p>}
         {resetCred && (
           <div style={{ marginTop: 12 }}>
-            <CredentialDisplay creds={[resetCred]} title="Password reset" />
+            <CredentialDisplay creds={[resetCred]} title="Temp password issued" />
           </div>
         )}
       </section>

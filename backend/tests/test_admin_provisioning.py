@@ -3,6 +3,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import firebase_admin.auth as fb_auth
 
+from sport_slot.config import get_settings
 from sport_slot.dependencies import get_firestore_client
 
 AUTH = {"authorization": "Bearer fake"}
@@ -302,7 +303,7 @@ async def test_create_user_enqueues_welcome_notification(make_client):
     assert kwargs["params"] == {
         "user_name": "Bob",
         "tenant_name": "Demo Society",
-        "login_url": "https://demo.sportbook.chandraailabs.com/login",
+        "login_url": get_settings().welcome_login_url,
         "temp_password": body["temp_password"],
     }
     # Proves the params are accepted by the real renderer (no 422 at the worker).

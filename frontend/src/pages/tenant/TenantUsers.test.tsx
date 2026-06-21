@@ -133,7 +133,7 @@ describe("TenantUsers", () => {
     else (Blob.prototype as { text?: unknown }).text = origText;
   });
 
-  it("reset password button fires mutation and shows CredentialDisplay", async () => {
+  it("issue temp password button fires mutation and shows CredentialDisplay", async () => {
     const mutateAsync = vi.fn().mockResolvedValue({ uid: "u-1", temp_password: "ResetP@ss1" });
     vi.mocked(useResetTenantUserPassword).mockImplementation(
       () => ({ mutateAsync, isPending: false }) as unknown as ReturnType<typeof useResetTenantUserPassword>,
@@ -141,7 +141,7 @@ describe("TenantUsers", () => {
     const user = userEvent.setup();
     renderPage();
 
-    await user.click(screen.getByRole("button", { name: /reset password/i }));
+    await user.click(screen.getByRole("button", { name: /issue temp password/i }));
 
     await waitFor(() => {
       expect(screen.getByText(/ResetP@ss1/)).toBeInTheDocument();

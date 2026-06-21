@@ -117,11 +117,7 @@ class UserProvisioningService:
         try:
             tenant_doc = tenant_snap.to_dict() if tenant_snap.exists else None
             tenant_name = (tenant_doc or {}).get("display_name", "")
-            base_domain = get_settings().base_domain
-            login_url = (
-                f"https://{tenant_slug}.{base_domain}/login"
-                if tenant_slug else f"https://{base_domain}/login"
-            )
+            login_url = get_settings().welcome_login_url
             enqueue_notification(
                 event_type="user_welcome",
                 to=email,
