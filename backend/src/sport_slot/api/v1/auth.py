@@ -1,7 +1,11 @@
 """Public auth endpoints — no tenant context required (ADR-0020 A2).
 
 /auth/forgot-password: enumeration-safe, fail-closed cooldown, branded email.
+/auth/forgot-password/confirm: single-use token consume, password set, sessions revoked.
 """
+
+import datetime
+import hashlib
 
 import structlog
 from fastapi import APIRouter, Depends, Request
@@ -11,12 +15,14 @@ from pydantic import BaseModel, EmailStr
 from sport_slot.api import error_codes
 from sport_slot.api.errors import ApiError
 from sport_slot.auth.context import TenantContext
+from sport_slot.auth.password_policy import validate_password
 from sport_slot.config import get_settings
 from sport_slot.dependencies import get_firestore_client, get_redis_client
 from sport_slot.middleware.request_id import get_request_id
 from sport_slot.notifications.tasks import enqueue_notification
 from sport_slot.ratelimit import limiter
 from sport_slot.repositories.bookings import AuditRepository
+from sport_slot.repositories.password_reset import ResetTokenInvalid, consume_reset_token
 from sport_slot.services.lock import LockUnavailableError
 from sport_slot.services.password_reset import enforce_cooldown, mint_and_store_token
 
@@ -99,3 +105,85 @@ async def forgot_password(
     )
 
     return _UNIFORM_OK
+
+
+_INVALID_MSG = "This reset link is invalid or has expired."
+
+
+class ConfirmResetBody(BaseModel):
+    token: str
+    new_password: str
+
+
+@router.post("/forgot-password/confirm")
+async def confirm_reset(
+    body: ConfirmResetBody,
+    fs=Depends(get_firestore_client),
+):
+    token_hash = hashlib.sha256(body.token.encode()).hexdigest()
+    ref = fs.collection("password_reset_tokens").document(token_hash)
+
+    # (a) cheap non-authoritative pre-check — avoids HIBP round-trip on junk tokens
+    snap = ref.get()
+    if not snap.exists:
+        raise ApiError(400, error_codes.RESET_TOKEN_INVALID, _INVALID_MSG)
+    pre = snap.to_dict() or {}
+    if pre.get("used") or pre["expires_at"] <= datetime.datetime.now(datetime.UTC):
+        raise ApiError(400, error_codes.RESET_TOKEN_INVALID, _INVALID_MSG)
+
+    # (b) validate password BEFORE consuming the token
+    result = await validate_password(body.new_password)
+    if not result.ok:
+        raise ApiError(422, error_codes.WEAK_PASSWORD, " ".join(result.errors))
+
+    # (c) authoritative atomic single-use consume (transactional re-check)
+    try:
+        info = consume_reset_token(fs, token_hash)
+    except ResetTokenInvalid:
+        raise ApiError(400, error_codes.RESET_TOKEN_INVALID, _INVALID_MSG)
+
+    uid = info["uid"]
+    tenant_id = info["tenant_id"]
+
+    # (d) set the password — token already consumed; failure is the safe direction
+    fb_auth.update_user(uid, password=body.new_password)
+
+    # (e) best-effort post-steps — password is already set; never fail the 200
+    try:
+        fb_auth.revoke_refresh_tokens(uid)
+    except Exception:
+        log.warning("reset_revoke_failed", uid=uid)
+
+    try:
+        (
+            fs.collection("tenants")
+            .document(tenant_id)
+            .collection("users")
+            .document(uid)
+            .update({"must_change_password": False})  # nosec B105
+        )
+    except Exception:
+        log.warning("reset_flag_clear_failed", uid=uid)
+
+    try:
+        AuditRepository(
+            TenantContext(
+                uid=uid,
+                tenant_id=tenant_id,
+                tenant_slug=None,
+                role="resident",
+                household_id=None,
+            ),
+            fs,
+        ).write_event(
+            "auth.password_reset_completed",
+            uid,
+            "",
+            "",
+            get_request_id(),
+            {"via": "self_service"},
+        )
+    except Exception:
+        log.warning("reset_audit_failed", uid=uid)
+
+    return {"status": "ok", "message": "Password has been reset."}

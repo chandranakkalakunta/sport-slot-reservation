@@ -6,11 +6,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added (Phase 7.2.2b)
+
+- feat(auth): self-service password reset confirm endpoint
+  (/auth/forgot-password/confirm) — single-use token consume (transactional),
+  policy-validated, session revocation, audit. ADR-0020 A2 (7.2.2b).
+
 ### Added (Phase 7.2.2a)
 
 - feat(auth): self-service password reset request endpoint
   (/auth/forgot-password) — token mint, fail-closed per-email cooldown,
   branded Resend email, enumeration-safe. ADR-0020 A2 (7.2.2a).
+
 ### Added (Phase 7.2.1)
 
 - feat(auth): shared password policy (zxcvbn + HIBP), enforced on
