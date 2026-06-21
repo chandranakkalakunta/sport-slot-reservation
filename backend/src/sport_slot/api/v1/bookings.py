@@ -22,22 +22,12 @@ from sport_slot.repositories.bookings import (
 from sport_slot.repositories.facilities import FacilityRepository
 from sport_slot.repositories.user_profiles import UserProfileRepository
 from sport_slot.services.availability import compute_slots
+from sport_slot.services.bookings import _is_cancellable, list_my_bookings
 from sport_slot.services.lock import LockService, LockUnavailableError
 from sport_slot.services.policy import PolicyService
 
 router = APIRouter(prefix="/bookings", tags=["bookings"])
 log = structlog.get_logger()
-
-
-def _is_cancellable(booking: dict, now_local: datetime.datetime, buffer_hours: int) -> bool:
-    if booking.get("status") != "confirmed":
-        return False
-    slot_start = datetime.datetime.combine(
-        datetime.date.fromisoformat(booking["date"]),
-        datetime.time.fromisoformat(booking["start"]),
-    )
-    deadline = slot_start - datetime.timedelta(hours=buffer_hours)
-    return now_local < deadline
 
 
 class BookingCreate(BaseModel):
@@ -153,18 +143,7 @@ async def my_bookings(
     ctx: TenantContext = Depends(get_tenant_context),
     client=Depends(get_firestore_client),
 ):
-    items, next_cursor = BookingRepository(ctx, client).list_for_uid(
-        ctx.uid, limit=limit, cursor=cursor
-    )
-    policy = PolicyService(ctx, client)
-    tz = zoneinfo.ZoneInfo(policy.tenant_timezone())
-    now_local = datetime.datetime.now(tz).replace(tzinfo=None)
-    buffer_hours = int(policy.get("cancellation_buffer_hours"))
-    annotated = [
-        {**item, "cancellable": _is_cancellable(item, now_local, buffer_hours)}
-        for item in items
-    ]
-    return {"items": annotated, "next_cursor": next_cursor}
+    return list_my_bookings(ctx, client, limit=limit, cursor=cursor)
 
 
 @router.post("/{booking_id}/cancel")

@@ -4,9 +4,20 @@ compute_slots is a PURE function — facility config, booked starts,
 and the tenant-local clock in; the slot permission matrix out.
 Display is soft, enforcement is hard: this marks bookable/reason;
 the booking endpoint (3.4) re-enforces via the same PolicyService.
+
+get_availability is the orchestrating service function (ADR-0021 §2):
+resolves facility, policy, and booked starts then returns the slot grid.
 """
 
 import datetime
+import zoneinfo
+
+from sport_slot.api import error_codes
+from sport_slot.api.errors import ApiError
+from sport_slot.auth.context import TenantContext
+from sport_slot.repositories.bookings import BookingRepository
+from sport_slot.repositories.facilities import FacilityRepository
+from sport_slot.services.policy import PolicyService
 
 STATUS_AVAILABLE = "available"
 STATUS_BOOKED = "booked"
@@ -66,3 +77,30 @@ def compute_slots(
         )
         cursor += duration
     return slots
+
+
+def get_availability(ctx: TenantContext, client, facility_id: str, date_str: str) -> dict:
+    """Orchestrate availability for one facility + date (ADR-0021 §2)."""
+    try:
+        target = datetime.date.fromisoformat(date_str)
+    except ValueError:
+        raise ApiError(422, error_codes.INVALID_DATE, "date must be YYYY-MM-DD")
+
+    facility = FacilityRepository(ctx, client).get(facility_id)
+    if facility is None or not facility.get("active", False):
+        raise ApiError(404, error_codes.FACILITY_NOT_FOUND, "Facility not found")
+
+    policy = PolicyService(ctx, client)
+    tz = zoneinfo.ZoneInfo(policy.tenant_timezone())
+    now_local = datetime.datetime.now(tz)
+
+    booked = BookingRepository(ctx, client).booked_starts(facility_id, date_str)
+    slots = compute_slots(
+        facility,
+        target,
+        booked,
+        now_local,
+        int(policy.get("booking_horizon_days")),
+        str(policy.get("booking_window_open_time")),
+    )
+    return {"facility_id": facility_id, "date": date_str, "slots": slots}

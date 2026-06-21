@@ -6,6 +6,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Refactored (Slice 1a)
+
+- refactor(api): extract get_availability and list_my_bookings into the
+  service layer (Phase 9 agent foundation, ADR-0021 §2); endpoints
+  unchanged in behavior. _is_cancellable moved to services/bookings.py;
+  single copy shared by my_bookings and cancel_booking.
+
 ### Added (Phase 7.2.4a)
 
 - feat(frontend): voluntary /account change-password page (no re-auth,
