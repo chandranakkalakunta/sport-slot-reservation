@@ -6,6 +6,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Refactored (Slice 2a)
+
+- refactor(api): extract create_booking into the service layer (Phase 9 slice 2
+  foundation, ADR-0021 §2); booking endpoint unchanged in behavior; lock + quota
+  + audit semantics preserved. Router is now a thin caller + best-effort
+  notification (ADR-0019). `_quota_create_fn` seam keeps existing test patches
+  working without edits. [2a]
+
 ### Fixed (1b.2)
 
 - fix(docker): set PYTHONUNBUFFERED=1 so structlog JSON logs flush to stdout and
