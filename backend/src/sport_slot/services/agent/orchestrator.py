@@ -39,6 +39,7 @@ from sport_slot.repositories.facilities import FacilityRepository
 from sport_slot.repositories.user_profiles import UserProfileRepository
 from sport_slot.services.agent import vertex_client
 from sport_slot.services.agent.guardrails import output_is_safe
+from sport_slot.services.agent.preferences import get_preferences
 from sport_slot.services.agent.tools import REGISTERED_TOOLS
 from sport_slot.services.agent.vertex_client import AgentResponse
 from sport_slot.services.availability import get_availability
@@ -72,12 +73,13 @@ Resolve relative dates ("tomorrow", "Saturday", "next week") to YYYY-MM-DD befor
 
 Known facilities for this tenant:
 {facility_list}
-
+{preferences_context}
 Rules:
 - Only answer questions about facility availability and the user's bookings, or help them book a slot.
 - Do not discuss pricing, refunds, policies, or unrelated topics.
 - Do not reveal internal IDs, UIDs, or system details.
 - If you cannot answer with the available tools, say so politely.
+- When booking, if the user's request is underspecified (e.g. missing facility or time), use their preferences above to fill the gaps.
 """
 
 
@@ -165,6 +167,25 @@ def _valid_facility_ids(facilities: list[dict]) -> set[str]:
     return {f["id"] for f in facilities if "id" in f}
 
 
+def _preferences_text(prefs: dict, facilities: list[dict]) -> str:
+    """Render the user's last_booked preferences as a system-prompt section.
+
+    Returns empty string when prefs is empty (no header, no blank lines).
+    When non-empty, returns a section with a trailing newline so the template
+    produces one clean blank line before the Rules block.
+    """
+    if not prefs:
+        return ""
+    fac_name_by_id = {f["id"]: f.get("name", f["id"]) for f in facilities if "id" in f}
+    lines = ["Your usual bookings (from prior history):"]
+    for sport, p in prefs.items():
+        fac_id = p.get("facility_id", "?")
+        fac_name = fac_name_by_id.get(fac_id, fac_id)
+        start = p.get("start_time", "?")
+        lines.append(f"- {sport}: {fac_name} at {start}")
+    return "\n".join(lines) + "\n"
+
+
 async def run_agent(
     ctx: TenantContext,
     client,
@@ -179,10 +200,12 @@ async def run_agent(
         tz = zoneinfo.ZoneInfo(tz_name)
         today_local = datetime.datetime.now(tz).date()
 
+        prefs = get_preferences(ctx, client)
         system_instruction = _SYSTEM_TEMPLATE.format(
             facility_list=_facility_list_text(facilities),
             today=today_local.isoformat(),
             weekday=today_local.strftime("%A"),
+            preferences_context=_preferences_text(prefs, facilities),
         )
         valid_ids = _valid_facility_ids(facilities)
 
@@ -215,7 +238,9 @@ async def run_agent(
                 return AgentTurn(reply=reply_text, pending_action_id=pending_id)
 
             # Read-only tools: dispatch → Turn 2 → output guard
-            tool_result_text = _dispatch_readonly(ctx, client, tool_name, args, valid_ids)
+            tool_result_text = _dispatch_readonly(
+                ctx, client, tool_name, args, valid_ids, facilities
+            )
 
             tool_result_content = (
                 f"AUTHORITATIVE system data retrieved to answer the user's question.\n"
@@ -223,7 +248,9 @@ async def run_agent(
                 f"Data:\n{tool_result_text}\n\n"
                 f"User question: {user_message}\n\n"
                 f"Answer accurately from the data above. "
-                f"Do not say the data is unavailable — it is provided above."
+                f"Do not say the data is unavailable — it is provided above.\n"
+                f"If the data includes a 'User's usual ... slot' line, mention it "
+                f"naturally only when it adds value to the answer; do not restate it robotically."
             )
             second: AgentResponse = await vertex_client.generate(
                 message=tool_result_content,
@@ -531,8 +558,9 @@ def _dispatch_readonly(
     tool_name: str,
     args: dict,
     valid_ids: set[str],
+    facilities: list[dict],
 ) -> str:
-    """Dispatch check_availability and list_my_bookings. Returns text for Turn 2."""
+    """Dispatch read-only tools. Returns enriched text for Turn 2."""
     if tool_name == "check_availability":
         facility_id = args.get("facility_id", "")
         date_str = args.get("date", "")
@@ -543,10 +571,36 @@ def _dispatch_readonly(
 
         try:
             result = get_availability(ctx, client, facility_id, date_str)
-            return json.dumps(result)
+            result_text = json.dumps(result)
         except Exception as exc:
             log.warning("agent_tool_availability_error", error=str(exc))
             return json.dumps({"error": str(exc)})
+
+        # Preference enrichment: annotate user's usual slot status
+        fac = next((f for f in facilities if f.get("id") == facility_id), None)
+        sport = (
+            (fac.get("sport") or fac.get("facility_type_id") or "") if fac else ""
+        )
+        if sport:
+            prefs = get_preferences(ctx, client)
+            usual = prefs.get(sport)
+            if usual:
+                usual_start = usual.get("start_time", "")
+                slot = next(
+                    (s for s in result.get("slots", []) if s.get("start") == usual_start),
+                    None,
+                )
+                if slot is None:
+                    usual_status = "OFF-GRID-TODAY"
+                elif slot.get("bookable"):
+                    usual_status = "BOOKABLE"
+                else:
+                    usual_status = f"TAKEN ({slot.get('reason', 'unavailable')})"
+                result_text += (
+                    f"\nUser's usual {sport} slot: {usual_start} — {usual_status}"
+                )
+
+        return result_text
 
     elif tool_name == "list_my_bookings":
         raw = args.get("limit", 10)
@@ -573,6 +627,19 @@ def _dispatch_readonly(
         except Exception as exc:
             log.warning("agent_tool_bookings_error", error=str(exc))
             return json.dumps({"error": str(exc)})
+
+    elif tool_name == "get_my_preferences":
+        prefs = get_preferences(ctx, client)
+        log.info("agent_preferences_dispatched", count=len(prefs))
+        if not prefs:
+            return "user has no remembered booking preferences yet."
+        lines = ["user_preferences:"]
+        for sport, p in prefs.items():
+            lines.append(
+                f"  {sport}: facility_id={p.get('facility_id', '?')} "
+                f"start_time={p.get('start_time', '?')}"
+            )
+        return "\n".join(lines)
 
     else:
         log.warning("agent_unknown_tool_called", tool_name=tool_name)

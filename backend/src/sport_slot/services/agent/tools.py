@@ -1,6 +1,7 @@
 """Agent tool schemas — plain dicts only, zero google imports.
 
-Registered tools: check_availability, list_my_bookings, book, cancel.
+Registered tools: check_availability, list_my_bookings, book, cancel,
+                  get_my_preferences.
 """
 
 from __future__ import annotations
@@ -97,4 +98,20 @@ CANCEL: dict = {
     },
 }
 
-REGISTERED_TOOLS: list[dict] = [CHECK_AVAILABILITY, LIST_MY_BOOKINGS, BOOK, CANCEL]
+GET_MY_PREFERENCES: dict = {
+    "name": "get_my_preferences",
+    "description": (
+        "Look up the user's remembered booking preferences (their usual facility "
+        "and time per sport, based on prior bookings). Use this when the user "
+        "asks what their usual time or usual court is."
+    ),
+    "parameters": {
+        "type": "object",
+        "properties": {},
+        "required": [],
+    },
+}
+
+REGISTERED_TOOLS: list[dict] = [
+    CHECK_AVAILABILITY, LIST_MY_BOOKINGS, BOOK, CANCEL, GET_MY_PREFERENCES
+]
