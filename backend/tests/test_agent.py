@@ -25,6 +25,22 @@ from sport_slot.services.agent.orchestrator import run_agent
 from sport_slot.services.agent.tools import REGISTERED_TOOLS
 from sport_slot.services.agent.vertex_client import AgentResponse
 
+
+class _NoopStore:
+    """In-test noop store for read-only agent tests (no book tool used)."""
+    async def propose(self, *a, **k):
+        return "noop"
+    async def consume(self, *a, **k):
+        return None
+
+
+_NS = _NoopStore()
+
+
+async def _ra(ctx, client, message):
+    """Call run_agent with noop store, return just the reply text."""
+    return (await run_agent(ctx, client, _NS, message)).reply
+
 # ── fixtures ──────────────────────────────────────────────────────────────────
 
 CTX = TenantContext(uid="u1", tenant_id="t-1", tenant_slug="demo",
@@ -75,13 +91,13 @@ def _firestore_client():
 
 # ── tools registry ────────────────────────────────────────────────────────────
 
-def test_only_check_availability_and_list_my_bookings_registered():
+def test_registered_tools_include_book():
     names = {t["name"] for t in REGISTERED_TOOLS}
     assert "check_availability" in names
     assert "list_my_bookings" in names
-    assert "book" not in names
+    assert "book" in names
     assert "cancel" not in names
-    assert len(names) == 2
+    assert len(names) == 3
 
 
 # ── guardrails: rules_pass ────────────────────────────────────────────────────
@@ -120,7 +136,7 @@ async def test_agent_tool_call_check_availability():
         patch("sport_slot.services.availability.BookingRepository.booked_starts",
               return_value=set()),
     ):
-        reply = await run_agent(CTX, _firestore_client(), "Is the tennis court free tomorrow?")
+        reply = await _ra(CTX, _firestore_client(),"Is the tennis court free tomorrow?")
 
     assert reply == "The court is available at 08:00."
     assert mock_gen.call_count == 2  # turn 1 + turn 2
@@ -137,7 +153,7 @@ async def test_agent_direct_text_reply():
         patch("sport_slot.services.agent.vertex_client.classify_output",
               new_callable=AsyncMock, return_value=True),
     ):
-        reply = await run_agent(CTX, _firestore_client(), "What's the weather today?")
+        reply = await _ra(CTX, _firestore_client(),"What's the weather today?")
 
     assert reply == "I can only help with booking queries."
 
@@ -156,7 +172,7 @@ async def test_agent_list_my_bookings_tool():
         patch("sport_slot.services.bookings.BookingRepository.list_for_uid",
               return_value=([], None)),
     ):
-        reply = await run_agent(CTX, _firestore_client(), "Show my bookings")
+        reply = await _ra(CTX, _firestore_client(),"Show my bookings")
 
     assert reply == "You have 1 upcoming booking."
 
@@ -183,7 +199,7 @@ async def test_hallucination_guard_blocks_invalid_facility_id():
               new_callable=AsyncMock, return_value=True),
         patch("sport_slot.services.agent.orchestrator.get_availability") as mock_avail,
     ):
-        reply = await run_agent(CTX, _firestore_client(), "Check FAKE-123 availability")
+        reply = await _ra(CTX, _firestore_client(),"Check FAKE-123 availability")
 
     mock_avail.assert_not_called()
     assert reply == "Sorry, that facility was not found."
@@ -214,7 +230,7 @@ async def test_valid_facility_id_DOES_call_get_availability():
         patch("sport_slot.services.agent.orchestrator.get_availability",
               return_value=avail_result) as mock_avail,
     ):
-        reply = await run_agent(CTX, _firestore_client(), "Is f-court1 free on 2027-01-15?")
+        reply = await _ra(CTX, _firestore_client(),"Is f-court1 free on 2027-01-15?")
 
     mock_avail.assert_called_once()
     call_args = mock_avail.call_args
@@ -237,7 +253,7 @@ async def test_output_guard_blocks_unsafe_reply():
         patch("sport_slot.services.agent.vertex_client.classify_output",
               new_callable=AsyncMock, return_value=False),
     ):
-        reply = await run_agent(CTX, _firestore_client(), "Tell me something")
+        reply = await _ra(CTX, _firestore_client(),"Tell me something")
 
     assert "sorry" in reply.lower() or "only" in reply.lower()
 
@@ -254,7 +270,7 @@ async def test_output_guard_rules_block_password_keyword():
         patch("sport_slot.services.agent.vertex_client.classify_output",
               new_callable=AsyncMock, return_value=True) as mock_cls,
     ):
-        reply = await run_agent(CTX, _firestore_client(), "What's my password?")
+        reply = await _ra(CTX, _firestore_client(),"What's my password?")
 
     mock_cls.assert_not_called()  # rules blocked before LLM classifier
     assert "sorry" in reply.lower() or "only" in reply.lower()
@@ -267,7 +283,7 @@ async def test_fail_closed_on_vertex_error():
     """Vertex generate raises → orchestrator catches → returns safe fallback."""
     with patch("sport_slot.services.agent.vertex_client.generate",
                new_callable=AsyncMock, side_effect=RuntimeError("network error")):
-        reply = await run_agent(CTX, _firestore_client(), "Any question")
+        reply = await _ra(CTX, _firestore_client(),"Any question")
 
     assert "sorry" in reply.lower() or "only" in reply.lower()
 
@@ -279,7 +295,7 @@ async def test_fail_closed_empty_vertex_response():
 
     with patch("sport_slot.services.agent.vertex_client.generate",
                new_callable=AsyncMock, return_value=empty):
-        reply = await run_agent(CTX, _firestore_client(), "Any question")
+        reply = await _ra(CTX, _firestore_client(),"Any question")
 
     assert "sorry" in reply.lower() or "only" in reply.lower()
 
@@ -302,7 +318,7 @@ async def test_system_prompt_contains_today_date():
         patch("sport_slot.services.agent.vertex_client.classify_output",
               new_callable=AsyncMock, return_value=True),
     ):
-        await run_agent(CTX, _firestore_client(), "Hello")
+        await _ra(CTX, _firestore_client(),"Hello")
 
     system_instruction = mock_gen.call_args_list[0].kwargs["system_instruction"]
     assert "Today is" in system_instruction
@@ -342,7 +358,7 @@ async def test_list_my_bookings_turn2_receives_presummary_with_count():
         patch("sport_slot.services.bookings.BookingRepository.list_for_uid",
               return_value=(bookings, None)),
     ):
-        reply = await run_agent(CTX, _firestore_client(), "How many bookings do I have?")
+        reply = await _ra(CTX, _firestore_client(),"How many bookings do I have?")
 
     assert reply == "You have 3 confirmed bookings."
 
@@ -367,7 +383,7 @@ async def test_list_my_bookings_empty_result_shows_zero():
         patch("sport_slot.services.bookings.BookingRepository.list_for_uid",
               return_value=([], None)),
     ):
-        reply = await run_agent(CTX, _firestore_client(), "How many bookings?")
+        reply = await _ra(CTX, _firestore_client(),"How many bookings?")
 
     assert reply == "You have no bookings."
 
@@ -391,7 +407,7 @@ async def test_output_guard_disabled_skips_classifier():
         mock_settings.return_value.vertex_project = "sport-slot-dev"
         mock_settings.return_value.vertex_location = "asia-south1"
 
-        reply = await run_agent(CTX, _firestore_client(), "Is the court free?")
+        reply = await _ra(CTX, _firestore_client(),"Is the court free?")
 
     mock_cls.assert_not_called()
     assert reply == "Tennis court is free."
