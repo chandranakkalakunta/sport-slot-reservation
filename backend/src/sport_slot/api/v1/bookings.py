@@ -13,17 +13,18 @@ from sport_slot.dependencies import get_firestore_client, get_lock_service
 from sport_slot.middleware.request_id import get_request_id
 from sport_slot.notifications.tasks import enqueue_notification
 from sport_slot.repositories.bookings import (
-    AlreadyBookedError,
     AuditRepository,
     BookingRepository,
-    QuotaExceededError,
-    create_booking_with_quota,
+    create_booking_with_quota,  # noqa: F401 — test patch compat: tests mock at this module path
 )
 from sport_slot.repositories.facilities import FacilityRepository
 from sport_slot.repositories.user_profiles import UserProfileRepository
-from sport_slot.services.availability import compute_slots
-from sport_slot.services.bookings import _is_cancellable, list_my_bookings
-from sport_slot.services.lock import LockService, LockUnavailableError
+from sport_slot.services.bookings import (
+    _is_cancellable,
+    create_booking as _svc_create_booking,
+    list_my_bookings,
+)
+from sport_slot.services.lock import LockService
 from sport_slot.services.policy import PolicyService
 
 router = APIRouter(prefix="/bookings", tags=["bookings"])
@@ -43,76 +44,21 @@ async def create_booking(
     client=Depends(get_firestore_client),
     lock: LockService = Depends(get_lock_service),
 ):
-    try:
-        target = datetime.date.fromisoformat(body.date)
-    except ValueError:
-        raise ApiError(422, error_codes.INVALID_DATE, "date must be YYYY-MM-DD")
-
-    facility = FacilityRepository(ctx, client).get(body.facility_id)
-    if facility is None or not facility.get("active", False):
-        raise ApiError(404, error_codes.FACILITY_NOT_FOUND, "Facility not found")
-
-    policy = PolicyService(ctx, client)
-    tz = zoneinfo.ZoneInfo(policy.tenant_timezone())
-    now_local = datetime.datetime.now(tz)
-
-    repo = BookingRepository(ctx, client)
-    booked = repo.booked_starts(body.facility_id, body.date)
-    slots = compute_slots(
-        facility, target, booked, now_local,
-        int(policy.get("booking_horizon_days")),
-        str(policy.get("booking_window_open_time")),
-    )
-    slot = next((s for s in slots if s["start"] == body.start), None)
-    if slot is None:
-        raise ApiError(422, error_codes.SLOT_NOT_BOOKABLE, "start is not on the slot grid")
-    if not slot["bookable"]:
-        raise ApiError(422, error_codes.SLOT_NOT_BOOKABLE, f"Slot not bookable: {slot['reason']}")
-
-    key = LockService.slot_key(ctx.tenant_id, body.facility_id, body.date, body.start)
-    try:
-        token = await lock.acquire(key)
-    except LockUnavailableError:
-        raise ApiError(503, error_codes.LOCK_UNAVAILABLE, "Booking temporarily unavailable")
-    if token is None:
-        raise ApiError(409, error_codes.SLOT_CONTENDED, "Slot is being booked; retry shortly")
-
-    booking_id = f"{body.facility_id}_{body.date}_{body.start}"
-    doc = {
-        "id": booking_id,
-        "uid": ctx.uid,
-        "household_id": ctx.household_id,
-        "facility_id": body.facility_id,
-        "date": body.date,
-        "start": body.start,
-        "end": slot["end"],
-        "status": "confirmed",
-        "created_at": datetime.datetime.now(datetime.UTC),
-        "cancelled_at": None,
-    }
-    try:
-        quota = int(policy.get("max_slots_per_user_per_sport_per_day"))
-        create_booking_with_quota(repo, booking_id, doc, ctx.uid, body.date, quota)
-    except QuotaExceededError:
-        raise ApiError(409, error_codes.BOOKING_QUOTA_EXCEEDED, "Daily booking quota reached")
-    except AlreadyBookedError:
-        raise ApiError(409, error_codes.ALREADY_BOOKED, "Slot already booked")
-    finally:
-        await lock.release(key, token)
-
-    AuditRepository(ctx, client).write_event(
-        "booking.created", ctx.uid, ctx.role, booking_id,
-        get_request_id(), {"date": body.date, "start": body.start,
-                           "facility_id": body.facility_id},
+    # Pass the router-level name so tests can patch
+    # "sport_slot.api.v1.bookings.create_booking_with_quota" and intercept it.
+    result = await _svc_create_booking(
+        ctx, client, lock, body.facility_id, body.date, body.start,
+        _quota_create_fn=create_booking_with_quota,
     )
 
-    # Best-effort (ADR-0019): the booking is already durably written above,
-    # so a notification failure here must never surface as a booking error.
+    # Best-effort notification (ADR-0019): booking is already committed above;
+    # a failure here must never surface as a booking error.
     try:
+        facility = FacilityRepository(ctx, client).get(body.facility_id)
         profile = UserProfileRepository(ctx, client).get(ctx.uid)
         tenant_snap = client.collection("tenants").document(ctx.tenant_id).get()
         tenant = tenant_snap.to_dict() if tenant_snap.exists else None
-        if profile and profile.get("email") and tenant:
+        if profile and profile.get("email") and tenant and facility:
             enqueue_notification(
                 event_type="booking_confirmed",
                 to=profile["email"],
@@ -123,17 +69,15 @@ async def create_booking(
                     "sport": facility.get("sport", ""),
                     "date": body.date,
                     "start_time": body.start,
-                    "end_time": slot["end"],
-                    "booking_id": booking_id,
+                    "end_time": result["end"],
+                    "booking_id": result["id"],
                 },
             )
     except Exception as exc:  # noqa: BLE001 - best-effort; booking already committed
         log.warning("notification_enqueue_failed", event_type="booking_confirmed",
-                    booking_id=booking_id, error=str(exc))
+                    booking_id=result["id"], error=str(exc))
 
-    if slot.get("reason") == "IN_PROGRESS":
-        return {**doc, "notice": "Slot already in progress; you have booked the remaining time"}
-    return doc
+    return result
 
 
 @router.get("/mine")
