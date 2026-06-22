@@ -58,6 +58,7 @@ async def create_booking(
     start: str,
     *,
     _quota_create_fn=_cbrq_default,  # seam: callers may pass a patchable ref (see api/v1/bookings.py)
+    source: str = "manual",  # "manual" → "booking.created"; "agent" → "agent.booking_created"
 ) -> dict:
     """Orchestrate a booking: validate slot, acquire lock, write with quota, audit.
 
@@ -125,8 +126,9 @@ async def create_booking(
         await lock.release(key, token)
 
     # Audit written after lock release — slow audit never extends the lock window.
+    event_type = "booking.created" if source == "manual" else "agent.booking_created"
     AuditRepository(ctx, client).write_event(
-        "booking.created", ctx.uid, ctx.role, booking_id,
+        event_type, ctx.uid, ctx.role, booking_id,
         get_request_id(), {"date": date, "start": start, "facility_id": facility_id},
     )
 

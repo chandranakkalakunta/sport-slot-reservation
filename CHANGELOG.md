@@ -6,6 +6,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added (Slice 2b)
+
+- feat(agent): booking via propose→confirm→execute gate (ADR-0021 §4, ADR-0022
+  §5/§8). First agent mutation. Structured {confirm: true, pending_action_id}
+  field execute — server-enforced, not model-judged. Generic Redis
+  PendingActionStore (single-use, tenant+uid scoped, 5-min TTL). BOOK tool
+  (hallucination-guarded + read-validates slot is bookable before writing pending
+  action). On confirm: create_booking called with stored params verbatim +
+  source="agent" → "agent.booking_created" audit event. Preference memory
+  partial-merge on success (best-effort). Residents-only. [2b]
+
 ### Refactored (Slice 2a)
 
 - refactor(api): extract create_booking into the service layer (Phase 9 slice 2
