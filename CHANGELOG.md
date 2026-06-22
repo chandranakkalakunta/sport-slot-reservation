@@ -6,6 +6,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added (Slice 4)
+
+- feat(agent): preference-aware replies and gap-filling (ADR-0021 §3 read-side).
+  Closes the read-side of slice 2b's preference memory. New
+  services/agent/preferences.py: get_preferences() reads
+  profile.preferences.last_booked, returns empty dict on any failure (fail-open —
+  preferences enrich UX, never gate access). System prompt enriched per-request:
+  "Your usual bookings" section only rendered when prefs non-empty; facility names
+  resolved from tenant facilities list. New GET_MY_PREFERENCES tool (5th tool,
+  no args): explicit fetch for "what's my usual court?" queries; returns formatted
+  map or "no remembered preferences" string. check_availability replies enriched
+  at code level: after the slot grid is computed, user's usual slot status is
+  appended (BOOKABLE / TAKEN(reason) / OFF-GRID-TODAY) when a preference exists
+  for the queried facility's sport; sport mismatch and empty prefs → no
+  enrichment line; Turn 2 framing nudges the model to mention it naturally.
+  Underspecified book intents (e.g. "book tennis tomorrow") fill facility/time
+  from preferences via the system prompt before hitting the existing confirm-gate.
+  No confirm-gate changes; no new mutations. 331 tests, 91.34% coverage. [4]
+
 ### Added (Slice 3b)
 
 - feat(agent): cancel via propose→confirm→execute gate (ADR-0021 §3/§4, ADR-0022
