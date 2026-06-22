@@ -135,3 +135,53 @@ async def create_booking(
     if slot.get("reason") == "IN_PROGRESS":
         return {**doc, "notice": "Slot already in progress; you have booked the remaining time"}
     return doc
+
+
+def cancel_booking(
+    ctx: TenantContext,
+    client,
+    booking_id: str,
+    *,
+    source: str = "manual",  # "manual" → "booking.cancelled"; "agent" → "agent.booking_cancelled"
+) -> dict:
+    """Orchestrate a cancellation: lookup → ownership check → buffer check → update → audit.
+
+    Behavior is identical to the previous router handler. source param adds the
+    ADR-0022 §8 agent audit-differentiation seam (consistent with create_booking).
+    Returns the post-update booking doc (or {} if the read-back fails).
+    """
+    repo = BookingRepository(ctx, client)
+    booking = repo.get(booking_id)
+    if booking is None:
+        raise ApiError(404, error_codes.BOOKING_NOT_FOUND, "Booking not found")
+    if booking["uid"] != ctx.uid and ctx.role != "tenant_admin":
+        raise ApiError(
+            403, error_codes.CANCELLATION_FORBIDDEN,
+            "Only the booking owner or a tenant admin may cancel",
+        )
+    if booking["status"] == "cancelled":
+        raise ApiError(409, error_codes.ALREADY_CANCELLED, "Already cancelled")
+
+    policy = PolicyService(ctx, client)
+    tz = zoneinfo.ZoneInfo(policy.tenant_timezone())
+    now_local = datetime.datetime.now(tz).replace(tzinfo=None)
+    buffer_hours = int(policy.get("cancellation_buffer_hours"))
+    if not _is_cancellable(booking, now_local, buffer_hours):
+        raise ApiError(
+            422, error_codes.CANCELLATION_TOO_LATE,
+            f"Cancellation closes {buffer_hours}h before the slot",
+        )
+
+    cancelled_by = "self" if booking["uid"] == ctx.uid else "tenant_admin"
+    repo.update(booking_id, {
+        "status": "cancelled",
+        "cancelled_at": datetime.datetime.now(datetime.UTC),
+        "cancelled_by": cancelled_by,
+        "cancelled_by_uid": ctx.uid,
+    })
+    event_type = "booking.cancelled" if source == "manual" else "agent.booking_cancelled"
+    AuditRepository(ctx, client).write_event(
+        event_type, ctx.uid, ctx.role, booking_id,
+        get_request_id(), {"cancelled_by": cancelled_by},
+    )
+    return repo.get(booking_id) or {}
