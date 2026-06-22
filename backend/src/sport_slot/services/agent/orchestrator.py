@@ -1,6 +1,6 @@
-"""Agent orchestrator — propose (read + book intent) and execute (confirm) paths.
+"""Agent orchestrator — propose (read + book/cancel intent) and execute (confirm) paths.
 
-ADR-0021 §2/§4, ADR-0022 §5/§8.
+ADR-0021 §2/§3/§4, ADR-0022 §5/§8.
 
 Propose flow (run_agent):
 1. Build system prompt with tenant facilities + today's date.
@@ -11,6 +11,9 @@ Propose flow (run_agent):
    - book: hallucination-guard facility_id, read-validate slot is bookable,
      write pending action, return deterministic confirm prompt + pending_action_id.
      (NO Vertex Turn 2, NO mutation on propose.)
+   - cancel: deterministic Python filter (sport + date_hint), 0/1/many branching.
+     0 → not-found reply; 1 → propose pending action; many → disambiguation NL.
+     (NO booking_id ever reaches the LLM — hallucination structurally prevented.)
 4. Apply output guard on LLM-generated text — fail closed.
 5. Return AgentTurn(reply, pending_action_id).
 
@@ -18,6 +21,7 @@ Execute flow (run_agent_confirm — NO Vertex call):
 1. Consume pending action (single-use, scoped by tenant+uid).
 2. If None (expired/wrong uid): return safe fallback.
 3. If book: call create_booking(source="agent"), write preference memory, log.
+4. If cancel: call cancel_booking(source="agent"), log.
 """
 
 from __future__ import annotations
@@ -38,7 +42,12 @@ from sport_slot.services.agent.guardrails import output_is_safe
 from sport_slot.services.agent.tools import REGISTERED_TOOLS
 from sport_slot.services.agent.vertex_client import AgentResponse
 from sport_slot.services.availability import get_availability
-from sport_slot.services.bookings import create_booking, list_my_bookings
+from sport_slot.services.bookings import (
+    _is_cancellable,
+    cancel_booking,
+    create_booking,
+    list_my_bookings,
+)
 from sport_slot.services.facilities import list_facilities
 from sport_slot.services.lock import LockService
 from sport_slot.services.policy import PolicyService
@@ -75,6 +84,74 @@ Rules:
 class AgentTurn(NamedTuple):
     reply: str
     pending_action_id: str | None = None
+
+
+def _parse_date_hint(hint: str, today: datetime.date) -> datetime.date | None:
+    """Parse a date hint: YYYY-MM-DD, 'today', 'tomorrow', or weekday name.
+
+    Returns None if the hint cannot be resolved to a concrete date within
+    the next 8 days. Never raises.
+    """
+    h = hint.strip().lower()
+    if h == "today":
+        return today
+    if h == "tomorrow":
+        return today + datetime.timedelta(days=1)
+    try:
+        return datetime.date.fromisoformat(hint.strip())
+    except ValueError:
+        pass
+    _DAYS = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]
+    if h in _DAYS:
+        target_dow = _DAYS.index(h)
+        for offset in range(8):
+            candidate = today + datetime.timedelta(days=offset)
+            if candidate.weekday() == target_dow:
+                return candidate
+    return None
+
+
+def _filter_cancel_candidates(
+    bookings: list[dict],
+    facilities: list[dict],
+    sport: str,
+    date_hint: str | None,
+    now_local: datetime.datetime,
+    buffer_hours: int,
+) -> list[dict]:
+    """Pure filter: upcoming bookings cancellable for the given sport.
+
+    Criteria (all must pass):
+    - _is_cancellable(booking, now_local, buffer_hours) is True
+    - booking.date in [today, today + 7 days]
+    - facility's sport matches (case-insensitive)
+    - if date_hint parseable, further narrows to that date only
+    """
+    fac_by_id: dict[str, dict] = {f["id"]: f for f in facilities if "id" in f}
+    today = now_local.date()
+    window_end = today + datetime.timedelta(days=7)
+    target_date = _parse_date_hint(date_hint, today) if date_hint else None
+
+    result = []
+    for b in bookings:
+        if not _is_cancellable(b, now_local, buffer_hours):
+            continue
+        try:
+            bdate = datetime.date.fromisoformat(b.get("date", ""))
+        except ValueError:
+            continue
+        if not (today <= bdate <= window_end):
+            continue
+        fac = fac_by_id.get(b.get("facility_id", ""))
+        if fac is None:
+            continue
+        fac_sport = (fac.get("sport") or fac.get("facility_type_id") or "").lower()
+        if fac_sport != sport.lower():
+            continue
+        if target_date is not None and bdate != target_date:
+            continue
+        result.append(b)
+    return result
 
 
 def _facility_list_text(facilities: list[dict]) -> str:
@@ -127,6 +204,13 @@ async def run_agent(
                 # Propose path: deterministic text, no Turn 2, no output guard
                 reply_text, pending_id = await _dispatch_book(
                     ctx, client, store, args, valid_ids, facilities
+                )
+                return AgentTurn(reply=reply_text, pending_action_id=pending_id)
+
+            if tool_name == "cancel":
+                # Propose path: deterministic Python filter, no Turn 2, no output guard
+                reply_text, pending_id = await _dispatch_cancel(
+                    ctx, client, store, args, facilities
                 )
                 return AgentTurn(reply=reply_text, pending_action_id=pending_id)
 
@@ -235,6 +319,37 @@ async def run_agent_confirm(
 
             return f"Booked {fac_name} on {date} at {start}."
 
+        if action.get("action_type") == "cancel":
+            params = action["params"]
+            booking_id = params["booking_id"]
+
+            try:
+                result = cancel_booking(ctx, client, booking_id, source="agent")
+            except ApiError as exc:
+                if exc.status_code == 409:
+                    return "That booking was already cancelled."
+                if exc.status_code == 422:
+                    return (
+                        "It's too late to cancel that booking — "
+                        "the cancellation window has passed."
+                    )
+                if exc.status_code == 404:
+                    return "I couldn't find that booking — it may have already been cancelled."
+                return "I wasn't able to cancel that booking. Please try again."
+
+            log.info("agent_booking_cancelled", booking_id=booking_id)
+
+            facility_id = result.get("facility_id", "")
+            date = result.get("date", "")
+            start = result.get("start", "")
+            try:
+                fac = FacilityRepository(ctx, client).get(facility_id)
+                fac_name = fac.get("name", facility_id) if fac else facility_id
+            except Exception:
+                fac_name = facility_id
+
+            return f"Cancelled your {fac_name} booking on {date} at {start}."
+
         log.warning("agent_unknown_pending_action_type",
                     action_type=action.get("action_type"))
         return "I'm sorry, I couldn't process that action. Please ask again."
@@ -321,6 +436,93 @@ async def _dispatch_book(
         f"Reply with confirm to proceed.",
         action_id,
     )
+
+
+async def _dispatch_cancel(
+    ctx: TenantContext,
+    client,
+    store,
+    args: dict,
+    facilities: list[dict],
+) -> tuple[str, str | None]:
+    """Handle the 'cancel' tool call on the propose turn.
+
+    Pure Python filter — NO booking_id ever reaches the LLM.
+    0 candidates → not-found reply.
+    1 candidate → propose pending action, return confirm prompt + pending_action_id.
+    many candidates → disambiguation NL list, no pending action.
+    """
+    sport = (args.get("sport") or "").strip()
+    date_hint: str | None = (args.get("date_hint") or "").strip() or None
+
+    if not sport:
+        return ("Please tell me which sport's booking you'd like to cancel.", None)
+
+    try:
+        lmb_result = list_my_bookings(ctx, client, limit=100)
+        bookings = lmb_result.get("items", [])
+    except Exception as exc:
+        log.warning("agent_cancel_fetch_error", error=str(exc))
+        return ("I couldn't retrieve your bookings right now. Please try again.", None)
+
+    try:
+        policy = PolicyService(ctx, client)
+        tz = zoneinfo.ZoneInfo(policy.tenant_timezone())
+        now_local = datetime.datetime.now(tz).replace(tzinfo=None)
+        buffer_hours = int(policy.get("cancellation_buffer_hours"))
+    except Exception as exc:
+        log.warning("agent_cancel_policy_error", error=str(exc))
+        return ("I couldn't retrieve policy settings right now. Please try again.", None)
+
+    candidates = _filter_cancel_candidates(
+        bookings, facilities, sport, date_hint, now_local, buffer_hours
+    )
+    count = len(candidates)
+    log.info("agent_cancel_candidates", count=count)
+
+    if count == 0:
+        return (
+            f"You don't have any upcoming {sport} bookings within the next 7 days "
+            f"that can be cancelled.",
+            None,
+        )
+
+    if count == 1:
+        candidate = candidates[0]
+        booking_id = candidate["id"]
+        fac_id = candidate.get("facility_id", "")
+        fac_name = next(
+            (f.get("name", fac_id) for f in facilities if f.get("id") == fac_id),
+            fac_id,
+        )
+        date_str = candidate.get("date", "")
+        start = candidate.get("start", "")
+
+        try:
+            action_id = await store.propose(ctx, "cancel", {"booking_id": booking_id})
+        except Exception as exc:
+            log.warning("agent_pending_action_propose_error", error=str(exc))
+            return ("I couldn't prepare that cancellation right now. Please try again.", None)
+
+        return (
+            f"Cancel your {sport} booking at {fac_name} on {date_str} at {start} — "
+            f"are you sure? Reply with confirm to proceed.",
+            action_id,
+        )
+
+    # many: disambiguation list
+    lines = [f"You have {count} upcoming {sport} bookings that can be cancelled:"]
+    for i, b in enumerate(candidates, 1):
+        fac_id = b.get("facility_id", "")
+        fac_name = next(
+            (f.get("name", fac_id) for f in facilities if f.get("id") == fac_id),
+            fac_id,
+        )
+        lines.append(
+            f"  {i}. {fac_name} — {b.get('date', '?')} at {b.get('start', '?')}"
+        )
+    lines.append("Please tell me which one by specifying the date.")
+    return ("\n".join(lines), None)
 
 
 def _dispatch_readonly(
