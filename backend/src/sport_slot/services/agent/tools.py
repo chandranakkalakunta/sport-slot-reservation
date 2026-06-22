@@ -1,7 +1,6 @@
 """Agent tool schemas — plain dicts only, zero google imports.
 
-Registered tools: check_availability, list_my_bookings, book.
-cancel is NOT registered (capability not yet implemented).
+Registered tools: check_availability, list_my_bookings, book, cancel.
 """
 
 from __future__ import annotations
@@ -72,4 +71,30 @@ BOOK: dict = {
     },
 }
 
-REGISTERED_TOOLS: list[dict] = [CHECK_AVAILABILITY, LIST_MY_BOOKINGS, BOOK]
+CANCEL: dict = {
+    "name": "cancel",
+    "description": (
+        "Cancel an upcoming booking. Use when the user wants to cancel a booking "
+        "they already have. The system will ask the user to confirm before cancelling. "
+        "Provide the sport (required) and an optional date_hint if the user mentioned a day."
+    ),
+    "parameters": {
+        "type": "object",
+        "properties": {
+            "sport": {
+                "type": "string",
+                "description": "The sport of the booking to cancel (e.g. 'tennis', 'badminton').",
+            },
+            "date_hint": {
+                "type": "string",
+                "description": (
+                    "Optional: narrow by date. YYYY-MM-DD or a day word like "
+                    "'Saturday', 'tomorrow', or 'today'."
+                ),
+            },
+        },
+        "required": ["sport"],
+    },
+}
+
+REGISTERED_TOOLS: list[dict] = [CHECK_AVAILABILITY, LIST_MY_BOOKINGS, BOOK, CANCEL]

@@ -6,6 +6,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added (Slice 3b)
+
+- feat(agent): cancel via propose→confirm→execute gate (ADR-0021 §3/§4, ADR-0022
+  §8). Second agent mutation. CANCEL tool (sport + optional date_hint; NO
+  booking_id — hallucination structurally prevented). Deterministic Python filter
+  `_filter_cancel_candidates` (status=confirmed, 7-day window, sport match,
+  optional date_hint narrowing); 0/1/many branching — 0→not-found reply,
+  1→pending action + confirm prompt, many→disambiguation NL list. `_parse_date_hint`
+  supports YYYY-MM-DD, today/tomorrow, and weekday names. Execute path:
+  cancel_booking called with stored booking_id verbatim + source="agent" →
+  "agent.booking_cancelled" audit event. Cancel does NOT bypass cancel_booking's
+  own ownership/buffer/status checks. 311 tests, 91.10% coverage. [3b]
+
 ### Refactored (Slice 3a)
 
 - refactor(api): extract cancel_booking into the service layer (Phase 9 slice 3

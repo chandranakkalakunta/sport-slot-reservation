@@ -619,7 +619,7 @@ async def test_execute_confirm_other_api_error_returns_generic_message():
 async def test_execute_confirm_unknown_action_type_returns_fallback():
     """Pending action with unknown action_type → safe fallback."""
     store = FakePendingActionStore()
-    action_id = await store.propose(CTX, "cancel", {"booking_id": "bk-1"})
+    action_id = await store.propose(CTX, "transfer", {"booking_id": "bk-1"})
 
     reply = await run_agent_confirm(CTX, _firestore_client(), FakeLock(), store, action_id)
 
