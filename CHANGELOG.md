@@ -6,6 +6,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Refactored (Slice 3a)
+
+- refactor(api): extract cancel_booking into the service layer (Phase 9 slice 3
+  foundation, ADR-0021 §2); manual path behavior unchanged; source param adds
+  agent audit differentiation seam (ADR-0022 §8, consistent with
+  2a/create_booking): "manual"→"booking.cancelled", "agent"→"agent.booking_cancelled".
+  Router thinned to a single _svc_cancel_booking call; AuditRepository +
+  BookingRepository kept imported for test-patch compat. [3a]
+
 ### Added (Slice 2b)
 
 - feat(agent): booking via propose→confirm→execute gate (ADR-0021 §4, ADR-0022

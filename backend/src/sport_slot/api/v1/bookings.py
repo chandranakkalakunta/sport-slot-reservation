@@ -1,31 +1,24 @@
-import datetime
-import zoneinfo
-
 import structlog
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 
-from sport_slot.api import error_codes
-from sport_slot.api.errors import ApiError
 from sport_slot.auth.context import TenantContext
 from sport_slot.auth.dependency import get_tenant_context
 from sport_slot.dependencies import get_firestore_client, get_lock_service
-from sport_slot.middleware.request_id import get_request_id
 from sport_slot.notifications.tasks import enqueue_notification
 from sport_slot.repositories.bookings import (
-    AuditRepository,
-    BookingRepository,
+    AuditRepository,  # noqa: F401 — test patch compat (test_cancellation.py)
+    BookingRepository,  # noqa: F401 — test patch compat (test_cancellation.py)
     create_booking_with_quota,  # noqa: F401 — test patch compat: tests mock at this module path
 )
 from sport_slot.repositories.facilities import FacilityRepository
 from sport_slot.repositories.user_profiles import UserProfileRepository
 from sport_slot.services.bookings import (
-    _is_cancellable,
+    cancel_booking as _svc_cancel_booking,
     create_booking as _svc_create_booking,
     list_my_bookings,
 )
 from sport_slot.services.lock import LockService
-from sport_slot.services.policy import PolicyService
 
 router = APIRouter(prefix="/bookings", tags=["bookings"])
 log = structlog.get_logger()
@@ -96,37 +89,4 @@ async def cancel_booking(
     ctx: TenantContext = Depends(get_tenant_context),
     client=Depends(get_firestore_client),
 ):
-    repo = BookingRepository(ctx, client)
-    booking = repo.get(booking_id)
-    if booking is None:
-        raise ApiError(404, error_codes.BOOKING_NOT_FOUND, "Booking not found")
-    if booking["uid"] != ctx.uid and ctx.role != "tenant_admin":
-        raise ApiError(
-            403, error_codes.CANCELLATION_FORBIDDEN,
-            "Only the booking owner or a tenant admin may cancel",
-        )
-    if booking["status"] == "cancelled":
-        raise ApiError(409, error_codes.ALREADY_CANCELLED, "Already cancelled")
-
-    policy = PolicyService(ctx, client)
-    tz = zoneinfo.ZoneInfo(policy.tenant_timezone())
-    now_local = datetime.datetime.now(tz).replace(tzinfo=None)
-    buffer_hours = int(policy.get("cancellation_buffer_hours"))
-    if not _is_cancellable(booking, now_local, buffer_hours):
-        raise ApiError(
-            422, error_codes.CANCELLATION_TOO_LATE,
-            f"Cancellation closes {buffer_hours}h before the slot",
-        )
-
-    cancelled_by = "self" if booking["uid"] == ctx.uid else "tenant_admin"
-    repo.update(booking_id, {
-        "status": "cancelled",
-        "cancelled_at": datetime.datetime.now(datetime.UTC),
-        "cancelled_by": cancelled_by,
-        "cancelled_by_uid": ctx.uid,
-    })
-    AuditRepository(ctx, client).write_event(
-        "booking.cancelled", ctx.uid, ctx.role, booking_id,
-        get_request_id(), {"cancelled_by": cancelled_by},
-    )
-    return repo.get(booking_id) or {}
+    return _svc_cancel_booking(ctx, client, booking_id)
