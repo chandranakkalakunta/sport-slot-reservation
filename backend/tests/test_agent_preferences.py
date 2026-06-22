@@ -185,7 +185,7 @@ async def test_system_prompt_includes_preferences_when_present():
         await run_agent(CTX, _firestore_client(), _NoopStore(), "What's available?")
 
     system_instr = mock_gen.call_args_list[0].kwargs["system_instruction"]
-    assert "Your usual bookings" in system_instr
+    assert "Your usual bookings (from prior history):" in system_instr
     assert "tennis" in system_instr
     assert "Tennis Court 1" in system_instr
     assert "21:00" in system_instr
@@ -207,7 +207,35 @@ async def test_system_prompt_omits_preferences_section_when_empty():
         await run_agent(CTX, _firestore_client(), _NoopStore(), "Anything available?")
 
     system_instr = mock_gen.call_args_list[0].kwargs["system_instruction"]
-    assert "Your usual bookings" not in system_instr
+    # The dynamic section header rendered by _preferences_text() must be absent.
+    # Rule B's static text contains "Your usual bookings" but not the section marker.
+    assert "Your usual bookings (from prior history):" not in system_instr
+
+
+@pytest.mark.asyncio
+async def test_system_prompt_includes_tool_routing_rules():
+    """The three 4.1 prompt-tuning rules are present in the system_instruction.
+
+    Rule A: route 'usual/preferred/last' questions to get_my_preferences.
+    Rule B: for book requests, use ambient preferences — do NOT call get_my_preferences.
+    Rule C: MUST call book/cancel tool — never narrate the action.
+    """
+    text_response = AgentResponse(function_call=None, text="Got it.")
+
+    with (
+        patch("sport_slot.services.agent.orchestrator.get_preferences",
+              return_value={}),
+        patch("sport_slot.services.agent.vertex_client.generate",
+              new_callable=AsyncMock, return_value=text_response) as mock_gen,
+        patch("sport_slot.services.agent.vertex_client.classify_output",
+              new_callable=AsyncMock, return_value=True),
+    ):
+        await run_agent(CTX, _firestore_client(), _NoopStore(), "Hello")
+
+    system_instr = mock_gen.call_args_list[0].kwargs["system_instruction"]
+    assert "Do not refuse such questions" in system_instr                    # rule A
+    assert "Do NOT call `get_my_preferences` as a separate step" in system_instr  # rule B
+    assert "MUST call the `book` or `cancel` tool" in system_instr          # rule C
 
 
 # ── get_my_preferences dispatch ───────────────────────────────────────────────

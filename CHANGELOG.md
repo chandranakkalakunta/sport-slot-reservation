@@ -6,6 +6,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Fixed (Slice 4.1)
+
+- fix(agent): system prompt tuning for tool-routing reliability (4.V findings).
+  Three new rules: (A) route 'usual/preferred/last/normal' preference questions
+  explicitly to get_my_preferences — "Do not refuse such questions"; (B) for book
+  requests, use ambient preferences from system prompt and call book directly —
+  "Do NOT call get_my_preferences as a separate step before booking"; (C) MUST
+  call the book or cancel tool — never describe the action in text (anti-narration
+  guard, closes the Turn-2-tools-disabled dead-end). Prompt-only change; no code
+  logic change. Multi-turn tool chaining deferred as a future option.
+  Live re-validation in 4.1.V. 332 tests, 91.34% coverage. [4.1]
+
 ### Added (Slice 4)
 
 - feat(agent): preference-aware replies and gap-filling (ADR-0021 §3 read-side).
