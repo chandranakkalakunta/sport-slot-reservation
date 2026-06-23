@@ -16,6 +16,19 @@ export default function Facilities() {
       <main style={{ padding: 24, maxWidth: 720, margin: "0 auto" }}>
       {isLoading && <p>Loading facilities…</p>}
       {error && <p style={{ color: "var(--color-danger)" }}>Couldn't load facilities.</p>}
+      <Link to="/assistant" style={{
+        display: "block", padding: 16, borderRadius: "var(--radius)",
+        border: "1px solid var(--color-primary)", textDecoration: "none",
+        color: "var(--color-text)", background: "var(--color-surface)", marginTop: 16,
+      }}>
+        <strong style={{ color: "var(--color-primary)" }}>🤖 Booking Assistant</strong>
+        <div style={{ color: "var(--color-text-muted)", fontSize: 13, marginTop: 4 }}>
+          Try "book my usual tennis slot" or "is tennis free tomorrow?"
+        </div>
+        <div style={{ color: "var(--color-primary)", fontSize: 13, marginTop: 6 }}>
+          Open assistant →
+        </div>
+      </Link>
       <div style={{ display: "grid", gap: "var(--spacing)", marginTop: 16 }}>
         {data?.items.filter((f) => f.active).map((f) => (
           <Link key={f.id} to={`/facilities/${f.id}`} style={{

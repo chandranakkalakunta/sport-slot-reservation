@@ -6,6 +6,7 @@ import { PlatformRoute } from "./auth/PlatformRoute";
 import { ProtectedRoute } from "./auth/ProtectedRoute";
 import { TenantAdminRoute } from "./auth/TenantAdminRoute";
 import Account from "./pages/Account";
+import Assistant from "./pages/Assistant";
 import Facilities from "./pages/Facilities";
 import FacilityAvailability from "./pages/FacilityAvailability";
 import ForgotPassword from "./pages/ForgotPassword";
@@ -45,6 +46,8 @@ export default function App() {
           element={<ProtectedRoute><MyBookings /></ProtectedRoute>} />
         <Route path="/account"
           element={<ProtectedRoute><Account /></ProtectedRoute>} />
+        <Route path="/assistant"
+          element={<ProtectedRoute><Assistant /></ProtectedRoute>} />
         <Route path="/force-password" element={<ForcePasswordChange />} />
         <Route path="/admin" element={<PlatformRoute><TenantList /></PlatformRoute>} />
         <Route path="/admin/tenants/new" element={<PlatformRoute><CreateTenant /></PlatformRoute>} />

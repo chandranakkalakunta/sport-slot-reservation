@@ -1,0 +1,27 @@
+@keyframes assistant-pulse {
+  0%, 80%, 100% { opacity: 0.3; transform: scale(0.8); }
+  40% { opacity: 1; transform: scale(1); }
+}
+
+.assistant-btn-confirm:hover:not(:disabled) {
+  opacity: 0.88;
+}
+
+.assistant-btn-dismiss:hover:not(:disabled) {
+  background: rgba(179, 38, 30, 0.08) !important;
+}
+
+.assistant-chip:hover {
+  background: var(--color-surface) !important;
+}
+
+.assistant-send-btn:hover:not(:disabled) {
+  opacity: 0.88;
+}
+
+@media (max-width: 480px) {
+  .assistant-chip {
+    padding: 10px 12px !important;
+    font-size: 13px !important;
+  }
+}
