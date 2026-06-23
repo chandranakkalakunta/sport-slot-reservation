@@ -6,6 +6,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Fixed (Slice 6.3)
+
+- fix(agent+notifications): move enqueue_notification from HTTP router to
+  services/bookings.py:create_booking so agent-confirmed bookings now
+  produce booking-confirmation emails (regression introduced when the
+  notification block was written into the router handler in Slice 3, before
+  the agent path existed). Both manual (/bookings POST) and agent
+  (run_agent_confirm) paths now go through the same service-layer call.
+  Patch path for existing tests updated from api.v1.bookings.* to
+  services.bookings.*. New hermetic test confirms source="agent" enqueues
+  booking_confirmed with the correct email + params. [6.3-A]
+- feat(frontend): assistant empty-state heading changed to "SlotSense";
+  subtext updated to describe the assistant's scope. [6.3-B]
+- feat(agent): ambiguous-time rule added to _SYSTEM_TEMPLATE — when the
+  user gives a bare hour without AM/PM (e.g. "7", "8 o'clock") the model
+  prefers the future-facing 24-hour interpretation relative to current local
+  time. Test assertion added to test_agent_preferences.py. [6.3-C]
+  344 backend tests, 106 frontend tests, tsc clean.
+
 ### Added (Slice 6)
 
 - feat(agent+frontend): polish pass after live testing (6.1 + 6.2).

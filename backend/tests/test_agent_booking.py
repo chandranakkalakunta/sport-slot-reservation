@@ -675,6 +675,42 @@ def test_write_preference_memory_noop_when_facility_missing():
     mock_upd.assert_not_called()
 
 
+# ── 6.3: agent-path notification regression ───────────────────────────────────
+
+@pytest.mark.asyncio
+async def test_create_booking_source_agent_enqueues_notification():
+    """create_booking(source='agent') enqueues a booking_confirmed notification.
+
+    Regression guard: before 6.3 the enqueue_notification call lived only in
+    the HTTP router handler, so agent-confirmed bookings never produced emails.
+    """
+    from sport_slot.services.bookings import create_booking
+
+    profile = {"email": "jane@example.com", "display_name": "Jane Doe"}
+
+    with (
+        patch("sport_slot.services.bookings.BookingRepository.booked_starts",
+              return_value=set()),
+        patch("sport_slot.services.bookings.AuditRepository.write_event"),
+        patch("sport_slot.services.bookings.UserProfileRepository.get",
+              return_value=profile),
+        patch("sport_slot.services.bookings.enqueue_notification") as mock_enqueue,
+    ):
+        await create_booking(
+            CTX, _firestore_client(), FakeLock(),
+            "f-court1", "2027-01-15", "09:00",
+            source="agent",
+        )
+
+    mock_enqueue.assert_called_once()
+    kwargs = mock_enqueue.call_args.kwargs
+    assert kwargs["event_type"] == "booking_confirmed"
+    assert kwargs["to"] == "jane@example.com"
+    assert kwargs["params"]["date"] == "2027-01-15"
+    assert kwargs["params"]["start_time"] == "09:00"
+    assert kwargs["params"]["end_time"] == "10:00"
+
+
 # ── _dispatch_book error paths ─────────────────────────────────────────────────
 
 @pytest.mark.asyncio

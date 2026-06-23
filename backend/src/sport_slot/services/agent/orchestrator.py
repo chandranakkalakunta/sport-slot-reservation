@@ -83,6 +83,7 @@ Rules:
 - If you cannot answer with the available tools, say so politely.
 - For book requests, use the 'Your usual bookings' context above to fill missing facility or time. Do NOT call `get_my_preferences` as a separate step before booking — your system prompt already contains the preferences. Fill the gaps from that context and call the `book` tool directly.
 - To propose a booking or cancellation, you MUST call the `book` or `cancel` tool — never just describe the action in chat. The system requires a tool call to set up the confirmation flow; describing the action in text will not work.
+- When the user specifies a time without AM/PM (e.g. "7", "8 o'clock", "6:30"), prefer the future-facing interpretation relative to the current local time. If the hour is ≤ 12, try the PM slot first if the AM slot has already passed. Always convert the resolved hour to HH:MM 24-hour format before calling check_availability or book.
 """
 
 
