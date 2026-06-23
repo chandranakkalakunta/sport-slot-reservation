@@ -3,10 +3,13 @@
 import datetime
 import zoneinfo
 
+import structlog
+
 from sport_slot.api import error_codes
 from sport_slot.api.errors import ApiError
 from sport_slot.auth.context import TenantContext
 from sport_slot.middleware.request_id import get_request_id
+from sport_slot.notifications.tasks import enqueue_notification
 from sport_slot.repositories.bookings import (
     AlreadyBookedError,
     AuditRepository,
@@ -15,9 +18,12 @@ from sport_slot.repositories.bookings import (
     create_booking_with_quota as _cbrq_default,
 )
 from sport_slot.repositories.facilities import FacilityRepository
+from sport_slot.repositories.user_profiles import UserProfileRepository
 from sport_slot.services.availability import compute_slots
 from sport_slot.services.lock import LockService, LockUnavailableError
 from sport_slot.services.policy import PolicyService
+
+log = structlog.get_logger()
 
 
 def _is_cancellable(booking: dict, now_local: datetime.datetime, buffer_hours: int) -> bool:
@@ -131,6 +137,33 @@ async def create_booking(
         event_type, ctx.uid, ctx.role, booking_id,
         get_request_id(), {"date": date, "start": start, "facility_id": facility_id},
     )
+
+    # Best-effort notification (ADR-0019): booking is already committed above;
+    # a failure here must never surface as a booking error. Runs for both
+    # manual (HTTP router) and agent paths — moving here from the router ensures
+    # agent-confirmed bookings also produce emails (6.3 regression fix).
+    try:
+        profile = UserProfileRepository(ctx, client).get(ctx.uid)
+        tenant_snap = client.collection("tenants").document(ctx.tenant_id).get()
+        tenant = tenant_snap.to_dict() if tenant_snap.exists else None
+        if profile and profile.get("email") and tenant and facility:
+            enqueue_notification(
+                event_type="booking_confirmed",
+                to=profile["email"],
+                params={
+                    "user_name": profile.get("display_name", ""),
+                    "tenant_name": tenant.get("display_name", ""),
+                    "facility": facility.get("name", ""),
+                    "sport": facility.get("sport", ""),
+                    "date": date,
+                    "start_time": start,
+                    "end_time": doc["end"],
+                    "booking_id": booking_id,
+                },
+            )
+    except Exception as exc:  # noqa: BLE001 - best-effort; booking already committed
+        log.warning("notification_enqueue_failed", event_type="booking_confirmed",
+                    booking_id=booking_id, error=str(exc))
 
     if slot.get("reason") == "IN_PROGRESS":
         return {**doc, "notice": "Slot already in progress; you have booked the remaining time"}

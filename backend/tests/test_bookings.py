@@ -14,7 +14,7 @@ HOST = {"host": "demo.sportbook.chandraailabs.com"}
 VERIFY = "sport_slot.auth.dependency.fb_auth.verify_id_token"
 BOOKED = "sport_slot.api.v1.bookings.BookingRepository.booked_starts"
 CREATE = "sport_slot.api.v1.bookings.create_booking_with_quota"
-ENQUEUE = "sport_slot.api.v1.bookings.enqueue_notification"
+ENQUEUE = "sport_slot.services.bookings.enqueue_notification"
 
 FACILITY = {"id": "f1", "active": True, "slot_duration_minutes": 60,
             "open_time": "06:00", "close_time": "22:00",

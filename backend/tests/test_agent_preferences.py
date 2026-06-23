@@ -214,11 +214,13 @@ async def test_system_prompt_omits_preferences_section_when_empty():
 
 @pytest.mark.asyncio
 async def test_system_prompt_includes_tool_routing_rules():
-    """The three 4.1 prompt-tuning rules are present in the system_instruction.
+    """The prompt rules are present in the system_instruction.
 
     Rule A: route 'usual/preferred/last' questions to get_my_preferences.
     Rule B: for book requests, use ambient preferences — do NOT call get_my_preferences.
     Rule C: MUST call book/cancel tool — never narrate the action.
+    Rule D: route 'my bookings' questions to list_my_bookings.
+    Rule E: ambiguous time (no AM/PM) → prefer future-facing interpretation.
     """
     text_response = AgentResponse(function_call=None, text="Got it.")
 
@@ -237,6 +239,7 @@ async def test_system_prompt_includes_tool_routing_rules():
     assert "Do NOT call `get_my_preferences` as a separate step" in system_instr  # rule B
     assert "MUST call the `book` or `cancel` tool" in system_instr          # rule C
     assert "list_my_bookings" in system_instr                               # rule D (my bookings routing)
+    assert "without AM/PM" in system_instr                                  # rule E (ambiguous time)
 
 
 # ── 6.2: recent_context system-prompt injection ───────────────────────────────

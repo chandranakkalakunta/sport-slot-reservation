@@ -117,9 +117,9 @@ export default function Assistant() {
             justifyContent: "center",
             padding: 24,
           }}>
-            <h1 style={{ color: "var(--color-primary)", margin: 0 }}>Booking assistant</h1>
+            <h1 style={{ color: "var(--color-primary)", margin: 0 }}>SlotSense</h1>
             <p style={{ color: "var(--color-text-muted)", fontSize: 14, marginTop: 8 }}>
-              Ask about availability, bookings, or your usual times.
+              Your smart booking assistant — check availability, book, or cancel a slot.
             </p>
             <SuggestedPrompts onSelect={handleSend} />
           </div>
