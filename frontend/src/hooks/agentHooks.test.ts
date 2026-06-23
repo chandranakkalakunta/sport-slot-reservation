@@ -1,4 +1,6 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+
+vi.mock("../lib/firebase", () => ({ auth: { currentUser: null } }));
 
 import { ApiClientError } from "../lib/api";
 import { errorMessageFor } from "./agentHooks";
