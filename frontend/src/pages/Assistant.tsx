@@ -11,7 +11,7 @@ import {
   useAgentConfirm,
   useAgentSendMessage,
 } from "../hooks/agentHooks";
-import { loadThread, saveThread } from "../lib/agentSession";
+import { lastUserAndAgentTurn, loadThread, saveThread } from "../lib/agentSession";
 import "../styles/assistant.css";
 
 export default function Assistant() {
@@ -25,10 +25,11 @@ export default function Assistant() {
   }, [thread]);
 
   function handleSend(text: string) {
+    const recentContext = lastUserAndAgentTurn(thread);
     const userMsg: AgentMessage = { kind: "user", text, timestamp: Date.now() };
     setThread((prev) => [...prev, userMsg]);
     setIsTyping(true);
-    sendMessage.mutate(text, {
+    sendMessage.mutate({ message: text, recent_context: recentContext ?? undefined }, {
       onSuccess: (reply) => {
         const agentMsg: AgentMessage = {
           kind: "agent",

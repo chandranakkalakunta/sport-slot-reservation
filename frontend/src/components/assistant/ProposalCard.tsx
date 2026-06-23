@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 
 import type { AgentSummary } from "../../hooks/agentHooks";
+import { formatTime12 } from "../../lib/timeFormat";
 
 const FIVE_MIN = 5 * 60 * 1000;
 
@@ -56,7 +57,7 @@ export function ProposalCard({
         </div>
         <div>
           <span style={{ color: "var(--color-text-muted)" }}>Time: </span>
-          {summary.start}–{summary.end}
+          {formatTime12(summary.start)} – {formatTime12(summary.end)}
         </div>
       </div>
       {expired ? (

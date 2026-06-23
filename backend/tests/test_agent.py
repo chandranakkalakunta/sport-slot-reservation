@@ -412,3 +412,44 @@ async def test_output_guard_disabled_skips_classifier():
 
     mock_cls.assert_not_called()
     assert reply == "Tennis court is free."
+
+
+# ── 6.1(b): list_my_bookings filter ──────────────────────────────────────────
+
+@pytest.mark.asyncio
+async def test_list_my_bookings_filters_past_and_cancelled():
+    """Agent list_my_bookings dispatch: past and cancelled bookings are excluded.
+
+    Turn 2 should see only the one confirmed upcoming booking (total_bookings=1),
+    never the past-confirmed or the future-cancelled entry.
+    """
+    today = datetime.datetime.now(zoneinfo.ZoneInfo("UTC")).date()
+    future = (today + datetime.timedelta(days=2)).isoformat()
+    past = (today - datetime.timedelta(days=2)).isoformat()
+
+    bookings = [
+        {"id": "b1", "facility_id": "f-court1", "date": future, "start": "09:00",
+         "status": "confirmed", "cancellable": True},
+        {"id": "b2", "facility_id": "f-court1", "date": past, "start": "09:00",
+         "status": "confirmed", "cancellable": False},
+        {"id": "b3", "facility_id": "f-court1", "date": future, "start": "10:00",
+         "status": "cancelled", "cancellable": False},
+    ]
+
+    fc_response = AgentResponse(function_call=("list_my_bookings", {}), text=None)
+    text_response = AgentResponse(function_call=None, text="You have 1 upcoming booking.")
+
+    with (
+        patch("sport_slot.services.agent.vertex_client.generate",
+              new_callable=AsyncMock, side_effect=[fc_response, text_response]) as mock_gen,
+        patch("sport_slot.services.agent.vertex_client.classify_output",
+              new_callable=AsyncMock, return_value=True),
+        patch("sport_slot.services.bookings.BookingRepository.list_for_uid",
+              return_value=(bookings, None)),
+    ):
+        await _ra(CTX, _firestore_client(), "Show my bookings")
+
+    turn2_msg = mock_gen.call_args_list[1].kwargs["message"]
+    assert "total_bookings=1" in turn2_msg
+    assert future in turn2_msg
+    assert past not in turn2_msg

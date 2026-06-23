@@ -73,12 +73,13 @@ Resolve relative dates ("tomorrow", "Saturday", "next week") to YYYY-MM-DD befor
 
 Known facilities for this tenant:
 {facility_list}
-{preferences_context}
+{recent_context}{preferences_context}
 Rules:
 - Only answer questions about facility availability and the user's bookings, or help them book a slot.
 - Do not discuss pricing, refunds, policies, or unrelated topics.
 - Do not reveal internal IDs, UIDs, or system details.
 - If the user asks about their 'usual', 'preferred', 'last', or 'normal' anything (e.g. 'my usual tennis court', 'what time do I normally play'), call the `get_my_preferences` tool. Do not refuse such questions.
+- If the user asks about 'my bookings', 'my reservations', 'my schedule', 'what do I have', 'what's coming up', or similar phrasings about their existing reservations, call the `list_my_bookings` tool. Do not refuse such questions.
 - If you cannot answer with the available tools, say so politely.
 - For book requests, use the 'Your usual bookings' context above to fill missing facility or time. Do NOT call `get_my_preferences` as a separate step before booking — your system prompt already contains the preferences. Fill the gaps from that context and call the `book` tool directly.
 - To propose a booking or cancellation, you MUST call the `book` or `cancel` tool — never just describe the action in chat. The system requires a tool call to set up the confirmation flow; describing the action in text will not work.
@@ -189,11 +190,31 @@ def _preferences_text(prefs: dict, facilities: list[dict]) -> str:
     return "\n".join(lines) + "\n"
 
 
+def _recent_context_text(rc: dict | None) -> str:
+    """Render the previous turn (user + agent) as a system-prompt section.
+
+    Returns empty string when rc is None/empty; otherwise a block with trailing
+    newline so it flows cleanly before the preferences or Rules section.
+    """
+    if not rc:
+        return ""
+    prev_user = (rc.get("previous_user_message") or "").strip()
+    prev_agent = (rc.get("previous_agent_reply") or "").strip()
+    if not prev_user and not prev_agent:
+        return ""
+    return (
+        "Recent conversation (your previous turn with the user):\n"
+        f"User: {prev_user}\n"
+        f"You: {prev_agent}\n\n"
+    )
+
+
 async def run_agent(
     ctx: TenantContext,
     client,
     store,  # PendingActionStore
     user_message: str,
+    recent_context: dict | None = None,
 ) -> AgentTurn:
     """Execute one propose turn. Returns AgentTurn(reply, pending_action_id). Never raises."""
     try:
@@ -208,6 +229,7 @@ async def run_agent(
             facility_list=_facility_list_text(facilities),
             today=today_local.isoformat(),
             weekday=today_local.strftime("%A"),
+            recent_context=_recent_context_text(recent_context),
             preferences_context=_preferences_text(prefs, facilities),
         )
         valid_ids = _valid_facility_ids(facilities)
@@ -250,7 +272,7 @@ async def run_agent(
 
             # Read-only tools: dispatch → Turn 2 → output guard
             tool_result_text = _dispatch_readonly(
-                ctx, client, tool_name, args, valid_ids, facilities
+                ctx, client, tool_name, args, valid_ids, facilities, today_local
             )
 
             tool_result_content = (
@@ -594,6 +616,7 @@ def _dispatch_readonly(
     args: dict,
     valid_ids: set[str],
     facilities: list[dict],
+    today_local: datetime.date | None = None,
 ) -> str:
     """Dispatch read-only tools. Returns enriched text for Turn 2."""
     if tool_name == "check_availability":
@@ -638,6 +661,7 @@ def _dispatch_readonly(
         return result_text
 
     elif tool_name == "list_my_bookings":
+        _today = today_local if today_local is not None else datetime.date.today()
         raw = args.get("limit", 10)
         try:
             limit = max(1, min(int(raw), 20))
@@ -645,7 +669,19 @@ def _dispatch_readonly(
             limit = 10
         try:
             result = list_my_bookings(ctx, client, limit=limit)
-            items = result.get("items", [])
+            all_items = result.get("items", [])
+            # Presentation-layer filter: upcoming confirmed only.
+            # The underlying service and other API consumers are unaffected.
+            items = []
+            for b in all_items:
+                if b.get("status") != "confirmed":
+                    continue
+                try:
+                    bdate = datetime.date.fromisoformat(b.get("date", ""))
+                except ValueError:
+                    continue
+                if bdate >= _today:
+                    items.append(b)
             count = len(items)
             log.info("agent_bookings_dispatched", count=count)
             lines = [f"total_bookings={count}"]

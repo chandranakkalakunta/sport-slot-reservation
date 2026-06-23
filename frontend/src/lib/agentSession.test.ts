@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 
 import type { AgentMessage } from "../hooks/agentHooks";
-import { loadThread, saveThread } from "./agentSession";
+import { lastUserAndAgentTurn, loadThread, saveThread } from "./agentSession";
 
 const MSG_A: AgentMessage = { kind: "user", text: "Book tennis", timestamp: 1000 };
 const MSG_B: AgentMessage = { kind: "agent", text: "Sure!", timestamp: 2000 };
@@ -32,5 +32,44 @@ describe("agentSession", () => {
     saveThread([MSG_A, dismissed]);
     const loaded = loadThread();
     expect(loaded[1].dismissed).toBe(true);
+  });
+});
+
+describe("lastUserAndAgentTurn", () => {
+  it("returns null on empty thread", () => {
+    expect(lastUserAndAgentTurn([])).toBeNull();
+  });
+
+  it("returns null when thread has only a user message", () => {
+    expect(lastUserAndAgentTurn([MSG_A])).toBeNull();
+  });
+
+  it("returns null when thread has only an agent message", () => {
+    expect(lastUserAndAgentTurn([MSG_B])).toBeNull();
+  });
+
+  it("returns the most recent user+agent pair", () => {
+    const thread: AgentMessage[] = [
+      { kind: "user", text: "First question", timestamp: 1000 },
+      { kind: "agent", text: "First reply", timestamp: 2000 },
+      { kind: "user", text: "Second question", timestamp: 3000 },
+      { kind: "agent", text: "Second reply", timestamp: 4000 },
+    ];
+    expect(lastUserAndAgentTurn(thread)).toEqual({
+      previous_user_message: "Second question",
+      previous_agent_reply: "Second reply",
+    });
+  });
+
+  it("ignores trailing user message without a following agent reply", () => {
+    const thread: AgentMessage[] = [
+      { kind: "user", text: "First", timestamp: 1000 },
+      { kind: "agent", text: "Reply", timestamp: 2000 },
+      { kind: "user", text: "Second (unanswered)", timestamp: 3000 },
+    ];
+    expect(lastUserAndAgentTurn(thread)).toEqual({
+      previous_user_message: "First",
+      previous_agent_reply: "Reply",
+    });
   });
 });

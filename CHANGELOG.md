@@ -6,6 +6,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added (Slice 6)
+
+- feat(agent+frontend): polish pass after live testing (6.1 + 6.2).
+  6.1(a) 12-hour AM/PM time display in proposal cards — frontend
+  formatTime12 util (lib/timeFormat.ts); ProposalCard now renders
+  "9:00 AM – 10:00 AM" instead of raw HH:MM. Agent NL replies remain
+  24-hour (scope choice: LLM prompt change deferred).
+  6.1(b) list_my_bookings agent dispatch filters to upcoming+confirmed
+  only — past bookings and cancelled bookings hidden from the LLM view.
+  Underlying service (/bookings/mine route, MyBookings.tsx) unchanged.
+  6.1(c) Dismissed proposal cards now hide silently — no "Proposal
+  dismissed." text remains in the thread.
+  6.1(d) System prompt routes 'my bookings' / 'my reservations' / 'my
+  schedule' / 'what do I have' / 'what's coming up' phrasings to
+  list_my_bookings. Do not refuse such questions.
+  6.2 AgentRequest.recent_context optional field (backward compatible,
+  defaults None) carries the previous turn for lightweight cross-turn
+  context — single-turn lookback only. Backend: new _recent_context_text
+  helper; {recent_context} slot in system prompt rendered conditionally.
+  Frontend: useAgentSendMessage now takes {message, recent_context?};
+  lastUserAndAgentTurn helper in agentSession.ts assembles context from
+  the sessionStorage thread before each send. 343 backend tests, 91.31%
+  coverage; 106 frontend tests. [6.1+6.2]
+
 ### Added (Slice 5b)
 
 - feat(frontend): chat UI for the booking assistant (Phase 9 slice 5b).

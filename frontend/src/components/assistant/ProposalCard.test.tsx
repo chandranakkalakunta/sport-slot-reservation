@@ -39,7 +39,7 @@ describe("ProposalCard", () => {
     expect(screen.getByText("Tennis Court 1")).toBeInTheDocument();
     expect(screen.getByText("tennis")).toBeInTheDocument();
     expect(screen.getByText("2026-07-01")).toBeInTheDocument();
-    expect(screen.getByText(/09:00/)).toBeInTheDocument();
+    expect(screen.getByText(/9:00 AM/)).toBeInTheDocument();
   });
 
   it("renders cancellation proposal heading for cancel action_type", () => {
