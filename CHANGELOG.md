@@ -6,6 +6,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added (Slice 5b)
+
+- feat(frontend): chat UI for the booking assistant (Phase 9 slice 5b).
+  Dedicated /assistant route with structured proposal cards (Confirm/Cancel),
+  sessionStorage thread persistence per-tab, 5-min pre-emptive button disable
+  (timer seeded from message timestamp so expiry survives refresh), welcome
+  screen + 4 suggested prompt chips on empty state, dashboard peer card on
+  Facilities.tsx (above the facilities grid), PWA/mobile-aware (100dvh, 44pt
+  tap targets). New files: pages/Assistant.tsx, hooks/agentHooks.ts,
+  lib/agentSession.ts, components/assistant/{TypingIndicator, MessageBubble,
+  MessageThread, MessageInput, ProposalCard, SuggestedPrompts}.tsx,
+  styles/assistant.css (keyframes + hover pseudo-classes only; everything
+  else inline with CSS vars). Uses existing apiFetch + AuthContext + React
+  Query patterns; no new HTTP/auth layers. On confirm success the proposal
+  card is dismissed and the agent's reply message appended. On dismiss
+  (Cancel button) the card is replaced inline with "Proposal dismissed."
+  Both states persist in sessionStorage. 85 tests pass, ESLint clean, tsc
+  clean. [5b]
+  Updated (5b.1): both onError handlers in Assistant.tsx route through
+  errorMessageFor() in agentHooks.ts, which maps ApiClientError.code to
+  the existing messageForCode catalog (e.g. SLOT_NOT_BOOKABLE → "That slot
+  can't be booked.") and appends "ref: <8-char request_id>" for
+  traceability. Non-ApiClientError throws produce a distinct "check your
+  connection" message. 92 tests pass. [5b.1]
+
 ### Added (Slice 5a)
 
 - feat(agent): AgentReply gains optional pending_action_summary field (Slice 5a).
