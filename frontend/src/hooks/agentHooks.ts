@@ -1,6 +1,7 @@
 import { useMutation } from "@tanstack/react-query";
 
-import { apiFetch } from "../lib/api";
+import { ApiClientError, apiFetch } from "../lib/api";
+import { messageForCode } from "../lib/messages";
 
 export type AgentMessage = {
   kind: "user" | "agent";
@@ -26,6 +27,16 @@ export interface AgentReply {
   reply: string;
   pending_action_id?: string | null;
   pending_action_summary?: AgentSummary | null;
+}
+
+export function errorMessageFor(err: unknown): string {
+  if (err instanceof ApiClientError) {
+    const text = messageForCode(err.code);
+    return err.request_id
+      ? `${text} (ref: ${err.request_id.slice(0, 8)})`
+      : text;
+  }
+  return "Couldn't reach the assistant. Check your connection and try again.";
 }
 
 export function useAgentSendMessage() {

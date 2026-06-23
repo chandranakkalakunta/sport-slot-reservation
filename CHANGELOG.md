@@ -24,6 +24,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   (Cancel button) the card is replaced inline with "Proposal dismissed."
   Both states persist in sessionStorage. 85 tests pass, ESLint clean, tsc
   clean. [5b]
+  Updated (5b.1): both onError handlers in Assistant.tsx route through
+  errorMessageFor() in agentHooks.ts, which maps ApiClientError.code to
+  the existing messageForCode catalog (e.g. SLOT_NOT_BOOKABLE → "That slot
+  can't be booked.") and appends "ref: <8-char request_id>" for
+  traceability. Non-ApiClientError throws produce a distinct "check your
+  connection" message. 92 tests pass. [5b.1]
 
 ### Added (Slice 5a)
 

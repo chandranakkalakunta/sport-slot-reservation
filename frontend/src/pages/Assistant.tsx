@@ -7,6 +7,7 @@ import { MessageThread } from "../components/assistant/MessageThread";
 import { SuggestedPrompts } from "../components/assistant/SuggestedPrompts";
 import {
   type AgentMessage,
+  errorMessageFor,
   useAgentConfirm,
   useAgentSendMessage,
 } from "../hooks/agentHooks";
@@ -39,10 +40,10 @@ export default function Assistant() {
         setThread((prev) => [...prev, agentMsg]);
         setIsTyping(false);
       },
-      onError: () => {
+      onError: (err) => {
         const errMsg: AgentMessage = {
           kind: "agent",
-          text: "Something went wrong. Please try again.",
+          text: errorMessageFor(err),
           timestamp: Date.now(),
         };
         setThread((prev) => [...prev, errMsg]);
@@ -68,10 +69,10 @@ export default function Assistant() {
         });
         setIsTyping(false);
       },
-      onError: () => {
+      onError: (err) => {
         const errMsg: AgentMessage = {
           kind: "agent",
-          text: "Something went wrong. Please try again.",
+          text: errorMessageFor(err),
           timestamp: Date.now(),
         };
         setThread((prev) => [...prev, errMsg]);
