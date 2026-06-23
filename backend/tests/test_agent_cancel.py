@@ -716,3 +716,75 @@ def test_cancel_booking_source_default_writes_booking_cancelled():
         cancel_booking(CTX, _firestore_client(), booking["id"])
 
     assert mock_audit.call_args.args[0] == "booking.cancelled"
+
+
+# ── pending_action_summary (Slice 5a) ─────────────────────────────────────────
+
+@pytest.mark.asyncio
+async def test_propose_cancel_single_returns_structured_summary():
+    """1-candidate cancel propose → turn.pending_action_summary contains all fields."""
+    b = _booking()
+    fc = AgentResponse(function_call=("cancel", {"sport": "tennis"}), text=None)
+    store = FakePendingActionStore()
+
+    with (
+        patch("sport_slot.services.agent.vertex_client.generate",
+              new_callable=AsyncMock, return_value=fc),
+        patch("sport_slot.services.agent.orchestrator.list_my_bookings",
+              return_value={"items": [b], "next_cursor": None}),
+        patch("sport_slot.services.agent.orchestrator.PolicyService",
+              return_value=_policy_mock()),
+    ):
+        turn = await run_agent(CTX, _firestore_client(), store, "Cancel tennis")
+
+    s = turn.pending_action_summary
+    assert s is not None
+    assert s["action_type"] == "cancel"
+    assert s["booking_id"] == b["id"]
+    assert s["facility_name"] == "Tennis Court 1"
+    assert s["sport"] == "tennis"
+    assert s["date"] == b["date"]
+    assert s["start"] == b["start"]
+    assert s["end"] == b["end"]
+
+
+@pytest.mark.asyncio
+async def test_propose_cancel_many_candidates_returns_no_summary():
+    """Multiple matching bookings → disambiguation reply, summary is None."""
+    b1 = _booking(booking_id="bk-1", days_ahead=2, start="09:00")
+    b2 = _booking(booking_id="bk-2", days_ahead=4, start="14:00")
+    fc = AgentResponse(function_call=("cancel", {"sport": "tennis"}), text=None)
+    store = FakePendingActionStore()
+
+    with (
+        patch("sport_slot.services.agent.vertex_client.generate",
+              new_callable=AsyncMock, return_value=fc),
+        patch("sport_slot.services.agent.orchestrator.list_my_bookings",
+              return_value={"items": [b1, b2], "next_cursor": None}),
+        patch("sport_slot.services.agent.orchestrator.PolicyService",
+              return_value=_policy_mock()),
+    ):
+        turn = await run_agent(CTX, _firestore_client(), store, "Cancel tennis")
+
+    assert turn.pending_action_summary is None
+    assert turn.pending_action_id is None
+
+
+@pytest.mark.asyncio
+async def test_propose_cancel_zero_candidates_returns_no_summary():
+    """No matching bookings → not-found reply, summary is None."""
+    fc = AgentResponse(function_call=("cancel", {"sport": "tennis"}), text=None)
+    store = FakePendingActionStore()
+
+    with (
+        patch("sport_slot.services.agent.vertex_client.generate",
+              new_callable=AsyncMock, return_value=fc),
+        patch("sport_slot.services.agent.orchestrator.list_my_bookings",
+              return_value={"items": [], "next_cursor": None}),
+        patch("sport_slot.services.agent.orchestrator.PolicyService",
+              return_value=_policy_mock()),
+    ):
+        turn = await run_agent(CTX, _firestore_client(), store, "Cancel tennis")
+
+    assert turn.pending_action_summary is None
+    assert turn.pending_action_id is None

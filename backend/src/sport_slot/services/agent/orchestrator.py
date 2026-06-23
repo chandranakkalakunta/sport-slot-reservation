@@ -88,6 +88,7 @@ Rules:
 class AgentTurn(NamedTuple):
     reply: str
     pending_action_id: str | None = None
+    pending_action_summary: dict | None = None
 
 
 def _parse_date_hint(hint: str, today: datetime.date) -> datetime.date | None:
@@ -227,17 +228,25 @@ async def run_agent(
 
             if tool_name == "book":
                 # Propose path: deterministic text, no Turn 2, no output guard
-                reply_text, pending_id = await _dispatch_book(
+                reply_text, pending_id, summary = await _dispatch_book(
                     ctx, client, store, args, valid_ids, facilities
                 )
-                return AgentTurn(reply=reply_text, pending_action_id=pending_id)
+                return AgentTurn(
+                    reply=reply_text,
+                    pending_action_id=pending_id,
+                    pending_action_summary=summary,
+                )
 
             if tool_name == "cancel":
                 # Propose path: deterministic Python filter, no Turn 2, no output guard
-                reply_text, pending_id = await _dispatch_cancel(
+                reply_text, pending_id, summary = await _dispatch_cancel(
                     ctx, client, store, args, facilities
                 )
-                return AgentTurn(reply=reply_text, pending_action_id=pending_id)
+                return AgentTurn(
+                    reply=reply_text,
+                    pending_action_id=pending_id,
+                    pending_action_summary=summary,
+                )
 
             # Read-only tools: dispatch → Turn 2 → output guard
             tool_result_text = _dispatch_readonly(
@@ -409,10 +418,11 @@ async def _dispatch_book(
     args: dict,
     valid_ids: set[str],
     facilities: list[dict],
-) -> tuple[str, str | None]:
+) -> tuple[str, str | None, dict | None]:
     """Handle the 'book' tool call on the propose turn.
 
-    Returns (nl_text, pending_action_id | None). No mutation if guard fails.
+    Returns (nl_text, pending_action_id | None, summary | None).
+    No mutation and no summary on any guard-fail or error path.
     """
     facility_id = args.get("facility_id", "")
     date_str = args.get("date", "")
@@ -424,6 +434,7 @@ async def _dispatch_book(
         return (
             "I couldn't find that facility. "
             "Please check the facility name and try again.",
+            None,
             None,
         )
 
@@ -438,11 +449,13 @@ async def _dispatch_book(
                 f"That slot ({start} on {date_str}) isn't available: {reason}. "
                 f"Would you like me to check other times?",
                 None,
+                None,
             )
     except Exception as exc:
         log.warning("agent_book_avail_check_error", error=str(exc))
         return (
             "I couldn't verify that slot right now. Please try again.",
+            None,
             None,
         )
 
@@ -454,16 +467,26 @@ async def _dispatch_book(
         )
     except Exception as exc:
         log.warning("agent_pending_action_propose_error", error=str(exc))
-        return ("I couldn't prepare that booking right now. Please try again.", None)
+        return ("I couldn't prepare that booking right now. Please try again.", None, None)
 
-    fac_name = next(
-        (f.get("name", facility_id) for f in facilities if f.get("id") == facility_id),
-        facility_id,
-    )
+    fac = next((f for f in facilities if f.get("id") == facility_id), None)
+    fac_name = fac.get("name", facility_id) if fac else facility_id
+    sport = (fac.get("sport") or fac.get("facility_type_id") or "") if fac else ""
+
+    summary: dict = {
+        "action_type": "book",
+        "facility_id": facility_id,
+        "facility_name": fac_name,
+        "sport": sport,
+        "date": date_str,
+        "start": start,
+        "end": slot["end"],  # slot verified bookable above
+    }
     return (
         f"Book {fac_name} on {date_str} at {start} — is that right? "
         f"Reply with confirm to proceed.",
         action_id,
+        summary,
     )
 
 
@@ -473,26 +496,26 @@ async def _dispatch_cancel(
     store,
     args: dict,
     facilities: list[dict],
-) -> tuple[str, str | None]:
+) -> tuple[str, str | None, dict | None]:
     """Handle the 'cancel' tool call on the propose turn.
 
     Pure Python filter — NO booking_id ever reaches the LLM.
-    0 candidates → not-found reply.
-    1 candidate → propose pending action, return confirm prompt + pending_action_id.
-    many candidates → disambiguation NL list, no pending action.
+    0 candidates → not-found reply, (text, None, None).
+    1 candidate → propose pending action, (text, action_id, summary).
+    many candidates → disambiguation NL list, (text, None, None).
     """
     sport = (args.get("sport") or "").strip()
     date_hint: str | None = (args.get("date_hint") or "").strip() or None
 
     if not sport:
-        return ("Please tell me which sport's booking you'd like to cancel.", None)
+        return ("Please tell me which sport's booking you'd like to cancel.", None, None)
 
     try:
         lmb_result = list_my_bookings(ctx, client, limit=100)
         bookings = lmb_result.get("items", [])
     except Exception as exc:
         log.warning("agent_cancel_fetch_error", error=str(exc))
-        return ("I couldn't retrieve your bookings right now. Please try again.", None)
+        return ("I couldn't retrieve your bookings right now. Please try again.", None, None)
 
     try:
         policy = PolicyService(ctx, client)
@@ -501,7 +524,7 @@ async def _dispatch_cancel(
         buffer_hours = int(policy.get("cancellation_buffer_hours"))
     except Exception as exc:
         log.warning("agent_cancel_policy_error", error=str(exc))
-        return ("I couldn't retrieve policy settings right now. Please try again.", None)
+        return ("I couldn't retrieve policy settings right now. Please try again.", None, None)
 
     candidates = _filter_cancel_candidates(
         bookings, facilities, sport, date_hint, now_local, buffer_hours
@@ -514,16 +537,16 @@ async def _dispatch_cancel(
             f"You don't have any upcoming {sport} bookings within the next 7 days "
             f"that can be cancelled.",
             None,
+            None,
         )
 
     if count == 1:
         candidate = candidates[0]
         booking_id = candidate["id"]
         fac_id = candidate.get("facility_id", "")
-        fac_name = next(
-            (f.get("name", fac_id) for f in facilities if f.get("id") == fac_id),
-            fac_id,
-        )
+        fac = next((f for f in facilities if f.get("id") == fac_id), None)
+        fac_name = fac.get("name", fac_id) if fac else fac_id
+        fac_sport = (fac.get("sport") or fac.get("facility_type_id") or "") if fac else ""
         date_str = candidate.get("date", "")
         start = candidate.get("start", "")
 
@@ -531,12 +554,22 @@ async def _dispatch_cancel(
             action_id = await store.propose(ctx, "cancel", {"booking_id": booking_id})
         except Exception as exc:
             log.warning("agent_pending_action_propose_error", error=str(exc))
-            return ("I couldn't prepare that cancellation right now. Please try again.", None)
+            return ("I couldn't prepare that cancellation right now. Please try again.", None, None)
 
+        summary: dict = {
+            "action_type": "cancel",
+            "booking_id": booking_id,
+            "facility_name": fac_name,
+            "sport": fac_sport,
+            "date": date_str,
+            "start": start,
+            "end": candidate.get("end", ""),
+        }
         return (
             f"Cancel your {sport} booking at {fac_name} on {date_str} at {start} — "
             f"are you sure? Reply with confirm to proceed.",
             action_id,
+            summary,
         )
 
     # many: disambiguation list
@@ -551,7 +584,7 @@ async def _dispatch_cancel(
             f"  {i}. {fac_name} — {b.get('date', '?')} at {b.get('start', '?')}"
         )
     lines.append("Please tell me which one by specifying the date.")
-    return ("\n".join(lines), None)
+    return ("\n".join(lines), None, None)
 
 
 def _dispatch_readonly(

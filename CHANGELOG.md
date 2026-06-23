@@ -6,6 +6,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added (Slice 5a)
+
+- feat(agent): AgentReply gains optional pending_action_summary field (Slice 5a).
+  Structured proposal data returned alongside the NL reply on book and cancel
+  propose paths. Book summary: action_type, facility_id, facility_name, sport,
+  date, start, end (from validated slot). Cancel summary: action_type, booking_id,
+  facility_name, sport, date, start, end (from candidate booking record). Failure
+  paths (hallucination guard, unbookable, 0-candidates, multi-candidate,
+  store error) return summary=None. Existing AgentReply consumers unaffected —
+  field is optional (default None). Foundation for chat-UI structured proposal
+  cards (Slice 5b). AgentTurn gains matching pending_action_summary field.
+  339 tests, 91.38% coverage. [5a]
+
 ### Fixed (Slice 4.1)
 
 - fix(agent): system prompt tuning for tool-routing reliability (4.V findings).
