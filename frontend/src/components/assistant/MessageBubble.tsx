@@ -33,20 +33,14 @@ export function MessageBubble({
       }}>
         {message.text}
       </div>
-      {!isUser && message.pending_action_summary && message.pending_action_id && (
-        message.dismissed ? (
-          <div style={{ padding: "6px 0", color: "var(--color-text-muted)", fontSize: 13 }}>
-            Proposal dismissed.
-          </div>
-        ) : (
-          <ProposalCard
-            summary={message.pending_action_summary}
-            timestamp={message.timestamp}
-            onConfirm={() => onConfirm(message.pending_action_id!)}
-            onCancel={() => onDismiss(message.timestamp)}
-            isConfirming={isConfirming}
-          />
-        )
+      {!isUser && message.pending_action_summary && message.pending_action_id && !message.dismissed && (
+        <ProposalCard
+          summary={message.pending_action_summary}
+          timestamp={message.timestamp}
+          onConfirm={() => onConfirm(message.pending_action_id!)}
+          onCancel={() => onDismiss(message.timestamp)}
+          isConfirming={isConfirming}
+        />
       )}
     </div>
   );

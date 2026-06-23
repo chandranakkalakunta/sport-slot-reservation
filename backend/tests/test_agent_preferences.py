@@ -233,9 +233,71 @@ async def test_system_prompt_includes_tool_routing_rules():
         await run_agent(CTX, _firestore_client(), _NoopStore(), "Hello")
 
     system_instr = mock_gen.call_args_list[0].kwargs["system_instruction"]
-    assert "Do not refuse such questions" in system_instr                    # rule A
+    assert "Do not refuse such questions" in system_instr                    # rule A (get_my_preferences)
     assert "Do NOT call `get_my_preferences` as a separate step" in system_instr  # rule B
     assert "MUST call the `book` or `cancel` tool" in system_instr          # rule C
+    assert "list_my_bookings" in system_instr                               # rule D (my bookings routing)
+
+
+# ── 6.2: recent_context system-prompt injection ───────────────────────────────
+
+@pytest.mark.asyncio
+async def test_system_prompt_omits_recent_context_when_none():
+    """recent_context=None (default) → 'Recent conversation' absent from prompt."""
+    text_response = AgentResponse(function_call=None, text="I'll help.")
+
+    with (
+        patch("sport_slot.services.agent.orchestrator.get_preferences", return_value={}),
+        patch("sport_slot.services.agent.vertex_client.generate",
+              new_callable=AsyncMock, return_value=text_response) as mock_gen,
+        patch("sport_slot.services.agent.vertex_client.classify_output",
+              new_callable=AsyncMock, return_value=True),
+    ):
+        await run_agent(CTX, _firestore_client(), _NoopStore(), "Hello")
+
+    system_instr = mock_gen.call_args_list[0].kwargs["system_instruction"]
+    assert "Recent conversation" not in system_instr
+
+
+@pytest.mark.asyncio
+async def test_system_prompt_includes_recent_context_when_provided():
+    """recent_context dict → 'Recent conversation' section with both messages appears."""
+    text_response = AgentResponse(function_call=None, text="Got it.")
+    rc = {
+        "previous_user_message": "Book tennis tomorrow",
+        "previous_agent_reply": "I've proposed a tennis booking for you.",
+    }
+
+    with (
+        patch("sport_slot.services.agent.orchestrator.get_preferences", return_value={}),
+        patch("sport_slot.services.agent.vertex_client.generate",
+              new_callable=AsyncMock, return_value=text_response) as mock_gen,
+        patch("sport_slot.services.agent.vertex_client.classify_output",
+              new_callable=AsyncMock, return_value=True),
+    ):
+        await run_agent(CTX, _firestore_client(), _NoopStore(), "Confirm?", recent_context=rc)
+
+    system_instr = mock_gen.call_args_list[0].kwargs["system_instruction"]
+    assert "Recent conversation" in system_instr
+    assert "Book tennis tomorrow" in system_instr
+    assert "I've proposed a tennis booking for you." in system_instr
+
+
+@pytest.mark.asyncio
+async def test_run_agent_backward_compat_without_recent_context():
+    """Existing callers that omit recent_context still work (defaults to None)."""
+    text_response = AgentResponse(function_call=None, text="Sure!")
+
+    with (
+        patch("sport_slot.services.agent.orchestrator.get_preferences", return_value={}),
+        patch("sport_slot.services.agent.vertex_client.generate",
+              new_callable=AsyncMock, return_value=text_response),
+        patch("sport_slot.services.agent.vertex_client.classify_output",
+              new_callable=AsyncMock, return_value=True),
+    ):
+        turn = await run_agent(CTX, _firestore_client(), _NoopStore(), "Hello")
+
+    assert turn.reply == "Sure!"
 
 
 # ── get_my_preferences dispatch ───────────────────────────────────────────────

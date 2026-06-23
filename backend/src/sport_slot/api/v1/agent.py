@@ -29,6 +29,7 @@ class AgentRequest(BaseModel):
     message: str | None = None
     confirm: bool = False
     pending_action_id: str | None = None
+    recent_context: dict | None = None
 
 
 class AgentReply(BaseModel):
@@ -52,7 +53,7 @@ async def agent_query(
         return AgentReply(reply=reply)
 
     if body.message:
-        turn = await run_agent(ctx, client, store, body.message)
+        turn = await run_agent(ctx, client, store, body.message, body.recent_context)
         return AgentReply(
             reply=turn.reply,
             pending_action_id=turn.pending_action_id,

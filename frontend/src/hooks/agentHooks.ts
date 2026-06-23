@@ -23,6 +23,11 @@ export type AgentSummary = {
   booking_id?: string;
 };
 
+export type RecentContext = {
+  previous_user_message: string;
+  previous_agent_reply: string;
+};
+
 export interface AgentReply {
   reply: string;
   pending_action_id?: string | null;
@@ -41,10 +46,13 @@ export function errorMessageFor(err: unknown): string {
 
 export function useAgentSendMessage() {
   return useMutation({
-    mutationFn: (message: string) =>
+    mutationFn: ({ message, recent_context }: {
+      message: string;
+      recent_context?: RecentContext;
+    }) =>
       apiFetch<AgentReply>("/agent/query", {
         method: "POST",
-        body: JSON.stringify({ message }),
+        body: JSON.stringify({ message, recent_context }),
       }),
   });
 }
