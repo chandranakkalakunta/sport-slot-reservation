@@ -750,3 +750,103 @@ async def test_dispatch_readonly_avail_exception_returns_error_json():
         turn = await run_agent(CTX, _firestore_client(), store, "Is court free?")
 
     assert turn.reply == "Sorry, couldn't check."
+
+
+# ── pending_action_summary (Slice 5a) ─────────────────────────────────────────
+
+@pytest.mark.asyncio
+async def test_propose_book_returns_structured_summary():
+    """Successful book propose → turn.pending_action_summary contains all fields."""
+    fc = AgentResponse(
+        function_call=("book", {"facility_id": "f-court1", "date": "2027-01-15", "start": "09:00"}),
+        text=None,
+    )
+    store = FakePendingActionStore()
+
+    with (
+        patch("sport_slot.services.agent.vertex_client.generate",
+              new_callable=AsyncMock, return_value=fc),
+        patch("sport_slot.services.agent.vertex_client.classify_output",
+              new_callable=AsyncMock, return_value=True),
+        patch("sport_slot.services.agent.orchestrator.get_availability",
+              return_value=AVAIL_BOOKABLE),
+        patch("sport_slot.services.agent.orchestrator.create_booking",
+              new_callable=AsyncMock),
+    ):
+        turn = await run_agent(CTX, _firestore_client(), store, "Book court")
+
+    s = turn.pending_action_summary
+    assert s is not None
+    assert s["action_type"] == "book"
+    assert s["facility_id"] == "f-court1"
+    assert s["facility_name"] == "Tennis Court 1"
+    assert s["sport"] == "tennis"
+    assert s["date"] == "2027-01-15"
+    assert s["start"] == "09:00"
+    assert s["end"] == "10:00"
+
+
+@pytest.mark.asyncio
+async def test_propose_book_hallucination_returns_no_summary():
+    """Hallucinated facility_id → turn.pending_action_summary is None."""
+    fc = AgentResponse(
+        function_call=("book", {"facility_id": "FAKE-XYZ", "date": "2027-01-15", "start": "09:00"}),
+        text=None,
+    )
+    store = FakePendingActionStore()
+
+    with (
+        patch("sport_slot.services.agent.vertex_client.generate",
+              new_callable=AsyncMock, return_value=fc),
+        patch("sport_slot.services.agent.vertex_client.classify_output",
+              new_callable=AsyncMock, return_value=True),
+        patch("sport_slot.services.agent.orchestrator.get_availability"),
+    ):
+        turn = await run_agent(CTX, _firestore_client(), store, "Book FAKE-XYZ")
+
+    assert turn.pending_action_summary is None
+    assert turn.pending_action_id is None
+
+
+@pytest.mark.asyncio
+async def test_propose_book_unbookable_slot_returns_no_summary():
+    """Unbookable slot → turn.pending_action_summary is None."""
+    fc = AgentResponse(
+        function_call=("book", {"facility_id": "f-court1", "date": "2027-01-15", "start": "09:00"}),
+        text=None,
+    )
+    store = FakePendingActionStore()
+
+    with (
+        patch("sport_slot.services.agent.vertex_client.generate",
+              new_callable=AsyncMock, return_value=fc),
+        patch("sport_slot.services.agent.vertex_client.classify_output",
+              new_callable=AsyncMock, return_value=True),
+        patch("sport_slot.services.agent.orchestrator.get_availability",
+              return_value=AVAIL_TAKEN),
+    ):
+        turn = await run_agent(CTX, _firestore_client(), store, "Book court")
+
+    assert turn.pending_action_summary is None
+    assert turn.pending_action_id is None
+
+
+def test_agent_reply_model_includes_pending_action_summary_field():
+    """AgentReply serialises pending_action_summary: populated and None both work."""
+    from sport_slot.api.v1.agent import AgentReply
+
+    with_summary = AgentReply(
+        reply="Book Tennis Court 1 on 2027-01-15 at 09:00 — confirm?",
+        pending_action_id="abc123",
+        pending_action_summary={
+            "action_type": "book", "facility_id": "f-court1",
+            "facility_name": "Tennis Court 1", "sport": "tennis",
+            "date": "2027-01-15", "start": "09:00", "end": "10:00",
+        },
+    )
+    data = with_summary.model_dump()
+    assert data["pending_action_summary"]["action_type"] == "book"
+    assert data["pending_action_summary"]["facility_name"] == "Tennis Court 1"
+
+    without_summary = AgentReply(reply="Sure!", pending_action_id=None)
+    assert without_summary.model_dump()["pending_action_summary"] is None

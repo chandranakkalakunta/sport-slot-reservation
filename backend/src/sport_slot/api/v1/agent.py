@@ -34,6 +34,7 @@ class AgentRequest(BaseModel):
 class AgentReply(BaseModel):
     reply: str
     pending_action_id: str | None = None
+    pending_action_summary: dict | None = None
 
 
 @router.post("/query", response_model=AgentReply)
@@ -52,6 +53,10 @@ async def agent_query(
 
     if body.message:
         turn = await run_agent(ctx, client, store, body.message)
-        return AgentReply(reply=turn.reply, pending_action_id=turn.pending_action_id)
+        return AgentReply(
+            reply=turn.reply,
+            pending_action_id=turn.pending_action_id,
+            pending_action_summary=turn.pending_action_summary,
+        )
 
     return AgentReply(reply="Please send a message or confirm a pending action.")
