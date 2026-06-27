@@ -9,10 +9,13 @@ Propose flow (run_agent):
    - read-only (check_availability, list_my_bookings): dispatch service,
      Turn 2 for NL reply, output guard.
    - book: hallucination-guard facility_id, read-validate slot is bookable,
-     write pending action, return deterministic confirm prompt + pending_action_id.
-     (NO Vertex Turn 2, NO mutation on propose.)
+     propose-time quota check, write pending action, return deterministic
+     confirm prompt + pending_action_id. (NO Vertex Turn 2, NO mutation on propose.)
    - cancel: deterministic Python filter (sport + date_hint), 0/1/many branching.
-     0 → not-found reply; 1 → propose pending action; many → disambiguation NL.
+     0 cancellable + 0 too_late → not-found reply.
+     0 cancellable + ≥1 too_late → past-cutoff reply.
+     1 cancellable → propose pending action.
+     ≥2 cancellable → disambiguation NL.
      (NO booking_id ever reaches the LLM — hallucination structurally prevented.)
 4. Apply output guard on LLM-generated text — fail closed.
 5. Return AgentTurn(reply, pending_action_id).
@@ -33,6 +36,7 @@ from typing import NamedTuple
 
 import structlog
 
+from sport_slot.api import error_codes
 from sport_slot.api.errors import ApiError
 from sport_slot.auth.context import TenantContext
 from sport_slot.repositories.facilities import FacilityRepository
@@ -118,6 +122,14 @@ def _parse_date_hint(hint: str, today: datetime.date) -> datetime.date | None:
     return None
 
 
+def _booking_sport(b: dict, facilities: list[dict]) -> str:
+    """Return lowercased sport for a booking by looking up its facility."""
+    fac = next((f for f in facilities if f.get("id") == b.get("facility_id")), None)
+    if fac is None:
+        return ""
+    return (fac.get("sport") or fac.get("facility_type_id") or "").lower()
+
+
 def _filter_cancel_candidates(
     bookings: list[dict],
     facilities: list[dict],
@@ -125,23 +137,23 @@ def _filter_cancel_candidates(
     date_hint: str | None,
     now_local: datetime.datetime,
     buffer_hours: int,
-) -> list[dict]:
-    """Pure filter: upcoming bookings cancellable for the given sport.
+) -> tuple[list[dict], list[dict]]:
+    """Filter bookings by sport/date/window, then partition by cancellability.
 
-    Criteria (all must pass):
-    - _is_cancellable(booking, now_local, buffer_hours) is True
-    - booking.date in [today, today + 7 days]
-    - facility's sport matches (case-insensitive)
-    - if date_hint parseable, further narrows to that date only
+    Returns (cancellable, too_late):
+    - cancellable: confirmed, within 7-day window, correct sport, within cancel window
+    - too_late: same criteria but past cancellation cutoff
     """
     fac_by_id: dict[str, dict] = {f["id"]: f for f in facilities if "id" in f}
     today = now_local.date()
     window_end = today + datetime.timedelta(days=7)
     target_date = _parse_date_hint(date_hint, today) if date_hint else None
 
-    result = []
+    cancellable: list[dict] = []
+    too_late: list[dict] = []
+
     for b in bookings:
-        if not _is_cancellable(b, now_local, buffer_hours):
+        if b.get("status") != "confirmed":
             continue
         try:
             bdate = datetime.date.fromisoformat(b.get("date", ""))
@@ -157,8 +169,12 @@ def _filter_cancel_candidates(
             continue
         if target_date is not None and bdate != target_date:
             continue
-        result.append(b)
-    return result
+        if _is_cancellable(b, now_local, buffer_hours):
+            cancellable.append(b)
+        else:
+            too_late.append(b)
+
+    return cancellable, too_late
 
 
 def _facility_list_text(facilities: list[dict]) -> str:
@@ -342,22 +358,37 @@ async def run_agent_confirm(
                     source="agent",
                 )
             except ApiError as exc:
-                if exc.status_code == 409:
+                # Resolve facility for context-aware error messages (best-effort)
+                try:
+                    _fac = FacilityRepository(ctx, client).get(facility_id)
+                except Exception:
+                    _fac = None
+                _fac_name = (_fac.get("name", facility_id) if _fac else facility_id)
+                _sport = ((_fac.get("sport") or _fac.get("facility_type_id") or "") if _fac else "")
+
+                if exc.code == error_codes.SLOT_CONTENDED:
                     return (
                         "That slot was just taken — would you like me to check "
                         "other available times?"
                     )
-                if exc.status_code == 422:
+                if exc.code == error_codes.BOOKING_QUOTA_EXCEEDED:
+                    if _sport:
+                        return f"You've reached your daily booking limit for {_sport}."
+                    return "You've reached your daily booking limit."
+                if exc.code == error_codes.ALREADY_BOOKED:
+                    return f"{_fac_name} on {date} at {start} is already booked."
+                if exc.code == error_codes.LOCK_UNAVAILABLE:
                     return (
-                        "That slot is no longer available. "
-                        "Would you like me to check other times?"
+                        "Booking is temporarily unavailable — please try again in a moment."
                     )
-                if exc.status_code == 503:
-                    return (
-                        "The booking system is temporarily unavailable. "
-                        "Please try again in a moment."
-                    )
-                return "I wasn't able to complete the booking. Please try again."
+                if exc.code == error_codes.SLOT_NOT_BOOKABLE:
+                    return f"That slot ({start} on {date}) can't be booked right now."
+                if exc.code == error_codes.FACILITY_NOT_FOUND:
+                    return "I couldn't find that facility."
+                if exc.code == error_codes.INVALID_DATE:
+                    return "That date didn't look right — please check and try again."
+                log.warning("agent_book_unknown_error", code=exc.code, status=exc.status_code)
+                return "Something went wrong with that booking. Please try again."
 
             # Best-effort preference memory write
             try:
@@ -482,6 +513,33 @@ async def _dispatch_book(
             None,
         )
 
+    # Propose-time quota check (defensive — execute-time check is also in place)
+    fac = next((f for f in facilities if f.get("id") == facility_id), None)
+    sport = ((fac.get("sport") or fac.get("facility_type_id") or "").lower() if fac else "")
+    if sport:
+        try:
+            quota_limit = int(PolicyService(ctx, client).get("max_slots_per_user_per_sport_per_day"))
+            user_bookings = list_my_bookings(ctx, client, limit=100).get("items", [])
+            same_sport_same_day = sum(
+                1 for b in user_bookings
+                if b.get("status") == "confirmed"
+                and b.get("date") == date_str
+                and _booking_sport(b, facilities) == sport
+            )
+            if same_sport_same_day >= quota_limit:
+                log.info(
+                    "agent_book_propose_quota_exceeded",
+                    sport=sport, date=date_str, count=same_sport_same_day,
+                )
+                return (
+                    f"You've reached your daily booking limit for {sport} on {date_str}.",
+                    None,
+                    None,
+                )
+        except Exception as exc:
+            log.warning("agent_book_propose_quota_check_error", error=str(exc))
+            # fall through — execute-time check is the safety net
+
     # Write pending action
     try:
         action_id = await store.propose(
@@ -492,15 +550,14 @@ async def _dispatch_book(
         log.warning("agent_pending_action_propose_error", error=str(exc))
         return ("I couldn't prepare that booking right now. Please try again.", None, None)
 
-    fac = next((f for f in facilities if f.get("id") == facility_id), None)
     fac_name = fac.get("name", facility_id) if fac else facility_id
-    sport = (fac.get("sport") or fac.get("facility_type_id") or "") if fac else ""
+    sport_display = (fac.get("sport") or fac.get("facility_type_id") or "") if fac else ""
 
     summary: dict = {
         "action_type": "book",
         "facility_id": facility_id,
         "facility_name": fac_name,
-        "sport": sport,
+        "sport": sport_display,
         "date": date_str,
         "start": start,
         "end": slot["end"],  # slot verified bookable above
@@ -523,9 +580,10 @@ async def _dispatch_cancel(
     """Handle the 'cancel' tool call on the propose turn.
 
     Pure Python filter — NO booking_id ever reaches the LLM.
-    0 candidates → not-found reply, (text, None, None).
-    1 candidate → propose pending action, (text, action_id, summary).
-    many candidates → disambiguation NL list, (text, None, None).
+    (cancellable=0, too_late=0) → not-found reply.
+    (cancellable=0, too_late≥1) → past-cutoff reply.
+    (cancellable=1) → propose pending action.
+    (cancellable≥2) → disambiguation NL list.
     """
     sport = (args.get("sport") or "").strip()
     date_hint: str | None = (args.get("date_hint") or "").strip() or None
@@ -549,13 +607,14 @@ async def _dispatch_cancel(
         log.warning("agent_cancel_policy_error", error=str(exc))
         return ("I couldn't retrieve policy settings right now. Please try again.", None, None)
 
-    candidates = _filter_cancel_candidates(
+    cancellable, too_late = _filter_cancel_candidates(
         bookings, facilities, sport, date_hint, now_local, buffer_hours
     )
-    count = len(candidates)
-    log.info("agent_cancel_candidates", count=count)
+    n_can = len(cancellable)
+    n_late = len(too_late)
+    log.info("agent_cancel_candidates", cancellable=n_can, too_late=n_late)
 
-    if count == 0:
+    if n_can == 0 and n_late == 0:
         return (
             f"You don't have any upcoming {sport} bookings within the next 7 days "
             f"that can be cancelled.",
@@ -563,8 +622,36 @@ async def _dispatch_cancel(
             None,
         )
 
-    if count == 1:
-        candidate = candidates[0]
+    if n_can == 0 and n_late >= 1:
+        if n_late == 1:
+            candidate = too_late[0]
+            fac_id = candidate.get("facility_id", "")
+            fac_name = next(
+                (f.get("name", fac_id) for f in facilities if f.get("id") == fac_id),
+                fac_id,
+            )
+            return (
+                f"Your {sport} booking at {fac_name} on {candidate['date']} "
+                f"at {candidate['start']} is past the cancellation cutoff. "
+                f"It can no longer be cancelled.",
+                None,
+                None,
+            )
+        lines = [
+            f"You have {n_late} {sport} bookings within the next 7 days, "
+            f"but all are past the cancellation cutoff:"
+        ]
+        for b in too_late[:5]:
+            fac_id = b.get("facility_id", "")
+            fac_name = next(
+                (f.get("name", fac_id) for f in facilities if f.get("id") == fac_id),
+                fac_id,
+            )
+            lines.append(f"  • {fac_name} — {b.get('date', '?')} at {b.get('start', '?')}")
+        return ("\n".join(lines), None, None)
+
+    if n_can == 1:
+        candidate = cancellable[0]
         booking_id = candidate["id"]
         fac_id = candidate.get("facility_id", "")
         fac = next((f for f in facilities if f.get("id") == fac_id), None)
@@ -595,9 +682,9 @@ async def _dispatch_cancel(
             summary,
         )
 
-    # many: disambiguation list
-    lines = [f"You have {count} upcoming {sport} bookings that can be cancelled:"]
-    for i, b in enumerate(candidates, 1):
+    # n_can >= 2: disambiguation list
+    lines = [f"You have {n_can} upcoming {sport} bookings that can be cancelled:"]
+    for i, b in enumerate(cancellable, 1):
         fac_id = b.get("facility_id", "")
         fac_name = next(
             (f.get("name", fac_id) for f in facilities if f.get("id") == fac_id),
