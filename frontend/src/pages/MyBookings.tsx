@@ -36,7 +36,10 @@ export default function MyBookings() {
     }
   }
 
-  const confirmed = data?.items.filter((b) => b.status === "confirmed") ?? [];
+  const today = new Date().toISOString().slice(0, 10);
+  const upcoming = (data?.items ?? []).filter(
+    (b) => b.status === "confirmed" && b.date >= today,
+  );
 
   return (
     <>
@@ -46,11 +49,11 @@ export default function MyBookings() {
       <h1 style={{ color: "var(--color-primary)" }}>My bookings</h1>
       {feedback && <p style={{ color: "var(--color-secondary)" }}>{feedback}</p>}
       {isLoading && <p>Loading…</p>}
-      {!isLoading && confirmed.length === 0 && (
+      {!isLoading && upcoming.length === 0 && (
         <p style={{ color: "var(--color-text-muted)" }}>No upcoming bookings.</p>
       )}
       <div style={{ display: "grid", gap: "var(--spacing)", marginTop: 16 }}>
-        {confirmed.map((b) => (
+        {upcoming.map((b) => (
           <div key={b.id} style={{
             padding: 16, borderRadius: "var(--radius)",
             border: "1px solid var(--color-text-muted)",
