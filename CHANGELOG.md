@@ -6,6 +6,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Fixed (Slice 6.5)
+
+- fix(agent): correctness pass — limit fix, AM/PM guard, stateful cancel
+  disambiguation (Phase 9 slice 6.5).
+  6.5(a) _dispatch_readonly list_my_bookings branch no longer uses the
+  LLM-supplied limit (was capped at 20). Changed to limit=100. Root cause:
+  Firestore returns docs in document-ID order; with limit≤15 a user with
+  15+ past bookings sees 0 future bookings after the confirmed+date≥today
+  filter. Now passes 100 to surface all near-future bookings. 1 regression
+  test added (verifies limit=100 kwarg and total_bookings count in turn-2).
+  6.5(b) Python AM→PM guard added to _dispatch_book between the hallucination
+  guard and the availability check. If hour<12 AND the datetime formed by
+  combining date_str+start with the tenant timezone is already past, start is
+  advanced to hour+12 (e.g. "09:00" → "21:00"). Reads tenant timezone from
+  PolicyService; falls through silently on any error so availability check is
+  always reached. Logged as agent_book_am_past_advanced_to_pm. 2 hermetic
+  tests added (past date triggers guard; future date does not).
+  6.5(c) Stateful cancel disambiguation. PendingActionStore.propose() now
+  also writes a secondary pointer key
+  agent_pending_latest:{tenant_id}:{uid}:{action_type} → action_id (same
+  TTL). New get_latest_for_user(ctx, action_type) reads the pointer then the
+  main key (read-only, does not consume). _dispatch_cancel n_can≥2 branch now
+  stores a cancel_disambiguation pending action containing the candidates list
+  ({id, facility_id, date, start, end} per booking). run_agent pre-Vertex
+  check: if a pending cancel_disambiguation exists and the user's message
+  contains exactly one candidate's date AND start as substrings, consumes the
+  disambiguation action, proposes a cancel pending action for the matched
+  booking, and returns a confirm prompt without calling Vertex. No match or
+  zero/multiple matches falls through to normal Vertex turn. New helper
+  _match_disambig_candidate implements the substring matching rule. 3 hermetic
+  tests: selection routes to cancel, unrelated message falls through to Vertex,
+  consumed state does not interfere. Existing two multi-candidate tests updated
+  (now expect 1 propose_call for cancel_disambiguation, not 0).
+  362 backend tests, 91.05% coverage.
+
 ### Fixed (Slice 6.4)
 
 - fix(agent): error mapping + propose-time quota + cancel differentiation
