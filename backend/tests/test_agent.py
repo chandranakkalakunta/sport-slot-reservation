@@ -32,6 +32,8 @@ class _NoopStore:
         return "noop"
     async def consume(self, *a, **k):
         return None
+    async def get_latest_for_user(self, *a, **k):
+        return None
 
 
 _NS = _NoopStore()
@@ -453,3 +455,58 @@ async def test_list_my_bookings_filters_past_and_cancelled():
     assert "total_bookings=1" in turn2_msg
     assert future in turn2_msg
     assert past not in turn2_msg
+
+
+# ── 6.5(a): list_my_bookings limit fix ───────────────────────────────────────
+
+@pytest.mark.asyncio
+async def test_list_my_bookings_dispatch_fetches_enough_rows_to_see_future():
+    """_dispatch_readonly always passes limit=100, not the LLM-supplied or capped value.
+
+    Regression guard: before 6.5 the limit was capped at 20 (max(1, min(raw, 20))).
+    Firestore returns docs in document-ID order, so with limit=10 a user with many
+    past bookings would see 0 future entries after the date-filter. With limit=100
+    the future booking is visible.
+    """
+    today = datetime.datetime.now(zoneinfo.ZoneInfo("UTC")).date()
+    future = (today + datetime.timedelta(days=2)).isoformat()
+
+    # 15 past confirmed + 1 future confirmed. With limit≤15 the future one is hidden.
+    past_bookings = [
+        {
+            "id": f"b{i}",
+            "facility_id": "f-court1",
+            "date": (today - datetime.timedelta(days=i)).isoformat(),
+            "start": "09:00",
+            "status": "confirmed",
+            "cancellable": False,
+        }
+        for i in range(1, 16)
+    ]
+    future_booking = {
+        "id": "b_future", "facility_id": "f-court1", "date": future,
+        "start": "09:00", "status": "confirmed", "cancellable": True,
+    }
+    all_bookings = past_bookings + [future_booking]
+
+    fc_response = AgentResponse(function_call=("list_my_bookings", {}), text=None)
+    text_response = AgentResponse(function_call=None, text="You have 1 upcoming booking.")
+
+    with (
+        patch("sport_slot.services.agent.vertex_client.generate",
+              new_callable=AsyncMock, side_effect=[fc_response, text_response]) as mock_gen,
+        patch("sport_slot.services.agent.vertex_client.classify_output",
+              new_callable=AsyncMock, return_value=True),
+        patch("sport_slot.services.bookings.BookingRepository.list_for_uid",
+              return_value=(all_bookings, None)) as mock_list,
+    ):
+        await _ra(CTX, _firestore_client(), "Show my bookings")
+
+    # Service must be called with limit=100
+    mock_list.assert_called_once()
+    assert mock_list.call_args.kwargs.get("limit") == 100
+
+    # Turn 2 must see only the 1 future booking
+    turn2_msg = mock_gen.call_args_list[1].kwargs["message"]
+    assert "total_bookings=1" in turn2_msg
+    assert future in turn2_msg

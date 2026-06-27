@@ -177,6 +177,19 @@ def _filter_cancel_candidates(
     return cancellable, too_late
 
 
+def _match_disambig_candidate(user_msg: str, candidates: list[dict]) -> dict | None:
+    """Return the single candidate whose date AND start both appear in user_msg.
+
+    Returns None if zero or multiple candidates match (no change → fall through to Vertex).
+    """
+    msg_lower = user_msg.lower()
+    matches = [
+        c for c in candidates
+        if c.get("date", "") in msg_lower and c.get("start", "") in msg_lower
+    ]
+    return matches[0] if len(matches) == 1 else None
+
+
 def _facility_list_text(facilities: list[dict]) -> str:
     if not facilities:
         return "(no active facilities)"
@@ -250,6 +263,59 @@ async def run_agent(
             preferences_context=_preferences_text(prefs, facilities),
         )
         valid_ids = _valid_facility_ids(facilities)
+
+        # --- Pre-Vertex: resolve pending cancel disambiguation ---
+        try:
+            disambig = await store.get_latest_for_user(ctx, "cancel_disambiguation")
+            if disambig is not None:
+                disambig_action_id, disambig_data = disambig
+                d_params = disambig_data.get("params", {})
+                candidates = d_params.get("candidates", [])
+                d_sport = d_params.get("sport", "")
+                matched = _match_disambig_candidate(user_message, candidates)
+                if matched is not None:
+                    await store.consume(ctx, disambig_action_id)
+                    booking_id = matched["id"]
+                    fac_id = matched.get("facility_id", "")
+                    fac = next((f for f in facilities if f.get("id") == fac_id), None)
+                    fac_name = fac.get("name", fac_id) if fac else fac_id
+                    fac_sport = (
+                        (fac.get("sport") or fac.get("facility_type_id") or "") if fac else ""
+                    )
+                    date_str = matched.get("date", "")
+                    start = matched.get("start", "")
+                    try:
+                        action_id = await store.propose(
+                            ctx, "cancel", {"booking_id": booking_id}
+                        )
+                    except Exception as exc:
+                        log.warning("agent_disambig_propose_error", error=str(exc))
+                        return AgentTurn(
+                            reply=(
+                                "I couldn't prepare that cancellation right now. "
+                                "Please try again."
+                            )
+                        )
+                    summary: dict = {
+                        "action_type": "cancel",
+                        "booking_id": booking_id,
+                        "facility_name": fac_name,
+                        "sport": fac_sport,
+                        "date": date_str,
+                        "start": start,
+                        "end": matched.get("end", ""),
+                    }
+                    return AgentTurn(
+                        reply=(
+                            f"Cancel your {d_sport} booking at {fac_name} on {date_str} "
+                            f"at {start} — are you sure? Reply with confirm to proceed."
+                        ),
+                        pending_action_id=action_id,
+                        pending_action_summary=summary,
+                    )
+        except Exception as exc:
+            log.warning("agent_disambig_check_error", error=str(exc))
+            # fall through to normal Vertex turn
 
         # --- Turn 1: LLM decides whether to call a tool or reply directly ---
         first: AgentResponse = await vertex_client.generate(
@@ -492,6 +558,30 @@ async def _dispatch_book(
             None,
         )
 
+    # AM-past → PM guard: if the AM slot on the requested date is already past, advance to PM
+    try:
+        _tz_name = PolicyService(ctx, client).tenant_timezone()
+        _tz = zoneinfo.ZoneInfo(_tz_name)
+        _now_local = datetime.datetime.now(_tz)
+        _time_parts = start.split(":")
+        _hour_int = int(_time_parts[0])
+        _minute = _time_parts[1] if len(_time_parts) > 1 else "00"
+        if _hour_int < 12:
+            _target_date = datetime.date.fromisoformat(date_str)
+            _start_dt = datetime.datetime(
+                _target_date.year, _target_date.month, _target_date.day,
+                _hour_int, int(_minute), 0, tzinfo=_tz,
+            )
+            if _start_dt < _now_local:
+                start = f"{_hour_int + 12:02d}:{_minute}"
+                log.info(
+                    "agent_book_am_past_advanced_to_pm",
+                    original_hour=_hour_int,
+                    new_start=start,
+                )
+    except Exception as exc:
+        log.warning("agent_book_am_pm_guard_error", error=str(exc))
+
     # Read-validate: confirm the slot is bookable right now
     try:
         avail = get_availability(ctx, client, facility_id, date_str)
@@ -682,7 +772,25 @@ async def _dispatch_cancel(
             summary,
         )
 
-    # n_can >= 2: disambiguation list
+    # n_can >= 2: store disambiguation state, return list
+    candidates_for_store = [
+        {
+            "id": b["id"],
+            "facility_id": b.get("facility_id", ""),
+            "date": b.get("date", ""),
+            "start": b.get("start", ""),
+            "end": b.get("end", ""),
+        }
+        for b in cancellable
+    ]
+    try:
+        await store.propose(ctx, "cancel_disambiguation", {
+            "sport": sport,
+            "candidates": candidates_for_store,
+        })
+    except Exception as exc:
+        log.warning("agent_disambig_store_error", error=str(exc))
+
     lines = [f"You have {n_can} upcoming {sport} bookings that can be cancelled:"]
     for i, b in enumerate(cancellable, 1):
         fac_id = b.get("facility_id", "")
@@ -693,7 +801,7 @@ async def _dispatch_cancel(
         lines.append(
             f"  {i}. {fac_name} — {b.get('date', '?')} at {b.get('start', '?')}"
         )
-    lines.append("Please tell me which one by specifying the date.")
+    lines.append("Which one would you like to cancel? Please specify the date and time.")
     return ("\n".join(lines), None, None)
 
 
@@ -750,13 +858,8 @@ def _dispatch_readonly(
 
     elif tool_name == "list_my_bookings":
         _today = today_local if today_local is not None else datetime.date.today()
-        raw = args.get("limit", 10)
         try:
-            limit = max(1, min(int(raw), 20))
-        except (ValueError, TypeError):
-            limit = 10
-        try:
-            result = list_my_bookings(ctx, client, limit=limit)
+            result = list_my_bookings(ctx, client, limit=100)
             all_items = result.get("items", [])
             # Presentation-layer filter: upcoming confirmed only.
             # The underlying service and other API consumers are unaffected.

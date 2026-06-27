@@ -106,6 +106,9 @@ class FakePendingActionStore:
         self.consume_calls.append((ctx, action_id))
         return self._store.pop(self._key(ctx, action_id), None)
 
+    async def get_latest_for_user(self, ctx: TenantContext, action_type: str):
+        return None  # booking tests have no disambiguation scenarios
+
 
 class FakeLock:
     async def acquire(self, key, ttl_ms=10_000):
@@ -471,7 +474,7 @@ async def test_agent_query_non_resident_blocked(make_client):
 
 @pytest.mark.asyncio
 async def test_pending_action_store_propose_sets_key_with_ttl():
-    """propose() writes to Redis with correct key format and TTL."""
+    """propose() writes main key + latest-pointer key, both with 5-min TTL."""
     from sport_slot.services.agent.pending_actions import PendingActionStore
 
     redis = AsyncMock()
@@ -479,11 +482,17 @@ async def test_pending_action_store_propose_sets_key_with_ttl():
     action_id = await store.propose(CTX, "book", {"facility_id": "f1"})
 
     assert len(action_id) == 32  # uuid4 hex
-    redis.set.assert_called_once()
-    call = redis.set.call_args
-    key = call.args[0]
-    assert key.startswith(f"agent_pending:{CTX.tenant_id}:{CTX.uid}:")
-    assert call.kwargs["px"] == 300_000
+    assert redis.set.call_count == 2  # main key + latest pointer
+
+    calls = redis.set.call_args_list
+    # Main key
+    main_key = calls[0].args[0]
+    assert main_key.startswith(f"agent_pending:{CTX.tenant_id}:{CTX.uid}:")
+    assert calls[0].kwargs["px"] == 300_000
+    # Latest-pointer key
+    latest_key = calls[1].args[0]
+    assert latest_key == f"agent_pending_latest:{CTX.tenant_id}:{CTX.uid}:book"
+    assert calls[1].kwargs["px"] == 300_000
 
 
 @pytest.mark.asyncio
@@ -1083,3 +1092,69 @@ async def test_propose_book_quota_policy_error_falls_through_to_propose():
     # Policy error in quota check is caught; proposal still proceeds
     assert turn.pending_action_id is not None
     assert len(store.propose_calls) == 1
+
+
+# ── 6.5(b): AM-past → PM guard in _dispatch_book ─────────────────────────────
+
+@pytest.mark.asyncio
+async def test_dispatch_book_am_past_advances_to_pm():
+    """LLM sends start=09:00 for a date in the past → AM/PM guard advances to 21:00.
+
+    The pending action must carry the advanced start, not the original 09:00.
+    Using a definitively past date (2020-01-15) to trigger the guard without
+    needing to mock datetime.
+    """
+    fc = AgentResponse(
+        function_call=("book", {"facility_id": "f-court1", "date": "2020-01-15", "start": "09:00"}),
+        text=None,
+    )
+    store = FakePendingActionStore()
+    pm_slot = {"start": "21:00", "end": "22:00", "bookable": True}
+    avail_pm = {"facility_id": "f-court1", "date": "2020-01-15", "slots": [pm_slot]}
+
+    with (
+        patch("sport_slot.services.agent.vertex_client.generate",
+              new_callable=AsyncMock, return_value=fc),
+        patch("sport_slot.services.agent.vertex_client.classify_output",
+              new_callable=AsyncMock, return_value=True),
+        patch("sport_slot.services.agent.orchestrator.get_availability",
+              return_value=avail_pm),
+        patch("sport_slot.services.agent.orchestrator.list_my_bookings",
+              return_value={"items": [], "next_cursor": None}),
+        patch("sport_slot.services.agent.orchestrator.create_booking",
+              new_callable=AsyncMock),
+    ):
+        turn = await run_agent(CTX, _firestore_client(), store, "Book court at 9am")
+
+    assert turn.pending_action_id is not None
+    _, _, params = store.propose_calls[0]
+    assert params["start"] == "21:00"  # advanced from 09:00
+    assert params["facility_id"] == "f-court1"
+
+
+@pytest.mark.asyncio
+async def test_dispatch_book_am_future_not_advanced():
+    """LLM sends start=09:00 for a future date → 09:00 is not past → no advancement."""
+    fc = AgentResponse(
+        function_call=("book", {"facility_id": "f-court1", "date": "2030-01-15", "start": "09:00"}),
+        text=None,
+    )
+    store = FakePendingActionStore()
+
+    with (
+        patch("sport_slot.services.agent.vertex_client.generate",
+              new_callable=AsyncMock, return_value=fc),
+        patch("sport_slot.services.agent.vertex_client.classify_output",
+              new_callable=AsyncMock, return_value=True),
+        patch("sport_slot.services.agent.orchestrator.get_availability",
+              return_value=AVAIL_BOOKABLE),
+        patch("sport_slot.services.agent.orchestrator.list_my_bookings",
+              return_value={"items": [], "next_cursor": None}),
+        patch("sport_slot.services.agent.orchestrator.create_booking",
+              new_callable=AsyncMock),
+    ):
+        turn = await run_agent(CTX, _firestore_client(), store, "Book court at 9am")
+
+    assert turn.pending_action_id is not None
+    _, _, params = store.propose_calls[0]
+    assert params["start"] == "09:00"  # not advanced

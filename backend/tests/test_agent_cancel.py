@@ -125,6 +125,7 @@ def _firestore_client() -> MagicMock:
 class FakePendingActionStore:
     def __init__(self) -> None:
         self._store: dict[str, dict] = {}
+        self._latest: dict[tuple, str] = {}  # (tenant_id, uid, action_type) -> action_id
         self.propose_calls: list[tuple] = []
         self.consume_calls: list[tuple] = []
 
@@ -134,12 +135,24 @@ class FakePendingActionStore:
     async def propose(self, ctx: TenantContext, action_type: str, params: dict) -> str:
         action_id = f"pending-{len(self._store) + 1:03d}"
         self._store[self._key(ctx, action_id)] = {"action_type": action_type, "params": params}
+        self._latest[(ctx.tenant_id, ctx.uid, action_type)] = action_id
         self.propose_calls.append((ctx, action_type, params))
         return action_id
 
     async def consume(self, ctx: TenantContext, action_id: str) -> dict | None:
         self.consume_calls.append((ctx, action_id))
         return self._store.pop(self._key(ctx, action_id), None)
+
+    async def get_latest_for_user(
+        self, ctx: TenantContext, action_type: str
+    ):
+        action_id = self._latest.get((ctx.tenant_id, ctx.uid, action_type))
+        if action_id is None:
+            return None
+        data = self._store.get(self._key(ctx, action_id))
+        if data is None:
+            return None
+        return action_id, data
 
 
 class FakeLock:
@@ -397,7 +410,9 @@ async def test_propose_cancel_many_candidates_no_pending_action_disambiguation()
         turn = await run_agent(CTX, _firestore_client(), store, "Cancel tennis")
 
     assert turn.pending_action_id is None
-    assert len(store.propose_calls) == 0
+    # cancel_disambiguation state IS stored (not returned to frontend as pending_action_id)
+    assert len(store.propose_calls) == 1
+    assert store.propose_calls[0][1] == "cancel_disambiguation"
     assert "2" in turn.reply
     assert b1["date"] in turn.reply
     assert b2["date"] in turn.reply
@@ -884,3 +899,115 @@ async def test_dispatch_cancel_zero_cancellable_many_too_late_returns_list():
     assert len(store.propose_calls) == 0
     assert "2" in turn.reply
     assert "cutoff" in turn.reply.lower() or "no longer" in turn.reply.lower()
+
+
+# ── 6.5(c): cancel disambiguation ────────────────────────────────────────────
+
+@pytest.mark.asyncio
+async def test_disambig_user_selects_booking_gets_confirm_prompt():
+    """Two-turn flow: disambiguation list → user specifies date+time → confirm prompt.
+
+    Turn 1: LLM returns cancel tool with 2 candidates → cancel_disambiguation stored.
+    Turn 2: user message includes b1's date AND start → matched → cancel pending action proposed.
+    """
+    b1 = _booking(booking_id="bk-1", days_ahead=2, start="09:00")
+    b2 = _booking(booking_id="bk-2", days_ahead=4, start="14:00")
+    fc = AgentResponse(function_call=("cancel", {"sport": "tennis"}), text=None)
+    store = FakePendingActionStore()
+
+    # Turn 1: 2 candidates → disambiguation list stored
+    with (
+        patch("sport_slot.services.agent.vertex_client.generate",
+              new_callable=AsyncMock, return_value=fc),
+        patch("sport_slot.services.agent.orchestrator.list_my_bookings",
+              return_value={"items": [b1, b2], "next_cursor": None}),
+        patch("sport_slot.services.agent.orchestrator.PolicyService",
+              return_value=_policy_mock()),
+    ):
+        turn1 = await run_agent(CTX, _firestore_client(), store, "Cancel tennis")
+
+    assert turn1.pending_action_id is None
+    assert store.propose_calls[0][1] == "cancel_disambiguation"
+
+    # Turn 2: user specifies b1's date and start time
+    user_msg_2 = f"the one on {b1['date']} at {b1['start']}"
+    text_fallback = AgentResponse(function_call=None, text="Done.")
+
+    with (
+        patch("sport_slot.services.agent.vertex_client.generate",
+              new_callable=AsyncMock, return_value=text_fallback),
+        patch("sport_slot.services.agent.vertex_client.classify_output",
+              new_callable=AsyncMock, return_value=True),
+        patch("sport_slot.services.agent.orchestrator.cancel_booking",
+              new_callable=AsyncMock),
+    ):
+        turn2 = await run_agent(CTX, _firestore_client(), store, user_msg_2)
+
+    # Disambiguation matched b1 → cancel pending action proposed
+    assert turn2.pending_action_id is not None
+    assert "confirm" in turn2.reply.lower() or "sure" in turn2.reply.lower()
+    cancel_propose = next(
+        (p for p in store.propose_calls if p[1] == "cancel"), None
+    )
+    assert cancel_propose is not None
+    assert cancel_propose[2]["booking_id"] == b1["id"]
+
+
+@pytest.mark.asyncio
+async def test_disambig_non_matching_message_falls_through_to_vertex():
+    """Pending disambiguation but user's message doesn't match any candidate → Vertex called."""
+    b1 = _booking(booking_id="bk-1", days_ahead=2, start="09:00")
+    b2 = _booking(booking_id="bk-2", days_ahead=4, start="14:00")
+    fc_cancel = AgentResponse(function_call=("cancel", {"sport": "tennis"}), text=None)
+    store = FakePendingActionStore()
+
+    # Turn 1: create disambiguation state
+    with (
+        patch("sport_slot.services.agent.vertex_client.generate",
+              new_callable=AsyncMock, return_value=fc_cancel),
+        patch("sport_slot.services.agent.orchestrator.list_my_bookings",
+              return_value={"items": [b1, b2], "next_cursor": None}),
+        patch("sport_slot.services.agent.orchestrator.PolicyService",
+              return_value=_policy_mock()),
+    ):
+        await run_agent(CTX, _firestore_client(), store, "Cancel tennis")
+
+    # Turn 2: unrelated message — no date+start match → falls through to Vertex
+    text_response = AgentResponse(function_call=None, text="I can help with that.")
+
+    with (
+        patch("sport_slot.services.agent.vertex_client.generate",
+              new_callable=AsyncMock, return_value=text_response) as mock_gen,
+        patch("sport_slot.services.agent.vertex_client.classify_output",
+              new_callable=AsyncMock, return_value=True),
+    ):
+        turn2 = await run_agent(CTX, _firestore_client(), store, "What about swimming?")
+
+    mock_gen.assert_called_once()  # Vertex was reached (not the disambiguation path)
+    assert turn2.pending_action_id is None
+
+
+@pytest.mark.asyncio
+async def test_disambig_after_consume_does_not_interfere():
+    """cancel_disambiguation consumed → latest key points to gone action → no routing."""
+    store = FakePendingActionStore()
+    action_id = await store.propose(CTX, "cancel_disambiguation", {
+        "sport": "tennis",
+        "candidates": [{"id": "bk-1", "facility_id": "f-tennis1",
+                        "date": "2027-01-15", "start": "09:00", "end": "10:00"}],
+    })
+    await store.consume(CTX, action_id)  # consumed — main key gone, latest pointer still exists
+
+    text_response = AgentResponse(function_call=None, text="No problem.")
+
+    with (
+        patch("sport_slot.services.agent.vertex_client.generate",
+              new_callable=AsyncMock, return_value=text_response) as mock_gen,
+        patch("sport_slot.services.agent.vertex_client.classify_output",
+              new_callable=AsyncMock, return_value=True),
+    ):
+        turn = await run_agent(CTX, _firestore_client(), store, "Any question")
+
+    # get_latest_for_user finds consumed action → returns None → falls through to Vertex
+    mock_gen.assert_called_once()
+    assert turn.reply == "No problem."
