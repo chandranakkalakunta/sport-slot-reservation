@@ -38,7 +38,7 @@ function wrap(ui: React.ReactElement) {
 }
 
 const BOOKING = {
-  id: "b1", facility_id: "f1", date: "2026-06-15",
+  id: "b1", facility_id: "f1", date: "2027-01-15",
   start: "09:00", end: "10:00", status: "confirmed", cancellable: true,
 };
 
@@ -59,7 +59,33 @@ it("renders confirmed booking", () => {
   wrap(<MyBookings />);
 
   expect(screen.getByText("Tennis Court")).toBeInTheDocument();
-  expect(screen.getByText(/2026-06-15/)).toBeInTheDocument();
+  expect(screen.getByText(/2027-01-15/)).toBeInTheDocument();
+});
+
+it("filters past and cancelled bookings from display", () => {
+  const pastConfirmed = { ...BOOKING, id: "b-past", date: "2026-06-20" };
+  const futureConfirmed = { ...BOOKING, id: "b-future", date: "2027-01-15" };
+  const futureCancelled = { ...BOOKING, id: "b-cancelled", date: "2027-01-16", status: "cancelled" };
+
+  vi.spyOn(hooks, "useMyBookings").mockReturnValue({
+    data: { items: [pastConfirmed, futureConfirmed, futureCancelled] },
+    isLoading: false,
+  } as ReturnType<typeof hooks.useMyBookings>);
+  vi.spyOn(hooks, "useFacilities").mockReturnValue({
+    data: { items: [] }, isLoading: false,
+  } as unknown as ReturnType<typeof hooks.useFacilities>);
+  vi.spyOn(hooks, "useCancelBooking").mockReturnValue({
+    mutateAsync: vi.fn(), isPending: false,
+  } as unknown as ReturnType<typeof hooks.useCancelBooking>);
+
+  wrap(<MyBookings />);
+
+  // Only the future confirmed booking should appear
+  expect(screen.getByText(/2027-01-15/)).toBeInTheDocument();
+  // Past confirmed must be hidden
+  expect(screen.queryByText(/2026-06-20/)).toBeNull();
+  // Future cancelled must be hidden
+  expect(screen.queryByText(/2027-01-16/)).toBeNull();
 });
 
 it("shows Cancellation closed when cancellable is false", () => {

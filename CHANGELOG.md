@@ -6,6 +6,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Fixed (Slice 6.7)
+
+- fix(frontend): MyBookings page filters to upcoming+confirmed (Phase 9
+  slice 6.7). Aligns the page with the agent's list_my_bookings behavior
+  (slice 6.1b). Past bookings and cancelled bookings are hidden from the
+  default view. Derived `today = new Date().toISOString().slice(0,10)` and
+  filter `b.status === "confirmed" && b.date >= today` replaces the
+  previous `status === "confirmed"` only filter. Underlying /bookings/mine
+  API is unchanged. Existing test fixture date updated from "2026-06-15"
+  (past) to "2027-01-15" so existing tests pass. New test
+  "filters past and cancelled bookings from display" verifies all three
+  cases: past confirmed hidden, future confirmed shown, future cancelled
+  hidden. 107 frontend tests, tsc clean.
+
 ### Fixed (Slice 6.6)
 
 - fix(quota): execute-time quota check now filters by sport (cross-sport
