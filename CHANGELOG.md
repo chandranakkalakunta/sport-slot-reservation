@@ -6,6 +6,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Fixed (Slice 6.4)
+
+- fix(agent): error mapping + propose-time quota + cancel differentiation
+  (Phase 9 slice 6.4).
+  6.4(a) Booking errors in run_agent_confirm now mapped by exc.code (not
+  HTTP status): SLOT_CONTENDED, BOOKING_QUOTA_EXCEEDED, ALREADY_BOOKED,
+  LOCK_UNAVAILABLE, SLOT_NOT_BOOKABLE, FACILITY_NOT_FOUND, INVALID_DATE
+  each produce a distinct NL message. BOOKING_QUOTA_EXCEEDED includes the
+  sport name (facility looked up from params). Old status-code branching
+  meant 3 different 409 codes all produced "That slot was just taken."
+  6.4(b) Propose-time quota check added to _dispatch_book after the
+  availability read-validate and before store.propose(). Counts the user's
+  confirmed same-sport same-date bookings against
+  max_slots_per_user_per_sport_per_day. Returns early with a quota message
+  if at limit, preventing a proposal that would fail at execute time.
+  Execute-time check in create_booking retained (defense in depth). Falls
+  through silently on any policy read error so the execute-time check
+  remains the safety net.
+  6.4(c) _filter_cancel_candidates now returns (cancellable, too_late)
+  tuple instead of a single list. _dispatch_cancel differentiates:
+  (0,0) → "no bookings"; (0,≥1) → "past cancellation cutoff" message
+  naming the facility and date; (1,*) → existing propose flow;
+  (≥2,*) → existing disambiguation flow. Users now see precisely why
+  a cancellation can't proceed instead of a misleading "no bookings" reply.
+  New _booking_sport helper resolves sport for a booking via facility list.
+  12 existing TestFilterCancelCandidates tests updated for tuple return;
+  1 stale 422 assertion updated (SLOT_NOT_BOOKABLE message changed).
+  13 new hermetic tests added. 356 backend tests, 91.68% coverage.
+
 ### Fixed (Slice 6.3)
 
 - fix(agent+notifications): move enqueue_notification from HTTP router to

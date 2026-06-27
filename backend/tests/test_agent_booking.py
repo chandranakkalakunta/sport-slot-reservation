@@ -563,7 +563,7 @@ async def test_execute_confirm_409_returns_slot_taken_message():
 
 @pytest.mark.asyncio
 async def test_execute_confirm_422_returns_unavailable_message():
-    """create_booking raises 422 ApiError → 'no longer available' NL reply."""
+    """create_booking raises 422/SLOT_NOT_BOOKABLE → slot-specific 'can't be booked' NL reply."""
     from sport_slot.api.errors import ApiError
 
     store = FakePendingActionStore()
@@ -576,7 +576,7 @@ async def test_execute_confirm_422_returns_unavailable_message():
                side_effect=ApiError(422, "SLOT_NOT_BOOKABLE", "not bookable")):
         reply = await run_agent_confirm(CTX, _firestore_client(), FakeLock(), store, action_id)
 
-    assert "no longer available" in reply.lower() or "check other times" in reply.lower()
+    assert "can't be booked" in reply.lower() or "right now" in reply.lower()
 
 
 @pytest.mark.asyncio
@@ -886,3 +886,200 @@ def test_agent_reply_model_includes_pending_action_summary_field():
 
     without_summary = AgentReply(reply="Sure!", pending_action_id=None)
     assert without_summary.model_dump()["pending_action_summary"] is None
+
+
+# ── 6.4(a): error-code mapping in run_agent_confirm ──────────────────────────
+
+@pytest.mark.asyncio
+async def test_confirm_book_slot_contended_returns_contended_message():
+    """SLOT_CONTENDED → 'just taken' message."""
+    from sport_slot.api import error_codes as ec
+    from sport_slot.api.errors import ApiError
+
+    store = FakePendingActionStore()
+    action_id = await store.propose(CTX, "book", {
+        "facility_id": "f-court1", "date": "2027-01-15", "start": "09:00"
+    })
+    with patch("sport_slot.services.agent.orchestrator.create_booking",
+               new_callable=AsyncMock,
+               side_effect=ApiError(409, ec.SLOT_CONTENDED, "contended")):
+        reply = await run_agent_confirm(CTX, _firestore_client(), FakeLock(), store, action_id)
+
+    assert "just taken" in reply.lower() or "other available times" in reply.lower()
+
+
+@pytest.mark.asyncio
+async def test_confirm_book_quota_exceeded_returns_quota_message_with_sport():
+    """BOOKING_QUOTA_EXCEEDED → 'daily booking limit' with sport name in reply."""
+    from sport_slot.api import error_codes as ec
+    from sport_slot.api.errors import ApiError
+
+    store = FakePendingActionStore()
+    action_id = await store.propose(CTX, "book", {
+        "facility_id": "f-court1", "date": "2027-01-15", "start": "09:00"
+    })
+    with patch("sport_slot.services.agent.orchestrator.create_booking",
+               new_callable=AsyncMock,
+               side_effect=ApiError(409, ec.BOOKING_QUOTA_EXCEEDED, "quota exceeded")):
+        reply = await run_agent_confirm(CTX, _firestore_client(), FakeLock(), store, action_id)
+
+    assert "daily booking limit" in reply.lower()
+    assert "tennis" in reply.lower()
+
+
+@pytest.mark.asyncio
+async def test_confirm_book_already_booked_returns_facility_and_time():
+    """ALREADY_BOOKED → facility name + date + time in reply."""
+    from sport_slot.api import error_codes as ec
+    from sport_slot.api.errors import ApiError
+
+    store = FakePendingActionStore()
+    action_id = await store.propose(CTX, "book", {
+        "facility_id": "f-court1", "date": "2027-01-15", "start": "09:00"
+    })
+    with patch("sport_slot.services.agent.orchestrator.create_booking",
+               new_callable=AsyncMock,
+               side_effect=ApiError(409, ec.ALREADY_BOOKED, "already booked")):
+        reply = await run_agent_confirm(CTX, _firestore_client(), FakeLock(), store, action_id)
+
+    assert "already booked" in reply.lower()
+    assert "2027-01-15" in reply
+    assert "09:00" in reply
+
+
+@pytest.mark.asyncio
+async def test_confirm_book_lock_unavailable_returns_temporary_message():
+    """LOCK_UNAVAILABLE → 'temporarily unavailable' reply."""
+    from sport_slot.api import error_codes as ec
+    from sport_slot.api.errors import ApiError
+
+    store = FakePendingActionStore()
+    action_id = await store.propose(CTX, "book", {
+        "facility_id": "f-court1", "date": "2027-01-15", "start": "09:00"
+    })
+    with patch("sport_slot.services.agent.orchestrator.create_booking",
+               new_callable=AsyncMock,
+               side_effect=ApiError(503, ec.LOCK_UNAVAILABLE, "unavailable")):
+        reply = await run_agent_confirm(CTX, _firestore_client(), FakeLock(), store, action_id)
+
+    assert "temporarily unavailable" in reply.lower()
+
+
+@pytest.mark.asyncio
+async def test_confirm_book_unknown_error_code_returns_generic():
+    """Unknown error code → generic 'something went wrong' fallback."""
+    from sport_slot.api.errors import ApiError
+
+    store = FakePendingActionStore()
+    action_id = await store.propose(CTX, "book", {
+        "facility_id": "f-court1", "date": "2027-01-15", "start": "09:00"
+    })
+    with patch("sport_slot.services.agent.orchestrator.create_booking",
+               new_callable=AsyncMock,
+               side_effect=ApiError(500, "INTERNAL", "internal error")):
+        reply = await run_agent_confirm(CTX, _firestore_client(), FakeLock(), store, action_id)
+
+    assert "something went wrong" in reply.lower() or "try again" in reply.lower()
+
+
+# ── 6.4(b): propose-time quota check in _dispatch_book ───────────────────────
+
+@pytest.mark.asyncio
+async def test_propose_book_quota_at_limit_refuses_without_writing_pending():
+    """quota=1 and user has 1 confirmed tennis booking on same date →
+    propose-time check fires; no pending action written, create_booking NOT called."""
+    fc = AgentResponse(
+        function_call=("book", {"facility_id": "f-court1", "date": "2027-01-15", "start": "09:00"}),
+        text=None,
+    )
+    store = FakePendingActionStore()
+    existing = {
+        "id": "f-court1_2027-01-15_08:00", "uid": CTX.uid,
+        "facility_id": "f-court1", "date": "2027-01-15",
+        "start": "08:00", "end": "09:00", "status": "confirmed",
+    }
+    policy_inst = MagicMock()
+    policy_inst.tenant_timezone.return_value = "UTC"
+    policy_inst.get.return_value = "1"  # quota_limit = 1
+
+    with (
+        patch("sport_slot.services.agent.vertex_client.generate",
+              new_callable=AsyncMock, return_value=fc),
+        patch("sport_slot.services.agent.orchestrator.get_availability",
+              return_value=AVAIL_BOOKABLE),
+        patch("sport_slot.services.agent.orchestrator.PolicyService",
+              return_value=policy_inst),
+        patch("sport_slot.services.agent.orchestrator.list_my_bookings",
+              return_value={"items": [existing], "next_cursor": None}),
+        patch("sport_slot.services.agent.orchestrator.create_booking",
+              new_callable=AsyncMock) as mock_create,
+    ):
+        turn = await run_agent(CTX, _firestore_client(), store, "Book another tennis slot")
+
+    assert turn.pending_action_id is None
+    assert len(store.propose_calls) == 0
+    mock_create.assert_not_called()
+    assert "daily booking limit" in turn.reply.lower()
+    assert "tennis" in turn.reply.lower()
+
+
+@pytest.mark.asyncio
+async def test_propose_book_quota_below_limit_proceeds_normally():
+    """quota=2, user has 1 confirmed booking → quota check passes, pending action written."""
+    fc = AgentResponse(
+        function_call=("book", {"facility_id": "f-court1", "date": "2027-01-15", "start": "09:00"}),
+        text=None,
+    )
+    store = FakePendingActionStore()
+    existing = {
+        "id": "f-court1_2027-01-15_08:00", "uid": CTX.uid,
+        "facility_id": "f-court1", "date": "2027-01-15",
+        "start": "08:00", "end": "09:00", "status": "confirmed",
+    }
+    policy_inst = MagicMock()
+    policy_inst.tenant_timezone.return_value = "UTC"
+    policy_inst.get.return_value = "2"  # quota_limit = 2
+
+    with (
+        patch("sport_slot.services.agent.vertex_client.generate",
+              new_callable=AsyncMock, return_value=fc),
+        patch("sport_slot.services.agent.orchestrator.get_availability",
+              return_value=AVAIL_BOOKABLE),
+        patch("sport_slot.services.agent.orchestrator.PolicyService",
+              return_value=policy_inst),
+        patch("sport_slot.services.agent.orchestrator.list_my_bookings",
+              return_value={"items": [existing], "next_cursor": None}),
+    ):
+        turn = await run_agent(CTX, _firestore_client(), store, "Book tennis at 9am")
+
+    assert turn.pending_action_id is not None
+    assert len(store.propose_calls) == 1
+
+
+@pytest.mark.asyncio
+async def test_propose_book_quota_policy_error_falls_through_to_propose():
+    """PolicyService.get() raises in quota check → exception caught, proposal proceeds normally."""
+    fc = AgentResponse(
+        function_call=("book", {"facility_id": "f-court1", "date": "2027-01-15", "start": "09:00"}),
+        text=None,
+    )
+    store = FakePendingActionStore()
+    policy_inst = MagicMock()
+    policy_inst.tenant_timezone.return_value = "UTC"
+    policy_inst.get.side_effect = RuntimeError("policy db down")
+
+    with (
+        patch("sport_slot.services.agent.vertex_client.generate",
+              new_callable=AsyncMock, return_value=fc),
+        patch("sport_slot.services.agent.orchestrator.get_availability",
+              return_value=AVAIL_BOOKABLE),
+        patch("sport_slot.services.agent.orchestrator.PolicyService",
+              return_value=policy_inst),
+        patch("sport_slot.services.agent.orchestrator.create_booking",
+              new_callable=AsyncMock),
+    ):
+        turn = await run_agent(CTX, _firestore_client(), store, "Book tennis at 9am")
+
+    # Policy error in quota check is caught; proposal still proceeds
+    assert turn.pending_action_id is not None
+    assert len(store.propose_calls) == 1

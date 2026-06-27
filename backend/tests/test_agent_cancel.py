@@ -219,73 +219,85 @@ class TestFilterCancelCandidates:
 
     def test_returns_matching_confirmed_future_tennis_booking(self):
         b = self._booking()
-        result = _filter_cancel_candidates([b], FACILITIES, "tennis", None, self._now, self._buffer)
-        assert result == [b]
+        cancellable, too_late = _filter_cancel_candidates([b], FACILITIES, "tennis", None, self._now, self._buffer)
+        assert cancellable == [b]
+        assert too_late == []
 
     def test_excludes_cancelled_booking(self):
         b = self._booking(status="cancelled")
-        result = _filter_cancel_candidates([b], FACILITIES, "tennis", None, self._now, self._buffer)
-        assert result == []
+        cancellable, too_late = _filter_cancel_candidates([b], FACILITIES, "tennis", None, self._now, self._buffer)
+        assert cancellable == []
+        assert too_late == []
 
     def test_excludes_wrong_sport(self):
         b = self._booking()  # tennis facility
-        result = _filter_cancel_candidates([b], FACILITIES, "badminton", None, self._now, self._buffer)
-        assert result == []
+        cancellable, too_late = _filter_cancel_candidates([b], FACILITIES, "badminton", None, self._now, self._buffer)
+        assert cancellable == []
+        assert too_late == []
 
     def test_excludes_booking_outside_7_day_window(self):
         b = self._booking(days=8)
-        result = _filter_cancel_candidates([b], FACILITIES, "tennis", None, self._now, self._buffer)
-        assert result == []
+        cancellable, too_late = _filter_cancel_candidates([b], FACILITIES, "tennis", None, self._now, self._buffer)
+        assert cancellable == []
+        assert too_late == []
 
     def test_includes_booking_on_day_7(self):
         b = self._booking(days=7)
-        result = _filter_cancel_candidates([b], FACILITIES, "tennis", None, self._now, self._buffer)
-        assert result == [b]
+        cancellable, too_late = _filter_cancel_candidates([b], FACILITIES, "tennis", None, self._now, self._buffer)
+        assert cancellable == [b]
+        assert too_late == []
 
     def test_excludes_past_booking(self):
         past_date = (self._now.date() - datetime.timedelta(days=1)).isoformat()
         b = {**self._booking(), "date": past_date}
-        result = _filter_cancel_candidates([b], FACILITIES, "tennis", None, self._now, self._buffer)
-        assert result == []
+        cancellable, too_late = _filter_cancel_candidates([b], FACILITIES, "tennis", None, self._now, self._buffer)
+        assert cancellable == []
+        assert too_late == []
 
-    def test_excludes_within_buffer(self):
+    def test_within_buffer_goes_to_too_late(self):
         # Slot is today at 00:30 — within 1-hour buffer from now (00:00)
         today = self._now.date().isoformat()
         b = {**self._booking(), "date": today, "start": "00:30"}
-        result = _filter_cancel_candidates([b], FACILITIES, "tennis", None, self._now, self._buffer)
-        assert result == []
+        cancellable, too_late = _filter_cancel_candidates([b], FACILITIES, "tennis", None, self._now, self._buffer)
+        assert cancellable == []
+        assert too_late == [b]
 
     def test_excludes_facility_not_in_list(self):
         b = self._booking(facility_id="unknown-fac")
-        result = _filter_cancel_candidates([b], FACILITIES, "tennis", None, self._now, self._buffer)
-        assert result == []
+        cancellable, too_late = _filter_cancel_candidates([b], FACILITIES, "tennis", None, self._now, self._buffer)
+        assert cancellable == []
+        assert too_late == []
 
     def test_date_hint_narrows_results(self):
         b1 = self._booking(days=2)
         b2 = self._booking(days=4)
         date_hint = self._future(2)
-        result = _filter_cancel_candidates([b1, b2], FACILITIES, "tennis",
-                                           date_hint, self._now, self._buffer)
-        assert result == [b1]
+        cancellable, too_late = _filter_cancel_candidates([b1, b2], FACILITIES, "tennis",
+                                                          date_hint, self._now, self._buffer)
+        assert cancellable == [b1]
+        assert too_late == []
 
     def test_date_hint_unrecognised_ignored(self):
         b1 = self._booking(days=2)
         b2 = self._booking(days=4)
-        result = _filter_cancel_candidates([b1, b2], FACILITIES, "tennis",
-                                           "sometime", self._now, self._buffer)
-        assert result == [b1, b2]
+        cancellable, too_late = _filter_cancel_candidates([b1, b2], FACILITIES, "tennis",
+                                                          "sometime", self._now, self._buffer)
+        assert cancellable == [b1, b2]
+        assert too_late == []
 
     def test_multiple_sports_returns_only_matching(self):
         tennis = self._booking(facility_id="f-tennis1", days=2)
         badminton = self._booking(facility_id="f-badminton1", days=3)
-        result = _filter_cancel_candidates([tennis, badminton], FACILITIES, "badminton",
-                                           None, self._now, self._buffer)
-        assert result == [badminton]
+        cancellable, too_late = _filter_cancel_candidates([tennis, badminton], FACILITIES, "badminton",
+                                                          None, self._now, self._buffer)
+        assert cancellable == [badminton]
+        assert too_late == []
 
     def test_sport_match_is_case_insensitive(self):
         b = self._booking()
-        result = _filter_cancel_candidates([b], FACILITIES, "Tennis", None, self._now, self._buffer)
-        assert result == [b]
+        cancellable, too_late = _filter_cancel_candidates([b], FACILITIES, "Tennis", None, self._now, self._buffer)
+        assert cancellable == [b]
+        assert too_late == []
 
 
 # ── PROPOSE: zero candidates ──────────────────────────────────────────────────
@@ -788,3 +800,87 @@ async def test_propose_cancel_zero_candidates_returns_no_summary():
 
     assert turn.pending_action_summary is None
     assert turn.pending_action_id is None
+
+
+# ── 6.4(c): _filter_cancel_candidates tuple partition ─────────────────────────
+
+class TestFilterCancelCandidatesPartition:
+    _now = datetime.datetime(2027, 6, 14, 0, 0, 0)
+    _buffer = 1
+
+    def _future(self, days: int) -> str:
+        return (self._now.date() + datetime.timedelta(days=days)).isoformat()
+
+    def test_partitions_cancellable_and_too_late_separately(self):
+        """One cancellable (3 days ahead) and one too_late (within 1h buffer today)."""
+        cancellable_b = {
+            "id": "bk-far", "uid": "u1", "facility_id": "f-tennis1",
+            "date": self._future(3), "start": "10:00", "end": "11:00", "status": "confirmed",
+        }
+        too_late_b = {
+            "id": "bk-soon", "uid": "u1", "facility_id": "f-tennis1",
+            "date": self._now.date().isoformat(), "start": "00:30", "end": "01:30",
+            "status": "confirmed",
+        }
+        cancellable, too_late = _filter_cancel_candidates(
+            [cancellable_b, too_late_b], FACILITIES, "tennis", None, self._now, self._buffer,
+        )
+        assert cancellable == [cancellable_b]
+        assert too_late == [too_late_b]
+
+    def test_empty_input_returns_empty_tuple(self):
+        cancellable, too_late = _filter_cancel_candidates(
+            [], FACILITIES, "tennis", None, self._now, self._buffer,
+        )
+        assert cancellable == []
+        assert too_late == []
+
+
+# ── 6.4(c): _dispatch_cancel too-late branch ──────────────────────────────────
+
+@pytest.mark.asyncio
+async def test_dispatch_cancel_zero_cancellable_one_too_late_returns_cutoff_message():
+    """1 matching booking but past cancellation cutoff (buffer=100h > 72h ahead) →
+    cutoff-specific reply, no pending action."""
+    b = _booking()  # 3 days = 72h ahead
+    fc = AgentResponse(function_call=("cancel", {"sport": "tennis"}), text=None)
+    store = FakePendingActionStore()
+
+    with (
+        patch("sport_slot.services.agent.vertex_client.generate",
+              new_callable=AsyncMock, return_value=fc),
+        patch("sport_slot.services.agent.orchestrator.list_my_bookings",
+              return_value={"items": [b], "next_cursor": None}),
+        patch("sport_slot.services.agent.orchestrator.PolicyService",
+              return_value=_policy_mock(buffer_hours=100)),
+    ):
+        turn = await run_agent(CTX, _firestore_client(), store, "Cancel tennis")
+
+    assert turn.pending_action_id is None
+    assert len(store.propose_calls) == 0
+    assert "cutoff" in turn.reply.lower() or "no longer" in turn.reply.lower()
+    assert "tennis" in turn.reply.lower()
+
+
+@pytest.mark.asyncio
+async def test_dispatch_cancel_zero_cancellable_many_too_late_returns_list():
+    """2 too-late bookings → list reply mentioning count and cutoff, no pending action."""
+    b1 = _booking(booking_id="bk-1", days_ahead=2, start="09:00")
+    b2 = _booking(booking_id="bk-2", days_ahead=4, start="14:00")
+    fc = AgentResponse(function_call=("cancel", {"sport": "tennis"}), text=None)
+    store = FakePendingActionStore()
+
+    with (
+        patch("sport_slot.services.agent.vertex_client.generate",
+              new_callable=AsyncMock, return_value=fc),
+        patch("sport_slot.services.agent.orchestrator.list_my_bookings",
+              return_value={"items": [b1, b2], "next_cursor": None}),
+        patch("sport_slot.services.agent.orchestrator.PolicyService",
+              return_value=_policy_mock(buffer_hours=9999)),
+    ):
+        turn = await run_agent(CTX, _firestore_client(), store, "Cancel tennis")
+
+    assert turn.pending_action_id is None
+    assert len(store.propose_calls) == 0
+    assert "2" in turn.reply
+    assert "cutoff" in turn.reply.lower() or "no longer" in turn.reply.lower()
