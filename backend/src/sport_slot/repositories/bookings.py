@@ -61,13 +61,24 @@ def create_booking_with_quota(
     uid: str,
     date: str,
     quota: int,
+    sport: str = "",
+    facilities: list[dict] | None = None,
 ) -> None:
     """Atomic quota-check + create (ADR-0010 §4). The Redis lock
-    guards the SLOT; quota races ACROSS slots are settled here."""
+    guards the SLOT; quota races ACROSS slots are settled here.
+
+    Quota is per-sport: only confirmed bookings on the same date whose
+    facility belongs to the same sport (case-insensitive) count toward
+    the limit.  Cross-sport bookings are never charged against each other.
+    """
     from google.cloud import firestore
 
     collection = repo._collection
     transaction = repo._client.transaction()
+    fac_by_id: dict[str, dict] = {
+        f["id"]: f for f in (facilities or []) if "id" in f
+    }
+    sport_lower = sport.lower()
 
     @firestore.transactional
     def _run(txn):
@@ -77,8 +88,19 @@ def create_booking_with_quota(
             .where("date", "==", date)
             .where("status", "==", "confirmed")
         )
-        count = len(list(txn.get(query)))
-        if count >= quota:
+        bookings = list(txn.get(query))
+        same_sport_count = 0
+        for b in bookings:
+            data = b.to_dict() if hasattr(b, "to_dict") else b
+            fac = fac_by_id.get(data.get("facility_id", ""))
+            if fac is None:
+                continue  # facility gone or unknown — defensive skip
+            booking_sport = (
+                (fac.get("sport") or fac.get("facility_type_id") or "").lower()
+            )
+            if booking_sport == sport_lower:
+                same_sport_count += 1
+        if same_sport_count >= quota:
             raise QuotaExceededError()
         ref = collection.document(booking_id)
         snapshot = next(iter(txn.get(ref)), None)
