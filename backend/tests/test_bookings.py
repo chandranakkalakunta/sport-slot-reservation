@@ -1,3 +1,4 @@
+import pytest
 from unittest.mock import MagicMock, patch
 
 from sport_slot.dependencies import get_firestore_client, get_lock_service
@@ -268,3 +269,76 @@ def test_cancelled_document_is_superseded():
     ref = repo._collection.document.return_value
     txn.set.assert_called_once_with(ref, {"status": "confirmed"})
     txn.create.assert_not_called()
+
+
+# ── 6.6: quota-by-sport ───────────────────────────────────────────────────────
+
+def _fake_transactional(fn):
+    def runner(transaction):
+        return fn(transaction)
+    return runner
+
+
+def _make_booking_snap(facility_id: str) -> MagicMock:
+    snap = MagicMock()
+    snap.to_dict.return_value = {"facility_id": facility_id, "status": "confirmed"}
+    return snap
+
+
+def test_quota_cross_sport_does_not_block():
+    """A confirmed tennis booking must NOT consume the badminton quota.
+
+    Policy: max_slots_per_user_per_sport_per_day = 1.
+    User already has a tennis booking today.
+    Attempt to book badminton today must succeed (quota not exceeded).
+    """
+    from sport_slot.repositories.bookings import create_booking_with_quota
+
+    TENNIS_FAC = {"id": "f-tennis", "sport": "tennis", "active": True}
+    BADMINTON_FAC = {"id": "f-badminton", "sport": "badminton", "active": True}
+
+    existing = _make_booking_snap("f-tennis")   # tennis booking already exists
+    new_snap = MagicMock()
+    new_snap.exists = False                      # no existing badminton doc
+
+    repo = MagicMock()
+    txn = MagicMock()
+    repo._client.transaction.return_value = txn
+
+    with patch("google.cloud.firestore.transactional", _fake_transactional):
+        txn.get.side_effect = [iter([existing]), iter([new_snap])]
+        # Must NOT raise — the tennis booking does not count toward badminton quota
+        create_booking_with_quota(
+            repo, "bk-badminton-new", {"status": "confirmed"},
+            "u1", "2027-01-15", quota=1,
+            sport="badminton", facilities=[TENNIS_FAC, BADMINTON_FAC],
+        )
+
+    txn.create.assert_called_once()  # booking written
+
+
+def test_quota_same_sport_raises():
+    """A confirmed tennis booking DOES consume the tennis quota.
+
+    Policy: max_slots_per_user_per_sport_per_day = 1.
+    User already has a tennis booking today.
+    Attempt to book another tennis slot must raise QuotaExceededError.
+    """
+    from sport_slot.repositories.bookings import create_booking_with_quota
+
+    TENNIS_FAC = {"id": "f-tennis", "sport": "tennis", "active": True}
+
+    existing = _make_booking_snap("f-tennis")   # tennis booking already exists
+
+    repo = MagicMock()
+    txn = MagicMock()
+    repo._client.transaction.return_value = txn
+
+    with patch("google.cloud.firestore.transactional", _fake_transactional):
+        txn.get.side_effect = [iter([existing])]
+        with pytest.raises(QuotaExceededError):
+            create_booking_with_quota(
+                repo, "bk-tennis-new", {"status": "confirmed"},
+                "u1", "2027-01-15", quota=1,
+                sport="tennis", facilities=[TENNIS_FAC],
+            )

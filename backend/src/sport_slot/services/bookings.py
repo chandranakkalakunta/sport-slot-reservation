@@ -20,6 +20,7 @@ from sport_slot.repositories.bookings import (
 from sport_slot.repositories.facilities import FacilityRepository
 from sport_slot.repositories.user_profiles import UserProfileRepository
 from sport_slot.services.availability import compute_slots
+from sport_slot.services.facilities import list_facilities
 from sport_slot.services.lock import LockService, LockUnavailableError
 from sport_slot.services.policy import PolicyService
 
@@ -121,9 +122,11 @@ async def create_booking(
         "created_at": datetime.datetime.now(datetime.UTC),
         "cancelled_at": None,
     }
+    sport = (facility.get("sport") or facility.get("facility_type_id") or "").lower()
+    facilities = list_facilities(ctx, client)
     try:
         quota = int(policy.get("max_slots_per_user_per_sport_per_day"))
-        _quota_create_fn(repo, booking_id, doc, ctx.uid, date, quota)
+        _quota_create_fn(repo, booking_id, doc, ctx.uid, date, quota, sport, facilities)
     except QuotaExceededError:
         raise ApiError(409, error_codes.BOOKING_QUOTA_EXCEEDED, "Daily booking quota reached")
     except AlreadyBookedError:

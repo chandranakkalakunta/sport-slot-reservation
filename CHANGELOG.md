@@ -6,6 +6,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Fixed (Slice 6.6)
+
+- fix(quota): execute-time quota check now filters by sport (cross-sport
+  non-interference, Phase 9 slice 6.6).
+  Root cause: create_booking_with_quota counted all confirmed bookings for
+  (uid, date) regardless of sport, so a single tennis booking consumed the
+  badminton quota too. Policy key is max_slots_per_user_per_sport_per_day —
+  per-sport enforcement was already correct in the propose-time check
+  (slice 6.4b) but broken at execute-time.
+  create_booking_with_quota signature gains sport: str = "" and
+  facilities: list[dict] | None = None. Inside the transaction the
+  query is unchanged (uid + date + confirmed — no new Firestore index
+  needed); Python-side filtering then counts only same-sport bookings by
+  looking each booking's facility_id up in the passed-in fac_by_id dict.
+  Unknown/missing facility_id is skipped defensively.
+  create_booking in services/bookings.py: imports list_facilities, derives
+  sport from the already-fetched facility, fetches facilities via
+  list_facilities, and threads both into _quota_create_fn.
+  test_cancelled_document_is_superseded: still passes (uses default
+  sport="" so same_sport_count=0, quota not triggered by the empty iter).
+  2 new hermetic tests: test_quota_cross_sport_does_not_block (tennis
+  booking does not consume badminton quota) and test_quota_same_sport_raises
+  (tennis booking correctly consumes tennis quota → QuotaExceededError).
+  364 backend tests, 91.12% coverage.
+
 ### Fixed (Slice 6.5)
 
 - fix(agent): correctness pass — limit fix, AM/PM guard, stateful cancel
