@@ -97,6 +97,5 @@ body {
   font-family: var(--font-sans);
   background: var(--color-background);
   color: var(--color-foreground);
-  accent-color: var(--color-primary);
   -webkit-font-smoothing: antialiased;
 }
