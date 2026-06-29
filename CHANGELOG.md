@@ -6,6 +6,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added (Phase 10.2b — Base primitives + first component restyle)
+
+- feat(frontend): shadcn primitives installed: button, card, dialog, input, badge,
+  select (class-variance-authority 0.7.1 also installed as required peer dep).
+- feat(frontend): AppHeader restyled with Button primitive, lucide LogOut icon, and
+  Tailwind token utilities; all roles/labels/text preserved, tests green.
+- feat(frontend): ConfirmDialog restyled onto the Dialog primitive; destructive action
+  posture per ADR-0028 §5 (confirm = destructive variant, cancel = outline/ghost).
+  All roles/accessible names/text preserved; dedicated ConfirmDialog.test.tsx added.
+- test(frontend): 8 new ConfirmDialog unit tests; total 118 tests green.
+- Verified runtime theming flows to live components: --color-primary CSS variable
+  channel confirmed via smoke test; utility indirection proven via build probe.
+
 ### Added (Phase 10.2a — Design-system token foundation)
 
 - feat(frontend): Tailwind CSS v4 (@tailwindcss/vite 4.3.1), shadcn scaffolding

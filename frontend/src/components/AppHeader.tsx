@@ -1,7 +1,9 @@
+import { LogOut } from "lucide-react";
 import { Link } from "react-router-dom";
 
 import { useAuth } from "../auth/AuthContext";
 import { getLastBranding } from "../lib/branding";
+import { Button } from "./ui/button";
 
 export function AppHeader({ children }: { children?: React.ReactNode }) {
   const { user, claims, signOut } = useAuth();
@@ -12,31 +14,33 @@ export function AppHeader({ children }: { children?: React.ReactNode }) {
     : role === "resident" ? "Resident" : role;
 
   return (
-    <header style={{ display: "flex", justifyContent: "space-between",
-      alignItems: "center", padding: "12px 24px", borderBottom: "1px solid var(--color-text-muted)",
-      gap: "var(--spacing)", flexWrap: "wrap" }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+    <header className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-6 py-3">
+      <div className="flex items-center gap-3">
         {branding?.brand_logo_url && (
-          <img src={branding.brand_logo_url} alt="" style={{ height: 32 }} />
+          <img src={branding.brand_logo_url} alt="" className="h-8" />
         )}
-        <Link to="/" style={{ fontWeight: 700, fontSize: 20,
-          color: "var(--color-primary)", textDecoration: "none" }}>
+        <Link
+          to="/"
+          className="text-xl font-bold text-primary no-underline"
+          style={{ textDecoration: "none" }}
+        >
           {branding?.brand_name || "SportSlot"}
         </Link>
         {children}
       </div>
-      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+      <div className="flex items-center gap-2">
         {user && (
-          <span style={{ color: "var(--color-text-muted)", fontSize: 13 }}>
+          <span className="text-sm text-muted-foreground">
             {user.email}{roleLabel ? ` · ${roleLabel}` : ""}
           </span>
         )}
-        <Link to="/account" style={{ padding: "6px 12px",
-          borderRadius: "var(--radius)", border: "1px solid var(--color-text-muted)",
-          color: "inherit", textDecoration: "none", fontSize: "inherit" }}>Account</Link>
-        <button onClick={() => signOut()} style={{ padding: "6px 12px",
-          borderRadius: "var(--radius)", border: "1px solid var(--color-text-muted)",
-          background: "transparent", cursor: "pointer" }}>Sign out</button>
+        <Button asChild variant="outline" size="sm">
+          <Link to="/account" style={{ textDecoration: "none" }}>Account</Link>
+        </Button>
+        <Button variant="ghost" size="sm" onClick={() => signOut()}>
+          <LogOut />
+          Sign out
+        </Button>
       </div>
     </header>
   );
