@@ -22,9 +22,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   replacement with real brand artwork before public launch.
 - **SW refresh story** (`registerType: "autoUpdate"`): new SW installs and activates
   immediately on next deploy; `skipWaiting()` + `clientsClaim()` ensure open tabs switch
-  to new assets without a user prompt. Proposed improvement — add
-  `workbox: { cleanupOutdatedCaches: true }` to prune stale precache across releases
-  (zero user-facing impact; awaiting coordinator approval before applying).
+  to new assets without a user prompt.
+- feat(frontend): Added `workbox: { cleanupOutdatedCaches: true }` — prunes stale
+  precache entries from previous deploys on SW activation; zero user-facing impact.
+  Confirmed `e.cleanupOutdatedCaches()` call emitted in `dist/sw.js`.
 - CI gate: 34 test files, 178 tests green; 0 lint errors; build clean — verified with
   both `.env` and `.env.local` absent.
 
