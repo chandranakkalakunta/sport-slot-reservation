@@ -6,6 +6,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added (Phase 10.3e �� Platform-admin pages; Phase 10.3 complete)
+
+- feat(frontend): Restyled TenantList onto Card/CardContent tenant rows; real `<h1>/<h2>`;
+  "+ New tenant" as `Button asChild` Link; styled loading, error, and empty ("No tenants yet.")
+  states; tabular-nums for slug/status line; inline style objects removed.
+- feat(frontend): Restyled CreateTenant onto labeled Input form + Button; real `<h1>`;
+  token utilities; error state uses `text-destructive`; inline styles removed. No AppHeader
+  (standalone form, unchanged from existing behavior).
+- feat(frontend): Restyled CreateUser onto labeled Input form + Button; real `<h1>` for
+  both form state and success state; token utilities throughout. Credential/temp-password
+  flow PRESERVED: `CredentialDisplay` usage, `created` state shape, "Add another" button
+  (→ `Button variant="outline"`), "← Back to tenants" link, and copy affordance unchanged.
+  Native `<select>` kept for combobox role compatibility with all 7 existing tests.
+- test(frontend): Added TenantList.test.tsx (6 tests: headings, "+ New tenant" link href,
+  tenant row render, loading, error, empty state). Mocks: AppHeader, adminHooks direct —
+  no importOriginal, CI-safe.
+- test(frontend): Added CreateTenant.test.tsx (3 tests: heading, submit button, fallback
+  error on non-ApiClientError rejection). Mocks: adminHooks, lib/api direct — CI-safe.
+- No destructive one-click actions found in TenantList, CreateTenant, or CreateUser.
+- **Phase 10.3 (page restyle) COMPLETE.** All pages — auth, resident, booking grid,
+  tenant-admin, platform-admin — are now on the design system. 178 tests green.
+
 ### Added (Phase 10.3d — Tenant-admin pages restyle)
 
 - feat(frontend): Restyled TenantDashboard onto Card-style Link grid; real `<h1>`;
