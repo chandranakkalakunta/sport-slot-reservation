@@ -34,10 +34,10 @@ describe("app render — production-equivalent mount guard", () => {
     );
 
     // ProtectedRoute sees loading=false + no user → Navigate to /signin → SignIn renders.
-    // SignIn.tsx renders <h1>SportSlot</h1> and <button type="submit">Sign in</button>.
+    // SignIn.tsx renders <h1>SlotSense</h1> and <button type="submit">Sign in</button>.
     // A timeout here means blank page — the guard catches it.
     expect(
-      await screen.findByRole("heading", { name: "SportSlot" }),
+      await screen.findByRole("heading", { name: "SlotSense" }),
     ).toBeInTheDocument();
     expect(
       await screen.findByRole("button", { name: "Sign in" }),

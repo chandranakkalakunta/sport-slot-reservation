@@ -1,3 +1,4 @@
+import { Bot } from "lucide-react";
 import { Link } from "react-router-dom";
 
 import { AppHeader } from "../components/AppHeader";
@@ -38,8 +39,9 @@ export default function Facilities() {
           className="block rounded-lg border border-primary/40 bg-surface p-4 no-underline hover:bg-accent transition-colors"
           style={{ textDecoration: "none" }}
         >
-          <p className="font-semibold text-primary text-sm">
-            🤖 Booking Assistant
+          <p className="font-semibold text-primary text-sm flex items-center gap-1.5">
+            <Bot className="size-4 shrink-0" />
+            Booking Assistant
           </p>
           <p className="text-muted-foreground text-xs mt-1">
             Try &ldquo;book my usual tennis slot&rdquo; or &ldquo;is tennis free tomorrow?&rdquo;
