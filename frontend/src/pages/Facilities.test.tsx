@@ -5,13 +5,13 @@ import { describe, expect, it, vi } from "vitest";
 
 vi.mock("../components/AppHeader", () => ({ AppHeader: () => null }));
 
+// No importOriginal — avoids loading real bookingHooks → api.ts → firebase.ts
+// (which throws auth/invalid-api-key in CI where no Firebase env vars exist).
+vi.mock("../hooks/bookingHooks", () => ({
+  useFacilities: vi.fn(),
+}));
+
 import * as hooks from "../hooks/bookingHooks";
-
-vi.mock("../hooks/bookingHooks", async (importOriginal) => {
-  const real = await importOriginal<typeof hooks>();
-  return { ...real };
-});
-
 import Facilities from "./Facilities";
 
 function wrap(ui: React.ReactElement) {
