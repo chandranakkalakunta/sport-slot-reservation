@@ -2,16 +2,16 @@ import { type FormEvent, useState } from "react";
 import { Link } from "react-router-dom";
 
 import { AppHeader } from "../../components/AppHeader";
+import { Button } from "../../components/ui/button";
+import { Card, CardContent } from "../../components/ui/card";
+import { ConfirmDialog } from "../../components/ConfirmDialog";
+import { Input } from "../../components/ui/input";
 import {
   useCreateFacility, useDeactivateFacility, useFacilityCatalog,
   useTenantFacilities,
 } from "../../hooks/tenantAdminHooks";
 import { ApiClientError } from "../../lib/api";
 import { messageForCode } from "../../lib/messages";
-
-const field = { display: "block", width: "100%", padding: 8,
-  marginBottom: "var(--spacing)", borderRadius: "var(--radius)",
-  border: "1px solid var(--color-text-muted)" } as const;
 
 export default function TenantFacilities() {
   const { data: catalog } = useFacilityCatalog();
@@ -27,6 +27,7 @@ export default function TenantFacilities() {
   const [description, setDescription] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [ok, setOk] = useState<string | null>(null);
+  const [confirmFacilityId, setConfirmFacilityId] = useState<string | null>(null);
 
   async function submit(e: FormEvent) {
     e.preventDefault();
@@ -45,68 +46,142 @@ export default function TenantFacilities() {
     }
   }
 
+  const activeFacilities = facilities?.items.filter((f) => f.active) ?? [];
+
   return (
     <>
       <AppHeader />
-      <main style={{ padding: 24, maxWidth: 820, margin: "0 auto" }}>
-      <Link to="/tenant" style={{ color: "var(--color-primary)" }}>← Dashboard</Link>
-      <h1 style={{ color: "var(--color-primary)" }}>Facilities</h1>
+      <main className="mx-auto max-w-3xl px-4 py-6 space-y-6">
+        <Link to="/tenant" className="text-sm text-primary hover:underline">← Dashboard</Link>
+        <h1 className="text-2xl font-semibold text-foreground">Facilities</h1>
 
-      {isLoading && <p>Loading…</p>}
-      <div style={{ display: "grid", gap: "var(--spacing)", marginBottom: 24 }}>
-        {facilities?.items.filter((f) => f.active).map((f) => (
-          <div key={f.id} style={{ padding: 16, borderRadius: "var(--radius)",
-            border: "1px solid var(--color-text-muted)", background: "var(--color-surface)",
-            display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <div>
-              <strong>{f.name}</strong>
-              <div style={{ color: "var(--color-text-muted)", fontSize: 13 }}>
-                {f.sport} · {f.open_time}–{f.close_time} · {f.slot_duration_minutes}min
-                {f.description ? ` · ${f.description}` : ""}
-              </div>
-            </div>
-            <button onClick={() => deactivate.mutate(f.id)} style={{ padding: "6px 12px",
-              borderRadius: "var(--radius)", border: "1px solid var(--color-danger)",
-              color: "var(--color-danger)", background: "transparent", cursor: "pointer" }}>
-              Remove
-            </button>
-          </div>
-        ))}
-      </div>
+        {isLoading && <p className="text-sm text-muted-foreground">Loading…</p>}
 
-      <h2>Add a facility</h2>
-      <form onSubmit={submit} style={{ maxWidth: 480 }}>
-        <label>Type</label>
-        <select style={field} value={typeId} onChange={(e) => setTypeId(e.target.value)}>
-          <option value="">Select a type…</option>
-          {catalog?.items.map((c) => (
-            <option key={c.type_id} value={c.type_id}>{c.name}</option>
+        {/* Facility list */}
+        <div className="grid gap-3">
+          {activeFacilities.map((f) => (
+            <Card key={f.id}>
+              <CardContent className="flex items-center justify-between p-4">
+                <div>
+                  <p className="font-semibold text-foreground">{f.name}</p>
+                  <p className="text-sm text-muted-foreground tabular-nums mt-0.5">
+                    {f.sport} · {f.open_time}–{f.close_time} · {f.slot_duration_minutes}min
+                    {f.description ? ` · ${f.description}` : ""}
+                  </p>
+                </div>
+                {/* De-emphasized trigger per ADR-0028 §5; ConfirmDialog confirms before mutate */}
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                  onClick={() => setConfirmFacilityId(f.id)}
+                >
+                  Remove
+                </Button>
+              </CardContent>
+            </Card>
           ))}
-        </select>
-        <label>Name</label>
-        <input style={field} value={name} onChange={(e) => setName(e.target.value)}
-          placeholder="North Side Court" required />
-        <label>Opens</label>
-        <input style={field} value={openTime} onChange={(e) => setOpenTime(e.target.value)}
-          placeholder="06:00" required />
-        <label>Closes</label>
-        <input style={field} value={closeTime} onChange={(e) => setCloseTime(e.target.value)}
-          placeholder="22:00" required />
-        <label>Slot duration (minutes)</label>
-        <input style={field} type="number" value={duration}
-          onChange={(e) => setDuration(Number(e.target.value))} required />
-        <label>Description (optional)</label>
-        <input style={field} value={description}
-          onChange={(e) => setDescription(e.target.value)} />
-        <button type="submit" disabled={createFacility.isPending} style={{ width: "100%",
-          padding: 10, background: "var(--color-primary)", color: "#fff", border: "none",
-          borderRadius: "var(--radius)", cursor: "pointer" }}>
-          {createFacility.isPending ? "Creating…" : "Add facility"}
-        </button>
-      </form>
-      {error && <p style={{ color: "var(--color-danger)" }}>{error}</p>}
-      {ok && <p style={{ color: "var(--color-secondary)" }}>{ok}</p>}
+        </div>
+
+        {/* Add facility form */}
+        <section className="space-y-4">
+          <h2 className="text-lg font-semibold text-foreground">Add a facility</h2>
+          <form onSubmit={submit} className="max-w-md space-y-3">
+            <div className="space-y-1">
+              <label htmlFor="facility-type" className="text-sm font-medium text-foreground">
+                Type
+              </label>
+              <select
+                id="facility-type"
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                value={typeId}
+                onChange={(e) => setTypeId(e.target.value)}
+              >
+                <option value="">Select a type…</option>
+                {catalog?.items.map((c) => (
+                  <option key={c.type_id} value={c.type_id}>{c.name}</option>
+                ))}
+              </select>
+            </div>
+            <div className="space-y-1">
+              <label htmlFor="facility-name" className="text-sm font-medium text-foreground">
+                Name
+              </label>
+              <Input
+                id="facility-name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="North Side Court"
+                required
+              />
+            </div>
+            <div className="space-y-1">
+              <label htmlFor="facility-open" className="text-sm font-medium text-foreground">
+                Opens
+              </label>
+              <Input
+                id="facility-open"
+                className="tabular-nums"
+                value={openTime}
+                onChange={(e) => setOpenTime(e.target.value)}
+                placeholder="06:00"
+                required
+              />
+            </div>
+            <div className="space-y-1">
+              <label htmlFor="facility-close" className="text-sm font-medium text-foreground">
+                Closes
+              </label>
+              <Input
+                id="facility-close"
+                className="tabular-nums"
+                value={closeTime}
+                onChange={(e) => setCloseTime(e.target.value)}
+                placeholder="22:00"
+                required
+              />
+            </div>
+            <div className="space-y-1">
+              <label htmlFor="facility-duration" className="text-sm font-medium text-foreground">
+                Slot duration (minutes)
+              </label>
+              <Input
+                id="facility-duration"
+                type="number"
+                value={duration}
+                onChange={(e) => setDuration(Number(e.target.value))}
+                required
+              />
+            </div>
+            <div className="space-y-1">
+              <label htmlFor="facility-desc" className="text-sm font-medium text-foreground">
+                Description (optional)
+              </label>
+              <Input
+                id="facility-desc"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+              />
+            </div>
+            <Button type="submit" disabled={createFacility.isPending} className="w-full">
+              {createFacility.isPending ? "Creating…" : "Add facility"}
+            </Button>
+          </form>
+          {error && <p className="text-sm text-destructive">{error}</p>}
+          {ok && <p className="text-sm text-success">{ok}</p>}
+        </section>
       </main>
+
+      {confirmFacilityId && (
+        <ConfirmDialog
+          title="Remove facility"
+          body={<p>Remove this facility? Active bookings may be affected.</p>}
+          confirmLabel="Remove"
+          busy={deactivate.isPending}
+          onConfirm={() => { deactivate.mutate(confirmFacilityId); setConfirmFacilityId(null); }}
+          onCancel={() => setConfirmFacilityId(null)}
+        />
+      )}
     </>
   );
 }

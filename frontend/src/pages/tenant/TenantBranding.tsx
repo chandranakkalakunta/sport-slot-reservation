@@ -4,15 +4,12 @@ import { useQuery } from "@tanstack/react-query";
 
 import { useAuth } from "../../auth/AuthContext";
 import { AppHeader } from "../../components/AppHeader";
+import { Button } from "../../components/ui/button";
+import { Input } from "../../components/ui/input";
 import { useUpdateBranding } from "../../hooks/tenantAdminHooks";
-import { apiFetch } from "../../lib/api";
-import { ApiClientError } from "../../lib/api";
+import { apiFetch, ApiClientError } from "../../lib/api";
 import { type Branding } from "../../lib/branding";
 import { messageForCode } from "../../lib/messages";
-
-const field = { display: "block", width: "100%", padding: 8,
-  marginBottom: "var(--spacing)", borderRadius: "var(--radius)",
-  border: "1px solid var(--color-text-muted)" } as const;
 
 export default function TenantBranding() {
   const { claims } = useAuth();
@@ -60,46 +57,72 @@ export default function TenantBranding() {
   return (
     <>
       <AppHeader />
-      <main style={{ padding: 24, maxWidth: 480, margin: "0 auto" }}>
-      <Link to="/tenant" style={{ color: "var(--color-primary)" }}>← Dashboard</Link>
-      <h1 style={{ color: "var(--color-primary)" }}>Branding</h1>
-      <form onSubmit={submit}>
-        <label>Community name (optional)</label>
-        <input style={field} value={brandName}
-          onChange={(e) => setBrandName(e.target.value)}
-          placeholder="Green Park Residences" />
-        <label>Primary color</label>
-        <div style={{ display: "flex", gap: 8, marginBottom: "var(--spacing)" }}>
-          <input type="color" value={primaryColor}
-            onChange={(e) => setPrimaryColor(e.target.value)}
-            style={{ width: 48, height: 36, padding: 2, borderRadius: "var(--radius)",
-              border: "1px solid var(--color-text-muted)", cursor: "pointer" }} />
-          <input style={{ ...field, marginBottom: 0, flex: 1 }} value={primaryColor}
-            onChange={(e) => setPrimaryColor(e.target.value)}
-            placeholder="#1a4d8f" />
-        </div>
-        <label>Secondary color</label>
-        <div style={{ display: "flex", gap: 8, marginBottom: "var(--spacing)" }}>
-          <input type="color" value={secondaryColor}
-            onChange={(e) => setSecondaryColor(e.target.value)}
-            style={{ width: 48, height: 36, padding: 2, borderRadius: "var(--radius)",
-              border: "1px solid var(--color-text-muted)", cursor: "pointer" }} />
-          <input style={{ ...field, marginBottom: 0, flex: 1 }} value={secondaryColor}
-            onChange={(e) => setSecondaryColor(e.target.value)}
-            placeholder="#0f7b6c" />
-        </div>
-        <label>Logo URL (optional)</label>
-        <input style={field} value={logoUrl}
-          onChange={(e) => setLogoUrl(e.target.value)}
-          placeholder="https://example.com/logo.png" />
-        <button type="submit" disabled={updateBranding.isPending} style={{ width: "100%",
-          padding: 10, background: "var(--color-primary)", color: "#fff", border: "none",
-          borderRadius: "var(--radius)", cursor: "pointer" }}>
-          {updateBranding.isPending ? "Saving…" : "Save branding"}
-        </button>
-      </form>
-      {ok && <p style={{ color: "var(--color-secondary)" }}>Saved ✓</p>}
-      {error && <p style={{ color: "var(--color-danger)" }}>{error}</p>}
+      <main className="mx-auto max-w-lg px-4 py-6 space-y-6">
+        <Link to="/tenant" className="text-sm text-primary hover:underline">← Dashboard</Link>
+        <h1 className="text-2xl font-semibold text-foreground">Branding</h1>
+        <form onSubmit={submit} className="space-y-4">
+          <div className="space-y-1">
+            <label htmlFor="brand-name" className="text-sm font-medium text-foreground">
+              Community name (optional)
+            </label>
+            <Input
+              id="brand-name"
+              value={brandName}
+              onChange={(e) => setBrandName(e.target.value)}
+              placeholder="Green Park Residences"
+            />
+          </div>
+          <div className="space-y-1">
+            <label className="text-sm font-medium text-foreground">Primary color</label>
+            <div className="flex items-center gap-2">
+              <input
+                type="color"
+                value={primaryColor}
+                onChange={(e) => setPrimaryColor(e.target.value)}
+                className="h-9 w-12 cursor-pointer rounded border border-input p-0.5"
+              />
+              <Input
+                value={primaryColor}
+                onChange={(e) => setPrimaryColor(e.target.value)}
+                placeholder="#1a4d8f"
+                className="flex-1 tabular-nums"
+              />
+            </div>
+          </div>
+          <div className="space-y-1">
+            <label className="text-sm font-medium text-foreground">Secondary color</label>
+            <div className="flex items-center gap-2">
+              <input
+                type="color"
+                value={secondaryColor}
+                onChange={(e) => setSecondaryColor(e.target.value)}
+                className="h-9 w-12 cursor-pointer rounded border border-input p-0.5"
+              />
+              <Input
+                value={secondaryColor}
+                onChange={(e) => setSecondaryColor(e.target.value)}
+                placeholder="#0f7b6c"
+                className="flex-1 tabular-nums"
+              />
+            </div>
+          </div>
+          <div className="space-y-1">
+            <label htmlFor="brand-logo" className="text-sm font-medium text-foreground">
+              Logo URL (optional)
+            </label>
+            <Input
+              id="brand-logo"
+              value={logoUrl}
+              onChange={(e) => setLogoUrl(e.target.value)}
+              placeholder="https://example.com/logo.png"
+            />
+          </div>
+          <Button type="submit" disabled={updateBranding.isPending} className="w-full">
+            {updateBranding.isPending ? "Saving…" : "Save branding"}
+          </Button>
+        </form>
+        {ok && <p className="text-sm text-success">Saved ✓</p>}
+        {error && <p className="text-sm text-destructive">{error}</p>}
       </main>
     </>
   );

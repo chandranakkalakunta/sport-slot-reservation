@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -94,7 +94,7 @@ describe("TenantFacilities", () => {
     });
   });
 
-  it("fires deactivate mutation when Remove clicked", async () => {
+  it("fires deactivate mutation after confirming Remove in dialog", async () => {
     const mutate = vi.fn();
     vi.mocked(useDeactivateFacility).mockImplementation(
       () => ({ mutate, isPending: false }) as unknown as ReturnType<typeof useDeactivateFacility>,
@@ -102,7 +102,9 @@ describe("TenantFacilities", () => {
     const user = userEvent.setup();
     renderPage();
 
+    // De-emphasized trigger opens the ConfirmDialog (ADR-0028 §5 destructive posture)
     await user.click(screen.getByRole("button", { name: /remove/i }));
+    await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Remove" }));
     expect(mutate).toHaveBeenCalledWith("fac-1");
   });
 });
