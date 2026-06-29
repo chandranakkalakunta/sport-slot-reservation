@@ -5,6 +5,7 @@ import { useAuth } from "./auth/AuthContext";
 import { PlatformRoute } from "./auth/PlatformRoute";
 import { ProtectedRoute } from "./auth/ProtectedRoute";
 import { TenantAdminRoute } from "./auth/TenantAdminRoute";
+import { AuthedLayout } from "./components/AuthedLayout";
 import Account from "./pages/Account";
 import Assistant from "./pages/Assistant";
 import Facilities from "./pages/Facilities";
@@ -36,27 +37,32 @@ export default function App() {
   return (
     <AuthProvider>
       <Routes>
+        {/* Auth pages — no footer */}
         <Route path="/signin" element={<SignIn />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/reset" element={<ResetPassword />} />
-        <Route path="/" element={<ProtectedRoute><Landing /></ProtectedRoute>} />
-        <Route path="/facilities/:facilityId"
-          element={<ProtectedRoute><FacilityAvailability /></ProtectedRoute>} />
-        <Route path="/bookings"
-          element={<ProtectedRoute><MyBookings /></ProtectedRoute>} />
-        <Route path="/account"
-          element={<ProtectedRoute><Account /></ProtectedRoute>} />
-        <Route path="/assistant"
-          element={<ProtectedRoute><Assistant /></ProtectedRoute>} />
         <Route path="/force-password" element={<ForcePasswordChange />} />
-        <Route path="/admin" element={<PlatformRoute><TenantList /></PlatformRoute>} />
-        <Route path="/admin/tenants/new" element={<PlatformRoute><CreateTenant /></PlatformRoute>} />
-        <Route path="/admin/tenants/:tenantId/users/new" element={<PlatformRoute><CreateUser /></PlatformRoute>} />
-        <Route path="/tenant" element={<TenantAdminRoute><TenantDashboard /></TenantAdminRoute>} />
-        <Route path="/tenant/facilities" element={<TenantAdminRoute><TenantFacilities /></TenantAdminRoute>} />
-        <Route path="/tenant/branding" element={<TenantAdminRoute><TenantBranding /></TenantAdminRoute>} />
-        <Route path="/tenant/policies" element={<TenantAdminRoute><TenantPolicies /></TenantAdminRoute>} />
-        <Route path="/tenant/users" element={<TenantAdminRoute><TenantUsers /></TenantAdminRoute>} />
+
+        {/* Authed pages — footer via AuthedLayout */}
+        <Route element={<AuthedLayout />}>
+          <Route path="/" element={<ProtectedRoute><Landing /></ProtectedRoute>} />
+          <Route path="/facilities/:facilityId"
+            element={<ProtectedRoute><FacilityAvailability /></ProtectedRoute>} />
+          <Route path="/bookings"
+            element={<ProtectedRoute><MyBookings /></ProtectedRoute>} />
+          <Route path="/account"
+            element={<ProtectedRoute><Account /></ProtectedRoute>} />
+          <Route path="/assistant"
+            element={<ProtectedRoute><Assistant /></ProtectedRoute>} />
+          <Route path="/admin" element={<PlatformRoute><TenantList /></PlatformRoute>} />
+          <Route path="/admin/tenants/new" element={<PlatformRoute><CreateTenant /></PlatformRoute>} />
+          <Route path="/admin/tenants/:tenantId/users/new" element={<PlatformRoute><CreateUser /></PlatformRoute>} />
+          <Route path="/tenant" element={<TenantAdminRoute><TenantDashboard /></TenantAdminRoute>} />
+          <Route path="/tenant/facilities" element={<TenantAdminRoute><TenantFacilities /></TenantAdminRoute>} />
+          <Route path="/tenant/branding" element={<TenantAdminRoute><TenantBranding /></TenantAdminRoute>} />
+          <Route path="/tenant/policies" element={<TenantAdminRoute><TenantPolicies /></TenantAdminRoute>} />
+          <Route path="/tenant/users" element={<TenantAdminRoute><TenantUsers /></TenantAdminRoute>} />
+        </Route>
       </Routes>
     </AuthProvider>
   );
