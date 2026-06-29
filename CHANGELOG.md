@@ -6,6 +6,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added (Phase 10.2c — Responsive shell, dark mode, Inter)
+
+- feat(frontend): @fontsource/inter 5.2.8 self-hosted; weights 400/500/600 imported
+  in main.tsx; Inter woff2 files emitted to dist/assets (no render-blocking CDN request).
+- feat(frontend): Dark-mode controller (src/lib/themeMode.ts) — getInitialMode() follows
+  system preference then localStorage("slotsense-theme"); applyMode() sets/removes
+  documentElement.dataset.mode only; does NOT touch --color-* variables (ADR-0028 §4).
+  Initialized in main.tsx before first render (no flash).
+- feat(frontend): Responsive AppHeader shell — desktop: full horizontal nav; mobile (<sm):
+  nav collapses behind a hamburger (Menu/X icon); opening reveals nav children + Account +
+  Sign out; all touch targets >= 44px. Dark-mode toggle (Sun/Moon) reachable at all widths.
+- test(frontend): 10 themeMode unit tests; 9 new AppHeader tests (toggle, mobile menu,
+  dark mode × branding coexistence); 138 total tests green.
+- Verified: dark mode coexists with runtime tenant branding — applyMode() never
+  clobbers --color-primary overrides applied by branding.ts (ADR-0028 §4).
+
 ### Added (Phase 10.2b — Base primitives + first component restyle)
 
 - feat(frontend): shadcn primitives installed: button, card, dialog, input, badge,
