@@ -6,6 +6,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added (Phase 10.3d — Tenant-admin pages restyle)
+
+- feat(frontend): Restyled TenantDashboard onto Card-style Link grid; real `<h1>`;
+  token utilities; inline style objects removed.
+- feat(frontend): Restyled TenantFacilities onto Card/CardContent rows; real `<h1>/<h2>`;
+  labeled Input/select form; Button primitives; styled loading/error/ok states;
+  tabular-nums for facility times. Applied ADR-0028 §5 destructive posture: "Remove"
+  is now a de-emphasized ghost trigger → ConfirmDialog confirm before deactivate fires.
+- feat(frontend): Restyled TenantPolicies onto labeled Input form; real `<h1>`; Button
+  submit; token utilities throughout; inline style objects removed.
+- feat(frontend): Restyled TenantUsers onto Card/CardContent user rows; real `<h1>/<h2>`;
+  labeled Input/select form; "Issue temp password" → Button variant="outline";
+  "Deactivate" → de-emphasized ghost trigger → ConfirmDialog confirm before mutate fires
+  (ADR-0028 §5); tabular-nums on bulk report counts.
+- feat(frontend): Restyled TenantBranding (presentation only) onto labeled Input form;
+  color-picker chrome with token classes; Button submit; token utilities. Branding
+  read (useQuery/apiFetch/useEffect prefill) and write (submit handler/body construction/
+  updateBranding.mutateAsync) are unchanged — ADR-0028 load-bearing logic untouched.
+- test(frontend): Updated TenantFacilities.test.tsx deactivate test to click through
+  ConfirmDialog (trigger → dialog confirm → mutate); imported `within`.
+- test(frontend): Added TenantDashboard.test.tsx (2 tests: heading, nav links).
+- test(frontend): Added TenantPolicies.test.tsx (3 tests: heading, button, pending state).
+- test(frontend): Added TenantBranding.test.tsx (3 tests: heading, label, button).
+  Mocks: AppHeader, AuthContext (claims=null → query disabled), tenantAdminHooks,
+  lib/api — no importOriginal, CI-safe. Total: 169 tests green.
+
 ### Added (Phase 10.3c — Booking grid restyle: SlotGrid, FacilityAvailability, MyBookings)
 
 - feat(frontend): Restyled SlotGrid.tsx — available slots use `bg-success text-success-foreground`
