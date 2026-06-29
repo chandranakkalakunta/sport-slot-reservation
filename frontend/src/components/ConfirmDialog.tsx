@@ -1,5 +1,14 @@
 import { type ReactNode } from "react";
 
+import { Button } from "./ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "./ui/dialog";
+
 export function ConfirmDialog({
   title, body, confirmLabel = "Confirm", onConfirm, onCancel, busy = false,
 }: {
@@ -11,28 +20,21 @@ export function ConfirmDialog({
   busy?: boolean;
 }) {
   return (
-    <div role="dialog" aria-modal="true" style={{
-      position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)",
-      display: "flex", alignItems: "center", justifyContent: "center", padding: 16,
-    }}>
-      <div style={{
-        background: "var(--color-background)", borderRadius: "var(--radius)",
-        padding: 24, maxWidth: 360, width: "100%",
-      }}>
-        <h2 style={{ marginTop: 0, color: "var(--color-primary)" }}>{title}</h2>
-        <div style={{ color: "var(--color-text)", marginBottom: 16 }}>{body}</div>
-        <div style={{ display: "flex", gap: "var(--spacing)", justifyContent: "flex-end" }}>
-          <button onClick={onCancel} disabled={busy} style={{
-            padding: "8px 16px", borderRadius: "var(--radius)",
-            border: "1px solid var(--color-text-muted)", background: "transparent",
-            cursor: "pointer",
-          }}>Cancel</button>
-          <button onClick={onConfirm} disabled={busy} style={{
-            padding: "8px 16px", borderRadius: "var(--radius)", border: "none",
-            background: "var(--color-primary)", color: "#fff", cursor: "pointer",
-          }}>{busy ? "…" : confirmLabel}</button>
-        </div>
-      </div>
-    </div>
+    <Dialog open onOpenChange={(open) => { if (!open && !busy) onCancel(); }}>
+      <DialogContent showCloseButton={false} className="max-w-sm">
+        <DialogHeader>
+          <DialogTitle>{title}</DialogTitle>
+        </DialogHeader>
+        <div className="text-foreground text-sm">{body}</div>
+        <DialogFooter>
+          <Button variant="outline" onClick={onCancel} disabled={busy}>
+            Cancel
+          </Button>
+          <Button variant="destructive" onClick={onConfirm} disabled={busy}>
+            {busy ? "…" : confirmLabel}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
