@@ -22,7 +22,7 @@ function renderPage() {
 describe("SignIn", () => {
   it("renders the branded heading", () => {
     renderPage();
-    expect(screen.getByRole("heading", { name: "SportSlot" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "SlotSense" })).toBeInTheDocument();
   });
 
   it("renders the email input", () => {

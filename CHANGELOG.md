@@ -6,6 +6,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added (Phase 10.6c — Root card density, sticky footer, platform name, assistant icon)
+
+- fix(frontend): Root card density — `Card` primitive spacing tightened:
+  `gap-6 → gap-3` (24px→12px between children), `py-6 → py-4` (24px→16px
+  outer vertical padding). Root cause of oversized cards app-wide. All per-page
+  `py-0` overrides from 10.6b remain correct and needed (list-row cards
+  intentionally zero the Card outer padding so only `CardContent.p-4` controls
+  spacing). Full before/after: `flex flex-col gap-6 ... py-6` →
+  `flex flex-col gap-3 ... py-4`. Only the two spacing utilities changed;
+  all other Card attributes, exports, and sub-components untouched.
+- fix(frontend): Footer always visible — changed from `min-h-screen flex flex-col`
+  (only pinned on short pages) to `fixed bottom-0 left-0 right-0 z-10
+  bg-background` (always visible on both short and long pages). `pb-14` (56px)
+  added to the content wrapper so the last list item is never hidden behind the
+  ~50px fixed footer. `sticky bottom-0` was rejected: it only sticks when the
+  element approaches the viewport bottom while scrolling, not from the top —
+  on a long page the footer is not visible until you scroll to the very bottom.
+- fix(frontend): SignIn title `SportSlot` → `SlotSense` (platform login brand).
+  Updated `SignIn.test.tsx` and `app.render.test.tsx` to assert "SlotSense"
+  (intended string change, not a test weakening).
+- fix(frontend): Booking Assistant card emoji `🤖` → `<Bot>` lucide icon in
+  `Facilities.tsx`, sized `size-4`, consistent with the app icon system.
+- CI gate: 35 test files, 180 tests green; 0 lint errors; clean build — verified
+  with both `.env` and `.env.local` absent.
+
 ### Added (Phase 10.6b — Density and layout polish)
 
 - fix(frontend): Removed forced Card dead-space — `Card` primitive has `py-6` (48px outer
