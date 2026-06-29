@@ -1,3 +1,4 @@
+import { cn } from "../lib/utils";
 import { type Slot } from "../hooks/bookingHooks";
 
 const REASON_LABEL: Record<string, string> = {
@@ -14,29 +15,30 @@ export function SlotGrid({
   slots: Slot[];
   onPick: (slot: Slot) => void;
 }) {
+  if (slots.length === 0) {
+    return <p className="text-sm text-muted-foreground">No slots available.</p>;
+  }
+
   return (
-    <div style={{
-      display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(96px, 1fr))",
-      gap: "var(--spacing)",
-    }}>
+    <div className="grid gap-2 [grid-template-columns:repeat(auto-fill,minmax(96px,1fr))]">
       {slots.map((s) => {
-        const label = s.reason ? REASON_LABEL[s.reason] ?? s.reason : null;
+        const displayLabel = s.bookable
+          ? "available"
+          : s.reason ? (REASON_LABEL[s.reason] ?? s.reason) : null;
         return (
           <button
             key={s.start}
             onClick={() => s.bookable && onPick(s)}
             disabled={!s.bookable}
-            style={{
-              padding: "10px 4px", borderRadius: "var(--radius)",
-              border: "1px solid var(--color-text-muted)",
-              background: s.bookable ? "var(--color-primary)" : "var(--color-surface)",
-              color: s.bookable ? "#fff" : "var(--color-text-muted)",
-              cursor: s.bookable ? "pointer" : "default",
-              fontSize: 13,
-            }}
+            className={cn(
+              "min-h-[44px] w-full rounded-md border px-2 py-2 text-sm text-center transition-colors",
+              s.bookable
+                ? "border-success bg-success text-success-foreground hover:opacity-90 cursor-pointer"
+                : "border-border bg-muted text-muted-foreground cursor-not-allowed",
+            )}
           >
-            <div>{s.start}</div>
-            {label && <div style={{ fontSize: 10 }}>{label}</div>}
+            <div className="font-medium tabular-nums">{s.start}</div>
+            {displayLabel && <div className="text-xs mt-0.5">{displayLabel}</div>}
           </button>
         );
       })}

@@ -41,31 +41,52 @@ export default function FacilityAvailability() {
       setPicked(null);
     } catch (e) {
       const code = e instanceof ApiClientError ? e.code : "UNKNOWN";
-      setDialogError(messageForCode(code)); // stay open, show error in dialog
+      setDialogError(messageForCode(code));
     }
   }
 
   return (
-    <main style={{ padding: 24, maxWidth: 720, margin: "0 auto" }}>
-      <Link to="/" style={{ color: "var(--color-primary)" }}>← Facilities</Link>
-      <h1 style={{ color: "var(--color-primary)" }}>Availability</h1>
-      <input type="date" value={date} min={todayISO()}
-        onChange={(e) => setDate(e.target.value)}
-        style={{ padding: 8, borderRadius: "var(--radius)",
-          border: "1px solid var(--color-text-muted)", marginBottom: 16 }} />
+    <main className="mx-auto max-w-3xl px-4 py-6 space-y-4">
+      <Link to="/" className="text-sm text-primary hover:underline">← Facilities</Link>
+      <h1 className="text-2xl font-semibold text-foreground">Availability</h1>
+
+      <div className="flex items-center gap-3">
+        <label htmlFor="availability-date" className="text-sm font-medium text-foreground">
+          Date
+        </label>
+        <input
+          id="availability-date"
+          type="date"
+          value={date}
+          min={todayISO()}
+          onChange={(e) => setDate(e.target.value)}
+          className="rounded-md border border-input bg-background px-3 py-1.5 text-sm tabular-nums text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+        />
+      </div>
+
+      {/* Slot state legend — state conveyed by TEXT and color, never color alone */}
+      <div className="flex items-center gap-4 text-xs text-muted-foreground">
+        <span className="flex items-center gap-1.5">
+          <span className="inline-block h-3 w-3 rounded border border-success bg-success" />
+          Available
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="inline-block h-3 w-3 rounded border border-border bg-muted" />
+          Unavailable
+        </span>
+      </div>
+
       {atQuota && (
-        <p style={{
-          padding: "8px 12px", borderRadius: "var(--radius)",
-          background: "var(--color-surface)", color: "var(--color-text-muted)",
-        }}>
+        <div className="rounded-md border border-border bg-muted px-3 py-2 text-sm text-muted-foreground">
           You've used today's booking. Cancel one in{" "}
-          <Link to="/bookings" style={{ color: "var(--color-primary)" }}>
+          <Link to="/bookings" className="text-primary underline">
             My bookings
           </Link>{" "}to book another.
-        </p>
+        </div>
       )}
-      {feedback && <p style={{ color: "var(--color-secondary)" }}>{feedback}</p>}
-      {isLoading && <p>Loading…</p>}
+
+      {feedback && <p className="text-sm text-success">{feedback}</p>}
+      {isLoading && <p className="text-sm text-muted-foreground">Loading…</p>}
       {data && <SlotGrid slots={data.slots} onPick={setPicked} />}
 
       {picked && (
@@ -75,13 +96,13 @@ export default function FacilityAvailability() {
             <>
               <p>{picked.start}–{picked.end} on {date}.</p>
               {picked.reason === "IN_PROGRESS" && (
-                <p style={{ color: "var(--color-danger)" }}>
+                <p className="text-sm text-destructive">
                   This slot is already in progress — you'll be booking the
                   remaining time only.
                 </p>
               )}
               {dialogError && (
-                <p style={{ color: "var(--color-danger)" }}>{dialogError}</p>
+                <p className="text-sm text-destructive">{dialogError}</p>
               )}
             </>
           }
