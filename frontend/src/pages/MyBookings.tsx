@@ -56,8 +56,8 @@ export default function MyBookings() {
         )}
         <div className="grid gap-3">
           {upcoming.map((b) => (
-            <Card key={b.id}>
-              <CardContent className="flex items-center justify-between p-4">
+            <Card key={b.id} className="py-0">
+              <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <p className="font-semibold text-foreground">
                     {facilityName(b.facility_id, facData?.items)}
@@ -70,6 +70,7 @@ export default function MyBookings() {
                   <Button
                     variant="destructive"
                     size="sm"
+                    className="self-start sm:self-auto"
                     onClick={() => { setDialogError(null); setTarget(b); }}
                   >
                     Cancel

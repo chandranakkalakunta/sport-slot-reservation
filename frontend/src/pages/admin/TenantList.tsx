@@ -31,7 +31,7 @@ export default function TenantList() {
 
         <div className="grid gap-3">
           {data?.items.map((t) => (
-            <Card key={t.tenant_id}>
+            <Card key={t.tenant_id} className="py-0">
               <CardContent className="p-4">
                 <p className="font-semibold text-foreground">
                   {t.display_name ?? t.name ?? t.slug}

@@ -6,6 +6,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added (Phase 10.6b — Density and layout polish)
+
+- fix(frontend): Removed forced Card dead-space — `Card` primitive has `py-6` (48px outer
+  vertical) baked in; TenantFacilities, TenantUsers, TenantList, and MyBookings cards now
+  add `py-0` to neutralize it. Cards size to content; Facilities was already correct.
+- fix(frontend): Mobile stacking — all list cards (TenantFacilities, TenantUsers, MyBookings)
+  changed from `flex items-center justify-between` to `flex flex-col gap-3 sm:flex-row
+  sm:items-center sm:justify-between`. Action buttons no longer clip off-screen on narrow
+  viewports; touch targets remain ≥44px.
+- fix(frontend): Footer pinned to viewport bottom — `AuthedLayout` now uses `min-h-screen
+  flex flex-col` wrapper with `flex-1` content div. Footer stays at viewport bottom on short
+  pages; appears below content on long pages; does not overlap or break scroll.
+- fix(frontend): De-emphasized Remove/Deactivate triggers (ADR-0028 §5) — changed default
+  text color from `text-destructive` (permanently red) to `text-muted-foreground`; danger
+  color now appears only on hover (`hover:text-destructive hover:bg-destructive/10`).
+  ConfirmDialog confirm flow unchanged; accessible names unchanged.
+- note(frontend): Shared max-w container (STEP 3) — all pages already carry per-page
+  `max-w-3xl`/`max-w-lg` on `<main>`. AuthedLayout cannot add max-w around Outlet without
+  clipping AppHeader's full-width `border-b` (AppHeader is inside the Outlet, rendered by
+  each page). No shared wrapper needed.
+- note(frontend): Form input height (STEP 6) — Input primitive already uses `h-9` (36px
+  standard control height). All forms are already width-capped (`max-w-md`/`max-w-lg`).
+  No change required.
+- CI gate: 35 test files, 180 tests green; 0 lint errors; clean build — verified with both
+  `.env` and `.env.local` absent.
+
 ### Added (Phase 10.6a — SlotSense identity + footer co-branding)
 
 - feat(frontend): Replaced all four placeholder PWA icons/favicon with the real SlotSense
