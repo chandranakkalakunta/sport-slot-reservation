@@ -6,6 +6,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added (Phase 10.6a — SlotSense identity + footer co-branding)
+
+- feat(frontend): Replaced all four placeholder PWA icons/favicon with the real SlotSense
+  mark generated from `frontend/public/slotsense-icon-source.png` (1024×1024 PNG).
+  Generation script: `frontend/scripts/gen-icons.mjs` (sharp; documents reproducible
+  icon pipeline). Maskable variant composites source at 80% scale onto navy `#1a4d8f`
+  canvas so the SS glyph + court-lines stay inside the safe-area circle.
+- feat(frontend): Added `SlotSenseWordmark` component — flat inline SVG (navy `#1a4d8f`
+  rounded square with white "SS", 18×18) + "SlotSense" text span. Crisp at 13–20px;
+  no gradients; themeable via `className`; accessible visible text. 2 render tests.
+- feat(frontend): Wired "powered by SlotSense" footer into app shell via `AuthedLayout`
+  (React Router layout route). Footer appears on all authed routes (resident, tenant-admin,
+  platform-admin); omitted on bare auth pages (SignIn, ForgotPassword, ResetPassword,
+  ForcePasswordChange). Tenant header (logo + name) in AppHeader is UNCHANGED.
+- CI gate: 35 test files, 180 tests green; 0 lint errors; clean build (precache 8 entries)
+  — verified with both `.env` and `.env.local` absent.
+
 ### Added (Phase 10.4 — PWA manifest + icons)
 
 - fix(frontend): Renamed PWA `name`/`short_name` from "SportSlot" → "SlotSense" in
