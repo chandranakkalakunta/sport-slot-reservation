@@ -6,6 +6,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added (Phase 10.2a — Design-system token foundation)
+
+- feat(frontend): Tailwind CSS v4 (@tailwindcss/vite 4.3.1), shadcn scaffolding
+  (components.json, cn util in src/lib/utils.ts), and lucide-react installed.
+- feat(frontend): theme.css evolved into the token layer: @import tailwindcss,
+  @theme block mapping shadcn tokens onto the existing --color-* contract, neutral
+  scale (slate), success/warning/ring tokens, and [data-mode="dark"] overrides
+  (ADR-0028).
+- feat(frontend): @/* path alias configured in tsconfig.json and vite.config.ts.
+- feat(frontend): Tenant-branding runtime contract preserved: branding.ts unchanged;
+  accent-color: var(--color-primary) in body ensures brand overrides flow through
+  even before components migrate to Tailwind utilities.
+- feat(frontend): Backward-compatibility aliases (--color-text, --color-text-muted,
+  --color-danger, --spacing) retained for existing inline styles; no component
+  restyled in this slice.
+- test(frontend): 3 unit tests for cn() utility; total 110 tests green.
+
 ### Fixed (Slice 6.7)
 
 - fix(frontend): MyBookings page filters to upcoming+confirmed (Phase 9

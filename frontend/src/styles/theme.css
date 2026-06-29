@@ -1,23 +1,101 @@
-/* Tenant theming contract (ADR-0012 §4).
-   Runtime branding overwrites these on :root from the tenant
-   document (Phase 4.6). Everything styles against the variables,
-   never against raw values. */
-:root {
-  --color-primary: #1a4d8f;
-  --color-secondary: #0f7b6c;
-  --color-background: #ffffff;
-  --color-surface: #f4f6fa;
-  --color-text: #1c1f26;
-  --color-text-muted: #5b6472;
-  --color-danger: #b3261e;
-  --font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+@import "tailwindcss";
+
+@custom-variant dark (&:where([data-mode="dark"], [data-mode="dark"] *));
+
+@theme {
   --radius: 8px;
+  --font-sans: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+
+  /* Brand — tenant-themable. branding.ts overrides --color-primary and
+     --color-secondary on documentElement at runtime; these are the
+     platform-default fallbacks. Do NOT move these out of the runtime
+     variable. */
+  --color-primary: #1a4d8f;
+  --color-primary-foreground: #ffffff;
+  --color-secondary: #0f7b6c;
+  --color-secondary-foreground: #ffffff;
+
+  /* Surfaces & text (existing contract values, names preserved) */
+  --color-background: #ffffff;
+  --color-foreground: #1c1f26;
+  --color-surface: #f4f6fa;
+
+  /* shadcn-compatible aliases — distinct names, no namespace collision */
+  --color-card: #f4f6fa;
+  --color-card-foreground: #1c1f26;
+  --color-popover: #ffffff;
+  --color-popover-foreground: #1c1f26;
+  --color-muted: #f1f5f9;
+  --color-muted-foreground: #5b6472;
+  --color-accent: #f1f5f9;
+  --color-accent-foreground: #1c1f26;
+  --color-border: #e2e8f0;
+  --color-input: #e2e8f0;
+  --color-ring: #1a4d8f;
+
+  /* Functional / semantic — system-controlled, NOT tenant-themable */
+  --color-destructive: #b3261e;
+  --color-destructive-foreground: #ffffff;
+  --color-success: #15803d;
+  --color-success-foreground: #ffffff;
+  --color-warning: #b45309;
+  --color-warning-foreground: #ffffff;
+
+  /* Neutral scale (slate) */
+  --color-neutral-50:  #f8fafc;
+  --color-neutral-100: #f1f5f9;
+  --color-neutral-200: #e2e8f0;
+  --color-neutral-300: #cbd5e1;
+  --color-neutral-400: #94a3b8;
+  --color-neutral-500: #64748b;
+  --color-neutral-600: #475569;
+  --color-neutral-700: #334155;
+  --color-neutral-800: #1e293b;
+  --color-neutral-900: #0f172a;
+  --color-neutral-950: #020617;
+}
+
+/* Dark-mode token overrides. Brand primary/secondary intentionally
+   carry over (brand identity is consistent across modes, ADR-0028 §4);
+   neutrals, surfaces, and functional tints flip. */
+[data-mode="dark"] {
+  --color-background: #0f1115;
+  --color-foreground: #e6e9ef;
+  --color-surface: #161922;
+  --color-card: #161922;
+  --color-card-foreground: #e6e9ef;
+  --color-popover: #161922;
+  --color-popover-foreground: #e6e9ef;
+  --color-muted: #1e293b;
+  --color-muted-foreground: #94a3b8;
+  --color-accent: #1e293b;
+  --color-accent-foreground: #e6e9ef;
+  --color-border: #2a313c;
+  --color-input: #2a313c;
+  --color-destructive: #f0635c;
+  --color-success: #4ade80;
+  --color-warning: #f0a23b;
+}
+
+/* Backward-compatibility aliases for existing inline styles.
+   Will be removed when components migrate to new token names (10.2b+). */
+:root {
+  --color-text: var(--color-foreground);
+  --color-text-muted: var(--color-muted-foreground);
+  --color-danger: var(--color-destructive);
   --spacing: 8px;
+}
+
+[data-mode="dark"] {
+  --color-text: var(--color-foreground);
+  --color-text-muted: var(--color-muted-foreground);
+  --color-danger: var(--color-destructive);
 }
 
 body {
   margin: 0;
-  font-family: var(--font-family);
+  font-family: var(--font-sans);
   background: var(--color-background);
-  color: var(--color-text);
+  color: var(--color-foreground);
+  -webkit-font-smoothing: antialiased;
 }
