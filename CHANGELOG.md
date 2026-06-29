@@ -6,6 +6,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added (Phase 10.3c — Booking grid restyle: SlotGrid, FacilityAvailability, MyBookings)
+
+- feat(frontend): Restyled SlotGrid.tsx — available slots use `bg-success text-success-foreground`
+  token utilities; non-bookable slots use `bg-muted text-muted-foreground`; "available" label added
+  to bookable slots so state is conveyed by text AND color, never color alone. Inline styles replaced
+  with `cn()` + Tailwind token utilities; `min-h-[44px]` touch targets; `tabular-nums` on times;
+  responsive `auto-fill minmax(96px,1fr)` grid; empty state renders "No slots available." paragraph.
+  Peak token N/A — `Slot` type has no peak/premium field.
+- feat(frontend): Restyled FacilityAvailability.tsx — real `<h1>` heading; labeled date `<input>`
+  with token-class border/ring styling; slot-state legend (color swatch + text label for available
+  and unavailable); quota advisory and feedback banners use token utilities; ConfirmDialog error
+  text uses `text-destructive`. All inline `style={}` props removed.
+- feat(frontend): Restyled MyBookings.tsx — booking rows use Card/CardContent primitives; Cancel
+  uses `<Button variant="destructive" size="sm">`; facility name and date/time line use token
+  utilities with `tabular-nums`; feedback banner uses `text-success`; all 5 existing tests green.
+- test(frontend): Expanded SlotGrid.test.tsx from 1 → 6 tests: existing onPick/disabled guard,
+  "available" label shown on bookable slot, reason label ("booked") shown on non-bookable slot,
+  booked button `toBeDisabled()`, available button `not.toBeDisabled()`, empty slots renders
+  "No slots available." message.
+- test(frontend): Added FacilityAvailability.test.tsx (5 tests: Availability heading, date input,
+  loading state, slot render from API, quota advisory). Mocks: `bookingHooks` (direct, no
+  importOriginal) + `lib/api` — no Firebase chain loaded, CI-safe. Total: 161 tests green.
+
 ### Added (Phase 10.3b — Resident pages (Facilities, Account) + auth density)
 
 - feat(frontend): Restyled Facilities.tsx onto Card/Button/token utilities with real <h1>

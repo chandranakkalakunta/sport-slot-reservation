@@ -2,6 +2,8 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 
 import { AppHeader } from "../components/AppHeader";
+import { Button } from "../components/ui/button";
+import { Card, CardContent } from "../components/ui/card";
 import { ConfirmDialog } from "../components/ConfirmDialog";
 import {
   type Booking, useCancelBooking, useFacilities, useMyBookings,
@@ -44,60 +46,59 @@ export default function MyBookings() {
   return (
     <>
       <AppHeader />
-      <main style={{ padding: 24, maxWidth: 720, margin: "0 auto" }}>
-      <Link to="/" style={{ color: "var(--color-primary)" }}>← Facilities</Link>
-      <h1 style={{ color: "var(--color-primary)" }}>My bookings</h1>
-      {feedback && <p style={{ color: "var(--color-secondary)" }}>{feedback}</p>}
-      {isLoading && <p>Loading…</p>}
-      {!isLoading && upcoming.length === 0 && (
-        <p style={{ color: "var(--color-text-muted)" }}>No upcoming bookings.</p>
-      )}
-      <div style={{ display: "grid", gap: "var(--spacing)", marginTop: 16 }}>
-        {upcoming.map((b) => (
-          <div key={b.id} style={{
-            padding: 16, borderRadius: "var(--radius)",
-            border: "1px solid var(--color-text-muted)",
-            background: "var(--color-surface)",
-            display: "flex", justifyContent: "space-between", alignItems: "center",
-          }}>
-            <div>
-              <strong>{facilityName(b.facility_id, facData?.items)}</strong>
-              <div style={{ color: "var(--color-text-muted)", fontSize: 13 }}>
-                {b.date} · {b.start}–{b.end}
-              </div>
-            </div>
-            {b.cancellable ? (
-              <button onClick={() => { setDialogError(null); setTarget(b); }} style={{
-                padding: "6px 12px", borderRadius: "var(--radius)",
-                border: "1px solid var(--color-danger)", color: "var(--color-danger)",
-                background: "transparent", cursor: "pointer",
-              }}>Cancel</button>
-            ) : (
-              <span style={{ color: "var(--color-text-muted)", fontSize: 13 }}>
-                Cancellation closed
-              </span>
-            )}
-          </div>
-        ))}
-      </div>
+      <main className="mx-auto max-w-3xl px-4 py-6 space-y-4">
+        <Link to="/" className="text-sm text-primary hover:underline">← Facilities</Link>
+        <h1 className="text-2xl font-semibold text-foreground">My bookings</h1>
+        {feedback && <p className="text-sm text-success">{feedback}</p>}
+        {isLoading && <p className="text-sm text-muted-foreground">Loading…</p>}
+        {!isLoading && upcoming.length === 0 && (
+          <p className="text-sm text-muted-foreground">No upcoming bookings.</p>
+        )}
+        <div className="grid gap-3">
+          {upcoming.map((b) => (
+            <Card key={b.id}>
+              <CardContent className="flex items-center justify-between p-4">
+                <div>
+                  <p className="font-semibold text-foreground">
+                    {facilityName(b.facility_id, facData?.items)}
+                  </p>
+                  <p className="text-sm text-muted-foreground tabular-nums mt-0.5">
+                    {b.date} · {b.start}–{b.end}
+                  </p>
+                </div>
+                {b.cancellable ? (
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    onClick={() => { setDialogError(null); setTarget(b); }}
+                  >
+                    Cancel
+                  </Button>
+                ) : (
+                  <span className="text-sm text-muted-foreground">Cancellation closed</span>
+                )}
+              </CardContent>
+            </Card>
+          ))}
+        </div>
 
-      {target && (
-        <ConfirmDialog
-          title="Cancel booking"
-          body={
-            <>
-              <p>Cancel your {target.start} booking on {target.date}?</p>
-              {dialogError && (
-                <p style={{ color: "var(--color-danger)" }}>{dialogError}</p>
-              )}
-            </>
-          }
-          confirmLabel="Cancel booking"
-          busy={cancel.isPending}
-          onConfirm={confirmCancel}
-          onCancel={() => { setTarget(null); setDialogError(null); }}
-        />
-      )}
+        {target && (
+          <ConfirmDialog
+            title="Cancel booking"
+            body={
+              <>
+                <p>Cancel your {target.start} booking on {target.date}?</p>
+                {dialogError && (
+                  <p className="text-sm text-destructive">{dialogError}</p>
+                )}
+              </>
+            }
+            confirmLabel="Cancel booking"
+            busy={cancel.isPending}
+            onConfirm={confirmCancel}
+            onCancel={() => { setTarget(null); setDialogError(null); }}
+          />
+        )}
       </main>
     </>
   );
