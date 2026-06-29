@@ -3,6 +3,9 @@ import { Link, useSearchParams } from "react-router-dom";
 
 import { ApiClientError, apiFetch } from "../lib/api";
 import { messageForCode } from "../lib/messages";
+import { AuthCard } from "../components/AuthCard";
+import { Button } from "../components/ui/button";
+import { Input } from "../components/ui/input";
 
 export default function ResetPassword() {
   const [searchParams] = useSearchParams();
@@ -23,33 +26,27 @@ export default function ResetPassword() {
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const field = {
-    display: "block", width: "100%", padding: 8,
-    marginBottom: "var(--spacing)", borderRadius: "var(--radius)",
-    border: "1px solid var(--color-text-muted)",
-  } as const;
-
   if (!token) {
     return (
-      <main style={{ maxWidth: 360, margin: "10vh auto", padding: "0 16px" }}>
-        <h1 style={{ color: "var(--color-primary)" }}>Reset your password</h1>
-        <p style={{ color: "var(--color-danger)" }}>
+      <AuthCard title="Reset your password">
+        <p className="text-sm text-destructive">
           This reset link is invalid or has expired.
         </p>
-        <Link to="/forgot-password" style={{ color: "var(--color-primary)" }}>
+        <Link to="/forgot-password" className="text-sm text-primary hover:underline">
           Request a new link
         </Link>
-      </main>
+      </AuthCard>
     );
   }
 
   if (done) {
     return (
-      <main style={{ maxWidth: 360, margin: "10vh auto", padding: "0 16px" }}>
-        <h1 style={{ color: "var(--color-primary)" }}>Reset your password</h1>
-        <p>Your password has been reset.</p>
-        <Link to="/signin" style={{ color: "var(--color-primary)" }}>Sign in</Link>
-      </main>
+      <AuthCard title="Reset your password">
+        <p className="text-sm text-foreground">Your password has been reset.</p>
+        <Link to="/signin" className="text-sm text-primary hover:underline">
+          Sign in
+        </Link>
+      </AuthCard>
     );
   }
 
@@ -85,43 +82,44 @@ export default function ResetPassword() {
   }
 
   return (
-    <main style={{ maxWidth: 360, margin: "10vh auto", padding: "0 16px" }}>
-      <h1 style={{ color: "var(--color-primary)" }}>Reset your password</h1>
-      <form onSubmit={submit}>
-        <input
-          style={field}
-          type="password"
-          placeholder="New password"
-          value={pw}
-          onChange={(e) => setPw(e.target.value)}
-          required
-        />
-        <input
-          style={field}
-          type="password"
-          placeholder="Confirm new password"
-          value={confirm}
-          onChange={(e) => setConfirm(e.target.value)}
-          required
-        />
-        <button
-          type="submit"
-          disabled={busy}
-          style={{
-            width: "100%", padding: 10,
-            background: "var(--color-primary)", color: "#fff", border: "none",
-            borderRadius: "var(--radius)", cursor: "pointer",
-          }}
-        >
+    <AuthCard title="Reset your password">
+      <form onSubmit={submit} className="space-y-3">
+        <div className="space-y-1">
+          <label htmlFor="reset-pw" className="text-sm font-medium text-foreground">
+            New password
+          </label>
+          <Input
+            id="reset-pw"
+            type="password"
+            placeholder="New password"
+            value={pw}
+            onChange={(e) => setPw(e.target.value)}
+            required
+          />
+        </div>
+        <div className="space-y-1">
+          <label htmlFor="reset-confirm" className="text-sm font-medium text-foreground">
+            Confirm new password
+          </label>
+          <Input
+            id="reset-confirm"
+            type="password"
+            placeholder="Confirm new password"
+            value={confirm}
+            onChange={(e) => setConfirm(e.target.value)}
+            required
+          />
+        </div>
+        <Button type="submit" disabled={busy} className="w-full">
           {busy ? "Resetting…" : "Reset password"}
-        </button>
+        </Button>
       </form>
-      {error && <p style={{ color: "var(--color-danger)" }}>{error}</p>}
+      {error && <p className="text-sm text-destructive">{error}</p>}
       {tokenError && (
-        <Link to="/forgot-password" style={{ color: "var(--color-primary)" }}>
+        <Link to="/forgot-password" className="text-sm text-primary hover:underline">
           Request a new link
         </Link>
       )}
-    </main>
+    </AuthCard>
   );
 }

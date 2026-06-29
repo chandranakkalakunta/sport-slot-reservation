@@ -6,6 +6,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added (Phase 10.3a — Auth flow restyle + font cleanup)
+
+- feat(frontend): Restyled SignIn, ForgotPassword, ResetPassword, ForcePasswordChange onto
+  Card/Input/Button + Tailwind token utilities via a shared AuthCard wrapper (max-w-sm,
+  centered, dark-safe, responsive). All roles/labels/text/handlers preserved verbatim.
+  Inline style props replaced with token utilities (text-primary, text-destructive,
+  text-muted-foreground, bg-background). No raw hex values introduced.
+- test(frontend): Added SignIn.test.tsx (6 tests: heading, email label, password label,
+  sign-in button, forgot-password link, Google button). Total: 144 tests green.
+- feat(frontend): Inter trimmed to weights 400/500, latin + latin-ext subsets only
+  (was 400/500/600, all subsets). 42 font files → 8. No 600, no cyrillic/greek/vietnamese.
+
 ### Added (Phase 10.2c — Responsive shell, dark mode, Inter)
 
 - feat(frontend): @fontsource/inter 5.2.8 self-hosted; weights 400/500/600 imported

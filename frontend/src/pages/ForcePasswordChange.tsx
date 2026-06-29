@@ -7,6 +7,9 @@ import { useAuth } from "../auth/AuthContext";
 import { ApiClientError } from "../lib/api";
 import { apiFetch } from "../lib/api";
 import { messageForCode } from "../lib/messages";
+import { AuthCard } from "../components/AuthCard";
+import { Button } from "../components/ui/button";
+import { Input } from "../components/ui/input";
 
 export default function ForcePasswordChange() {
   const navigate = useNavigate();
@@ -53,38 +56,55 @@ export default function ForcePasswordChange() {
     }
   }
 
-  if (loading) return <p style={{ padding: 24 }}>Loading…</p>;
+  if (loading) return <p className="p-6">Loading…</p>;
   if (!user) return <Navigate to="/signin" replace />;
 
-  const field = { display: "block", width: "100%", padding: 8,
-    marginBottom: "var(--spacing)", borderRadius: "var(--radius)",
-    border: "1px solid var(--color-text-muted)" } as const;
-
   return (
-    <main style={{ maxWidth: 360, margin: "10vh auto", padding: "0 16px" }}>
-      <h1 style={{ color: "var(--color-primary)" }}>Set a new password</h1>
-      <p style={{ color: "var(--color-text-muted)" }}>
+    <AuthCard title="Set a new password">
+      <p className="text-sm text-muted-foreground">
         Your account uses a temporary password. Please set a new one to continue.
       </p>
-      <form onSubmit={submit}>
-        <input style={field} type="password" placeholder="New password"
-          value={pw} onChange={(e) => setPw(e.target.value)} required />
-        <input style={field} type="password" placeholder="Confirm new password"
-          value={confirm} onChange={(e) => setConfirm(e.target.value)} required />
-        <button type="submit" disabled={busy} style={{ width: "100%", padding: 10,
-          background: "var(--color-primary)", color: "#fff", border: "none",
-          borderRadius: "var(--radius)", cursor: "pointer" }}>
+      <form onSubmit={submit} className="space-y-3">
+        <div className="space-y-1">
+          <label htmlFor="force-pw" className="text-sm font-medium text-foreground">
+            New password
+          </label>
+          <Input
+            id="force-pw"
+            type="password"
+            placeholder="New password"
+            value={pw}
+            onChange={(e) => setPw(e.target.value)}
+            required
+          />
+        </div>
+        <div className="space-y-1">
+          <label htmlFor="force-confirm" className="text-sm font-medium text-foreground">
+            Confirm new password
+          </label>
+          <Input
+            id="force-confirm"
+            type="password"
+            placeholder="Confirm new password"
+            value={confirm}
+            onChange={(e) => setConfirm(e.target.value)}
+            required
+          />
+        </div>
+        <Button type="submit" disabled={busy} className="w-full">
           {busy ? "Saving…" : "Set password"}
-        </button>
+        </Button>
       </form>
-      {error && <p style={{ color: "var(--color-danger)" }}>{error}</p>}
-      <p style={{ marginTop: "var(--spacing)", fontSize: 13 }}>
-        <button type="button" onClick={() => signOut().then(() => navigate("/signin"))}
-          style={{ background: "none", border: "none", cursor: "pointer", padding: 0,
-            color: "var(--color-text-muted)", fontSize: 13 }}>
+      {error && <p className="text-sm text-destructive">{error}</p>}
+      <p className="text-sm">
+        <button
+          type="button"
+          onClick={() => signOut().then(() => navigate("/signin"))}
+          className="text-muted-foreground hover:text-foreground bg-transparent border-0 p-0 cursor-pointer"
+        >
           Sign out
         </button>
       </p>
-    </main>
+    </AuthCard>
   );
 }
