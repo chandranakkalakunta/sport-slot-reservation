@@ -1,48 +1,71 @@
 import { Link } from "react-router-dom";
 
 import { AppHeader } from "../components/AppHeader";
+import { Button } from "../components/ui/button";
+import { Card, CardContent } from "../components/ui/card";
 import { useFacilities } from "../hooks/bookingHooks";
 
 export default function Facilities() {
   const { data, isLoading, error } = useFacilities();
 
+  const activeFacilities = data?.items.filter((f) => f.active) ?? [];
+
   return (
     <>
       <AppHeader>
-        <Link to="/bookings" style={{ padding: "6px 12px", borderRadius: "var(--radius)",
-          border: "1px solid var(--color-primary)", color: "var(--color-primary)",
-          textDecoration: "none", fontSize: 14 }}>My bookings</Link>
+        <Button asChild variant="outline" size="sm">
+          <Link to="/bookings" style={{ textDecoration: "none" }}>My bookings</Link>
+        </Button>
       </AppHeader>
-      <main style={{ padding: 24, maxWidth: 720, margin: "0 auto" }}>
-      {isLoading && <p>Loading facilities…</p>}
-      {error && <p style={{ color: "var(--color-danger)" }}>Couldn't load facilities.</p>}
-      <Link to="/assistant" style={{
-        display: "block", padding: 16, borderRadius: "var(--radius)",
-        border: "1px solid var(--color-primary)", textDecoration: "none",
-        color: "var(--color-text)", background: "var(--color-surface)", marginTop: 16,
-      }}>
-        <strong style={{ color: "var(--color-primary)" }}>🤖 Booking Assistant</strong>
-        <div style={{ color: "var(--color-text-muted)", fontSize: 13, marginTop: 4 }}>
-          Try "book my usual tennis slot" or "is tennis free tomorrow?"
+
+      <main className="mx-auto max-w-3xl px-4 py-6 space-y-6">
+        <h1 className="text-2xl font-semibold text-foreground">Facilities</h1>
+
+        {/* Loading / error / empty states */}
+        {isLoading && (
+          <p className="text-sm text-muted-foreground">Loading facilities…</p>
+        )}
+        {error && (
+          <p className="text-sm text-destructive">Couldn't load facilities.</p>
+        )}
+        {!isLoading && !error && data && activeFacilities.length === 0 && (
+          <p className="text-sm text-muted-foreground">No facilities available.</p>
+        )}
+
+        {/* Booking Assistant promo */}
+        <Link
+          to="/assistant"
+          className="block rounded-lg border border-primary/40 bg-surface p-4 no-underline hover:bg-accent transition-colors"
+          style={{ textDecoration: "none" }}
+        >
+          <p className="font-semibold text-primary text-sm">
+            🤖 Booking Assistant
+          </p>
+          <p className="text-muted-foreground text-xs mt-1">
+            Try &ldquo;book my usual tennis slot&rdquo; or &ldquo;is tennis free tomorrow?&rdquo;
+          </p>
+          <p className="text-primary text-xs mt-1.5">Open assistant →</p>
+        </Link>
+
+        {/* Facility list */}
+        <div className="grid gap-3">
+          {activeFacilities.map((f) => (
+            <Card key={f.id} className="hover:bg-accent transition-colors py-0">
+              <CardContent className="p-0">
+                <Link
+                  to={`/facilities/${f.id}`}
+                  className="block p-4 no-underline text-foreground"
+                  style={{ textDecoration: "none" }}
+                >
+                  <p className="font-semibold text-foreground">{f.name}</p>
+                  <p className="text-sm text-muted-foreground tabular-nums mt-0.5">
+                    {f.sport} · {f.open_time}–{f.close_time} · {f.slot_duration_minutes}min
+                  </p>
+                </Link>
+              </CardContent>
+            </Card>
+          ))}
         </div>
-        <div style={{ color: "var(--color-primary)", fontSize: 13, marginTop: 6 }}>
-          Open assistant →
-        </div>
-      </Link>
-      <div style={{ display: "grid", gap: "var(--spacing)", marginTop: 16 }}>
-        {data?.items.filter((f) => f.active).map((f) => (
-          <Link key={f.id} to={`/facilities/${f.id}`} style={{
-            display: "block", padding: 16, borderRadius: "var(--radius)",
-            border: "1px solid var(--color-text-muted)", textDecoration: "none",
-            color: "var(--color-text)", background: "var(--color-surface)",
-          }}>
-            <strong>{f.name}</strong>
-            <div style={{ color: "var(--color-text-muted)", fontSize: 13 }}>
-              {f.sport} · {f.open_time}–{f.close_time} · {f.slot_duration_minutes}min
-            </div>
-          </Link>
-        ))}
-      </div>
       </main>
     </>
   );

@@ -1,6 +1,9 @@
 import { type FormEvent, useState } from "react";
 import { Link } from "react-router-dom";
 
+import { AuthCard } from "../components/AuthCard";
+import { Button } from "../components/ui/button";
+import { Input } from "../components/ui/input";
 import { ApiClientError, apiFetch } from "../lib/api";
 import { messageForCode } from "../lib/messages";
 
@@ -10,10 +13,6 @@ export default function Account() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState(false);
-
-  const field = { display: "block", width: "100%", padding: 8,
-    marginBottom: "var(--spacing)", borderRadius: "var(--radius)",
-    border: "1px solid var(--color-text-muted)" } as const;
 
   async function submit(e: FormEvent) {
     e.preventDefault();
@@ -35,30 +34,50 @@ export default function Account() {
 
   if (done) {
     return (
-      <main style={{ maxWidth: 360, margin: "10vh auto", padding: "0 16px" }}>
-        <h1 style={{ color: "var(--color-primary)" }}>Change password</h1>
-        <p>Your password has been changed.</p>
-        <Link to="/" style={{ color: "var(--color-primary)" }}>Back to home</Link>
-      </main>
+      <AuthCard title="Change password">
+        <p className="text-sm text-foreground">Your password has been changed.</p>
+        <Link to="/" className="text-sm text-primary hover:underline">
+          Back to home
+        </Link>
+      </AuthCard>
     );
   }
 
   return (
-    <main style={{ maxWidth: 360, margin: "10vh auto", padding: "0 16px" }}>
-      <h1 style={{ color: "var(--color-primary)" }}>Change password</h1>
-      <p style={{ color: "var(--color-text-muted)" }}>Update your account password.</p>
-      <form onSubmit={submit}>
-        <input style={field} type="password" placeholder="New password"
-          value={pw} onChange={(e) => setPw(e.target.value)} required />
-        <input style={field} type="password" placeholder="Confirm new password"
-          value={confirm} onChange={(e) => setConfirm(e.target.value)} required />
-        <button type="submit" disabled={busy} style={{ width: "100%", padding: 10,
-          background: "var(--color-primary)", color: "#fff", border: "none",
-          borderRadius: "var(--radius)", cursor: "pointer" }}>
+    <AuthCard title="Change password">
+      <p className="text-sm text-muted-foreground">Update your account password.</p>
+      <form onSubmit={submit} className="space-y-2">
+        <div className="space-y-1">
+          <label htmlFor="account-pw" className="text-sm font-medium text-foreground">
+            New password
+          </label>
+          <Input
+            id="account-pw"
+            type="password"
+            placeholder="New password"
+            value={pw}
+            onChange={(e) => setPw(e.target.value)}
+            required
+          />
+        </div>
+        <div className="space-y-1">
+          <label htmlFor="account-confirm" className="text-sm font-medium text-foreground">
+            Confirm new password
+          </label>
+          <Input
+            id="account-confirm"
+            type="password"
+            placeholder="Confirm new password"
+            value={confirm}
+            onChange={(e) => setConfirm(e.target.value)}
+            required
+          />
+        </div>
+        <Button type="submit" disabled={busy} className="w-full">
           {busy ? "Saving…" : "Change password"}
-        </button>
+        </Button>
       </form>
-      {error && <p style={{ color: "var(--color-danger)" }}>{error}</p>}
-    </main>
+      {error && <p className="text-sm text-destructive">{error}</p>}
+    </AuthCard>
   );
 }

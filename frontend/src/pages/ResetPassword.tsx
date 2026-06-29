@@ -83,7 +83,7 @@ export default function ResetPassword() {
 
   return (
     <AuthCard title="Reset your password">
-      <form onSubmit={submit} className="space-y-3">
+      <form onSubmit={submit} className="space-y-2">
         <div className="space-y-1">
           <label htmlFor="reset-pw" className="text-sm font-medium text-foreground">
             New password
