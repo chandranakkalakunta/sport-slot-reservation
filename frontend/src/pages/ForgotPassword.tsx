@@ -1,6 +1,9 @@
 import { type FormEvent, useState } from "react";
 import { Link } from "react-router-dom";
 
+import { AuthCard } from "../components/AuthCard";
+import { Button } from "../components/ui/button";
+import { Input } from "../components/ui/input";
 import { apiFetch } from "../lib/api";
 
 const NEUTRAL_MSG =
@@ -27,46 +30,37 @@ export default function ForgotPassword() {
     }
   }
 
-  const field = {
-    display: "block", width: "100%", padding: 8,
-    marginBottom: "var(--spacing)", borderRadius: "var(--radius)",
-    border: "1px solid var(--color-text-muted)",
-  } as const;
-
   if (done) {
     return (
-      <main style={{ maxWidth: 360, margin: "10vh auto", padding: "0 16px" }}>
-        <h1 style={{ color: "var(--color-primary)" }}>Reset your password</h1>
-        <p>{NEUTRAL_MSG}</p>
-        <Link to="/signin" style={{ color: "var(--color-primary)" }}>Back to sign in</Link>
-      </main>
+      <AuthCard title="Reset your password">
+        <p className="text-sm text-foreground">{NEUTRAL_MSG}</p>
+        <Link to="/signin" className="text-sm text-primary hover:underline">
+          Back to sign in
+        </Link>
+      </AuthCard>
     );
   }
 
   return (
-    <main style={{ maxWidth: 360, margin: "10vh auto", padding: "0 16px" }}>
-      <h1 style={{ color: "var(--color-primary)" }}>Reset your password</h1>
-      <form onSubmit={submit}>
-        <input
-          style={field}
-          type="email"
-          placeholder="Email address"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          required
-        />
-        <button
-          type="submit"
-          disabled={busy}
-          style={{
-            width: "100%", padding: 10,
-            background: "var(--color-primary)", color: "#fff", border: "none",
-            borderRadius: "var(--radius)", cursor: "pointer",
-          }}
-        >
+    <AuthCard title="Reset your password">
+      <form onSubmit={submit} className="space-y-3">
+        <div className="space-y-1">
+          <label htmlFor="forgot-email" className="text-sm font-medium text-foreground">
+            Email address
+          </label>
+          <Input
+            id="forgot-email"
+            type="email"
+            placeholder="Email address"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+          />
+        </div>
+        <Button type="submit" disabled={busy} className="w-full">
           {busy ? "Sending…" : "Send reset link"}
-        </button>
+        </Button>
       </form>
-    </main>
+    </AuthCard>
   );
 }
