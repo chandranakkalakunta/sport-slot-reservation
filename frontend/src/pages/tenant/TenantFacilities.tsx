@@ -60,8 +60,8 @@ export default function TenantFacilities() {
         {/* Facility list */}
         <div className="grid gap-3">
           {activeFacilities.map((f) => (
-            <Card key={f.id}>
-              <CardContent className="flex items-center justify-between p-4">
+            <Card key={f.id} className="py-0">
+              <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <p className="font-semibold text-foreground">{f.name}</p>
                   <p className="text-sm text-muted-foreground tabular-nums mt-0.5">
@@ -73,7 +73,7 @@ export default function TenantFacilities() {
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                  className="self-start text-muted-foreground hover:text-destructive hover:bg-destructive/10 sm:self-auto"
                   onClick={() => setConfirmFacilityId(f.id)}
                 >
                   Remove

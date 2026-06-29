@@ -124,15 +124,15 @@ export default function TenantUsers() {
           )}
           <div className="grid gap-2">
             {active.map((u) => (
-              <Card key={u.uid}>
-                <CardContent className="flex items-center justify-between p-4">
+              <Card key={u.uid} className="py-0">
+                <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
                   <div>
                     <p className="font-semibold text-foreground">{u.display_name}</p>
                     <p className="text-sm text-muted-foreground mt-0.5">
                       {u.email} · {u.role}{u.flat_number ? ` · ${u.flat_number}` : ""}
                     </p>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
                     <Button
                       variant="outline"
                       size="sm"
@@ -145,7 +145,7 @@ export default function TenantUsers() {
                     <Button
                       variant="ghost"
                       size="sm"
-                      className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                      className="text-muted-foreground hover:text-destructive hover:bg-destructive/10"
                       onClick={() => setConfirmUid(u.uid)}
                       disabled={deactivate.isPending}
                     >
