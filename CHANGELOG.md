@@ -6,6 +6,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added (Phase 10.4 — PWA manifest + icons)
+
+- fix(frontend): Renamed PWA `name`/`short_name` from "SportSlot" → "SlotSense" in
+  `vite.config.ts` manifest block; confirmed no "sportslot" string remains in
+  `dist/manifest.webmanifest`.
+- feat(frontend): Populated `icons: []` with three real entries (192×192, 512×512,
+  maskable 512×512); all PNG files added to `frontend/public/` and emitted to
+  `dist/` by Vite's static asset pipeline.
+- feat(frontend): Added `favicon-32x32.png` to `frontend/public/`; wired in
+  `index.html` via `<link rel="icon" type="image/png" sizes="32x32">`.
+- fix(frontend): Updated `<title>` in `index.html` from "SportSlot" → "SlotSense".
+- **PLACEHOLDER icons** — `pwa-192x192.png`, `pwa-512x512.png`, `pwa-maskable-512x512.png`,
+  and `favicon-32x32.png` are generated navy (#1a4d8f) + white "S" PNGs; flagged for
+  replacement with real brand artwork before public launch.
+- **SW refresh story** (`registerType: "autoUpdate"`): new SW installs and activates
+  immediately on next deploy; `skipWaiting()` + `clientsClaim()` ensure open tabs switch
+  to new assets without a user prompt. Proposed improvement — add
+  `workbox: { cleanupOutdatedCaches: true }` to prune stale precache across releases
+  (zero user-facing impact; awaiting coordinator approval before applying).
+- CI gate: 34 test files, 178 tests green; 0 lint errors; build clean — verified with
+  both `.env` and `.env.local` absent.
+
 ### Added (Phase 10.3e �� Platform-admin pages; Phase 10.3 complete)
 
 - feat(frontend): Restyled TenantList onto Card/CardContent tenant rows; real `<h1>/<h2>`;

@@ -11,13 +11,30 @@ export default defineConfig({
     VitePWA({
       registerType: "autoUpdate",
       manifest: {
-        name: "SportSlot",
-        short_name: "SportSlot",
+        name: "SlotSense",
+        short_name: "SlotSense",
         description: "Community sports facility booking",
         theme_color: "#1a4d8f",
         background_color: "#ffffff",
         display: "standalone",
-        icons: [],
+        icons: [
+          {
+            src: "/pwa-192x192.png",
+            sizes: "192x192",
+            type: "image/png",
+          },
+          {
+            src: "/pwa-512x512.png",
+            sizes: "512x512",
+            type: "image/png",
+          },
+          {
+            src: "/pwa-maskable-512x512.png",
+            sizes: "512x512",
+            type: "image/png",
+            purpose: "maskable",
+          },
+        ],
       },
     }),
   ],
