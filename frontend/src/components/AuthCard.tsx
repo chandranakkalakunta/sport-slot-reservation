@@ -10,7 +10,7 @@ export function AuthCard({ title, children }: { title: string; children: ReactNo
           {/* h1 gives correct heading role for queries/accessibility */}
           <h1 className="text-center text-2xl font-semibold text-primary">{title}</h1>
         </CardHeader>
-        <CardContent className="space-y-4">{children}</CardContent>
+        <CardContent className="space-y-3">{children}</CardContent>
       </Card>
     </main>
   );

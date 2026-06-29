@@ -28,7 +28,7 @@ export default function SignIn() {
 
   return (
     <AuthCard title="SportSlot">
-      <form onSubmit={handleSubmit} className="space-y-3">
+      <form onSubmit={handleSubmit} className="space-y-2">
         <div className="space-y-1">
           <label htmlFor="sign-in-email" className="text-sm font-medium text-foreground">
             Email

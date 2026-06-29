@@ -6,6 +6,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added (Phase 10.3b — Resident pages (Facilities, Account) + auth density)
+
+- feat(frontend): Restyled Facilities.tsx onto Card/Button/token utilities with real <h1>
+  heading, styled loading/empty/error states, tabular-nums for open/close times, and
+  Button primitive for the "My bookings" nav link. Added empty-state text.
+- feat(frontend): Restyled Account.tsx using AuthCard wrapper; Input/Button primitives
+  with labeled fields; token utilities throughout. Placeholders preserved verbatim.
+- test(frontend): Added Facilities.test.tsx (7 tests: heading, facility render, link href,
+  loading, error, inactive filter, empty state). Total: 151 tests green.
+- fix(frontend): Auth card density tightened — AuthCard CardContent: space-y-4 → space-y-3;
+  form field spacing: space-y-3 → space-y-2. Input height unchanged (touch targets kept).
+  All 19 auth page tests green after change.
+
 ### Added (Phase 10.3a — Auth flow restyle + font cleanup)
 
 - feat(frontend): Restyled SignIn, ForgotPassword, ResetPassword, ForcePasswordChange onto

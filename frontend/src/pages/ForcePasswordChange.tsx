@@ -64,7 +64,7 @@ export default function ForcePasswordChange() {
       <p className="text-sm text-muted-foreground">
         Your account uses a temporary password. Please set a new one to continue.
       </p>
-      <form onSubmit={submit} className="space-y-3">
+      <form onSubmit={submit} className="space-y-2">
         <div className="space-y-1">
           <label htmlFor="force-pw" className="text-sm font-medium text-foreground">
             New password

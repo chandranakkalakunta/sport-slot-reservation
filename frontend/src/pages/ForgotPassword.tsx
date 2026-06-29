@@ -43,7 +43,7 @@ export default function ForgotPassword() {
 
   return (
     <AuthCard title="Reset your password">
-      <form onSubmit={submit} className="space-y-3">
+      <form onSubmit={submit} className="space-y-2">
         <div className="space-y-1">
           <label htmlFor="forgot-email" className="text-sm font-medium text-foreground">
             Email address
