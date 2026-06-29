@@ -1,6 +1,8 @@
 import { Link } from "react-router-dom";
 
 import { AppHeader } from "../../components/AppHeader";
+import { Button } from "../../components/ui/button";
+import { Card, CardContent } from "../../components/ui/card";
 import { useTenants } from "../../hooks/adminHooks";
 
 export default function TenantList() {
@@ -9,31 +11,45 @@ export default function TenantList() {
   return (
     <>
       <AppHeader />
-      <main style={{ padding: 24, maxWidth: 820, margin: "0 auto" }}>
-        <h1 style={{ color: "var(--color-primary)" }}>Platform Admin</h1>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", margin: "16px 0" }}>
-        <h2 style={{ margin: 0 }}>Tenants</h2>
-        <Link to="/admin/tenants/new" style={{ padding: "8px 16px",
-          background: "var(--color-primary)", color: "#fff", borderRadius: "var(--radius)",
-          textDecoration: "none" }}>+ New tenant</Link>
-      </div>
-      {isLoading && <p>Loading tenants…</p>}
-      {error && <p style={{ color: "var(--color-danger)" }}>Couldn't load tenants.</p>}
-      <div style={{ display: "grid", gap: "var(--spacing)" }}>
-        {data?.items.map((t) => (
-          <div key={t.tenant_id} style={{ padding: 16, borderRadius: "var(--radius)",
-            border: "1px solid var(--color-text-muted)", background: "var(--color-surface)" }}>
-            <strong>{t.display_name ?? t.name ?? t.slug}</strong>
-            <div style={{ color: "var(--color-text-muted)", fontSize: 13 }}>
-              slug: {t.slug} · {t.active === false ? "inactive" : "active"}
-            </div>
-            <Link to={`/admin/tenants/${t.tenant_id}/users/new`}
-              style={{ color: "var(--color-primary)", fontSize: 13 }}>
-              + Add admin/user
+      <main className="mx-auto max-w-3xl px-4 py-6 space-y-4">
+        <h1 className="text-2xl font-semibold text-foreground">Platform Admin</h1>
+
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-semibold text-foreground">Tenants</h2>
+          <Button asChild variant="outline" size="sm">
+            <Link to="/admin/tenants/new" style={{ textDecoration: "none" }}>
+              + New tenant
             </Link>
-          </div>
-        ))}
-      </div>
+          </Button>
+        </div>
+
+        {isLoading && <p className="text-sm text-muted-foreground">Loading tenants…</p>}
+        {error && <p className="text-sm text-destructive">Couldn't load tenants.</p>}
+        {!isLoading && !error && data && data.items.length === 0 && (
+          <p className="text-sm text-muted-foreground">No tenants yet.</p>
+        )}
+
+        <div className="grid gap-3">
+          {data?.items.map((t) => (
+            <Card key={t.tenant_id}>
+              <CardContent className="p-4">
+                <p className="font-semibold text-foreground">
+                  {t.display_name ?? t.name ?? t.slug}
+                </p>
+                <p className="text-sm text-muted-foreground tabular-nums mt-0.5">
+                  slug: {t.slug} · {t.active === false ? "inactive" : "active"}
+                </p>
+                <Link
+                  to={`/admin/tenants/${t.tenant_id}/users/new`}
+                  className="text-sm text-primary hover:underline mt-1 inline-block"
+                  style={{ textDecoration: "none" }}
+                >
+                  + Add admin/user
+                </Link>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
       </main>
     </>
   );
