@@ -35,7 +35,7 @@ export default function ResetPassword() {
         <p className="text-sm text-destructive">
           This reset link is invalid or has expired.
         </p>
-        <Link to="/forgot-password" className="text-sm text-primary hover:underline">
+        <Link to="/forgot-password" className="text-sm font-medium text-primary underline underline-offset-2 hover:text-primary/70">
           Request a new link
         </Link>
       </AuthCard>
@@ -46,7 +46,7 @@ export default function ResetPassword() {
     return (
       <AuthCard title="Reset your password">
         <p className="text-sm text-foreground">Your password has been reset.</p>
-        <Link to="/signin" className="text-sm text-primary hover:underline">
+        <Link to="/signin" className="text-sm font-medium text-primary underline underline-offset-2 hover:text-primary/70">
           Sign in
         </Link>
       </AuthCard>
@@ -141,7 +141,7 @@ export default function ResetPassword() {
       </form>
       {error && <p className="text-sm text-destructive">{error}</p>}
       {tokenError && (
-        <Link to="/forgot-password" className="text-sm text-primary hover:underline">
+        <Link to="/forgot-password" className="text-sm font-medium text-primary underline underline-offset-2 hover:text-primary/70">
           Request a new link
         </Link>
       )}

@@ -7,7 +7,7 @@ const Card = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElemen
     <div
       ref={ref}
       className={cn(
-        "flex flex-col gap-3 rounded-xl border bg-card py-4 text-card-foreground shadow-sm",
+        "flex flex-col gap-3 rounded-xl border bg-card py-3 text-card-foreground shadow-sm",
         className
       )}
       {...props}
@@ -20,7 +20,7 @@ const CardHeader = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDiv
   ({ className, ...props }, ref) => (
     <div
       ref={ref}
-      className={cn("grid auto-rows-min grid-rows-[auto_auto] items-start gap-2 px-6", className)}
+      className={cn("grid auto-rows-min grid-rows-[auto_auto] items-start gap-2 px-3", className)}
       {...props}
     />
   )
@@ -62,7 +62,7 @@ CardAction.displayName = "CardAction"
 
 const CardContent = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(
   ({ className, ...props }, ref) => (
-    <div ref={ref} className={cn("px-6", className)} {...props} />
+    <div ref={ref} className={cn("px-3", className)} {...props} />
   )
 )
 CardContent.displayName = "CardContent"
@@ -71,7 +71,7 @@ const CardFooter = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDiv
   ({ className, ...props }, ref) => (
     <div
       ref={ref}
-      className={cn("flex items-center px-6", className)}
+      className={cn("flex items-center px-3", className)}
       {...props}
     />
   )

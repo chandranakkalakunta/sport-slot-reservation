@@ -6,6 +6,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Changed (Phase 10.6i — Measurement-driven padding / width / back-link optimization)
+
+- **Discovery:** `theme.css:86` sets `--spacing: 8px`, so Tailwind v4's `p-4` renders as
+  32 px (not the 16 px assumed from v3 defaults). All padding changes below use
+  measured pixel values as targets.
+- fix(frontend): `ListRow` — `p-4` → `p-2` (32 px → 16 px measured) for all list rows
+  across MyBookings, TenantFacilities, TenantUsers, TenantList.
+- fix(frontend): `ui/card.tsx` — `py-4` → `py-3` (32 px → 24 px) on `Card`;
+  `px-6` → `px-3` (48 px → 24 px) on `CardHeader`, `CardContent`, `CardFooter`.
+  Narrow ADR-0028 exception — token identities untouched, only spacing values adjusted.
+- fix(frontend): `Facilities`, `MyBookings`, `TenantList`, `TenantFacilities`,
+  `TenantUsers` — `max-w-5xl` → `max-w-6xl` (1024 px → 1152 px) to reduce
+  right-side dead space on wide viewports.
+- fix(frontend): `Facilities` — promo card and facility grid tiles `p-4` → `p-2`
+  (32 px → 16 px measured).
+- fix(frontend): Back-links on all pages that already carried `font-medium text-primary`
+  updated to `underline underline-offset-2 hover:text-primary/70` for consistent,
+  prominent link affordance. Pages: `FacilityAvailability`, `Account` (×2),
+  `ForgotPassword`, `ResetPassword`, `CreateUser`, `TenantBranding`, `TenantPolicies`,
+  `TenantFacilities`, `TenantUsers`, `MyBookings`. `ResetPassword` also gained
+  previously-missing `font-medium`.
+- CI gate: 35 test files, 181 tests green; `pnpm lint` 0 errors; `pnpm build` clean.
+
 ### Fixed (Phase 10.6h — Password eye, valid assistant prompts, back-links, chat footer)
 
 - fix(frontend): `ResetPassword` and `ForcePasswordChange` — added show/hide eye
