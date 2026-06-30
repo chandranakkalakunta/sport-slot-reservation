@@ -39,11 +39,17 @@ def _is_cancellable(booking: dict, now_local: datetime.datetime, buffer_hours: i
 
 
 def list_my_bookings(
-    ctx: TenantContext, client, limit: int = 20, cursor: str | None = None
+    ctx: TenantContext, client, limit: int = 20, cursor: str | None = None,
+    from_date: str | None = None,
 ) -> dict:
-    """Return paginated bookings for the calling user with cancellable annotation."""
+    """Return paginated bookings for the calling user with cancellable annotation.
+
+    from_date (ISO date string): when set, only confirmed bookings on or after
+    this date are returned.  The /bookings/mine endpoint passes tenant-local
+    today so the backend is the authoritative source for 'upcoming'.
+    """
     items, next_cursor = BookingRepository(ctx, client).list_for_uid(
-        ctx.uid, limit=limit, cursor=cursor
+        ctx.uid, limit=limit, cursor=cursor, from_date=from_date
     )
     policy = PolicyService(ctx, client)
     tz = zoneinfo.ZoneInfo(policy.tenant_timezone())

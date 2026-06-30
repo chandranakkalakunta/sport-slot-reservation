@@ -342,3 +342,81 @@ def test_quota_same_sport_raises():
                 "u1", "2027-01-15", quota=1,
                 sport="tennis", facilities=[TENNIS_FAC],
             )
+
+
+# ── Bug 1: /bookings/mine endpoint passes from_date ──────────────────────────
+
+async def test_my_bookings_endpoint_passes_from_date(make_client):
+    """The /bookings/mine endpoint must call list_my_bookings with a non-None from_date
+    (tenant-local today) so confirmed upcoming bookings are returned even when >20
+    older/cancelled docs exist in Firestore and would otherwise push them off page 1."""
+    upcoming = {
+        "id": "b1", "status": "confirmed", "date": "2030-01-01",
+        "start": "09:00", "end": "10:00", "facility_id": "f1",
+        "uid": "u1", "household_id": "h-1",
+        "created_at": None, "cancelled_at": None, "cancellable": True,
+    }
+    with patch(VERIFY, return_value=RESIDENT), \
+         patch("sport_slot.api.v1.bookings.list_my_bookings",
+               return_value={"items": [upcoming], "next_cursor": None}) as mock_lmb:
+        async with make_client() as client:
+            _wire(_client(), client, FakeLock())
+            resp = await client.get("/api/v1/bookings/mine", headers={**AUTH, **HOST})
+    assert resp.status_code == 200
+    assert resp.json()["items"][0]["id"] == "b1"
+    _, kwargs = mock_lmb.call_args
+    # Endpoint must pass a non-None from_date so the Firestore query has a date filter.
+    assert "from_date" in kwargs
+    assert kwargs["from_date"] is not None
+
+
+# ── Bug 2: _filter_cancel_candidates with inactive facility ──────────────────
+
+def test_filter_cancel_finds_booking_on_inactive_facility():
+    """Booking on a deactivated court must appear as cancellable when the full
+    facility list (active + inactive) is supplied.  Previously, an active-only
+    list caused fac=None → continue → n_can=0, n_late=0."""
+    import datetime
+    from sport_slot.services.agent.orchestrator import _filter_cancel_candidates
+
+    inactive_fac = {"id": "f-tennis", "sport": "tennis", "active": False}
+    booking = {
+        "id": "b1", "facility_id": "f-tennis",
+        "status": "confirmed", "date": "2030-01-15", "start": "10:00",
+    }
+    # 3 hours before slot; buffer=2h → deadline=08:00 → now=07:00 < deadline → cancellable
+    now_local = datetime.datetime(2030, 1, 15, 7, 0)
+
+    # Pre-fix behaviour: empty (active-only) facilities list silently drops the booking
+    cancellable, too_late = _filter_cancel_candidates(
+        [booking], [], "tennis", None, now_local, buffer_hours=2
+    )
+    assert len(cancellable) == 0 and len(too_late) == 0
+
+    # Post-fix: inactive facility included → booking found and is cancellable
+    cancellable, too_late = _filter_cancel_candidates(
+        [booking], [inactive_fac], "tennis", None, now_local, buffer_hours=2
+    )
+    assert len(cancellable) == 1
+    assert cancellable[0]["id"] == "b1"
+
+
+def test_filter_cancel_respects_buffer_for_inactive_facility_booking():
+    """Inactive-facility booking PAST the cancellation buffer must land in
+    too_late, not in cancellable — fixing Bug 2 must not introduce false-positives."""
+    import datetime
+    from sport_slot.services.agent.orchestrator import _filter_cancel_candidates
+
+    inactive_fac = {"id": "f-tennis", "sport": "tennis", "active": False}
+    booking = {
+        "id": "b1", "facility_id": "f-tennis",
+        "status": "confirmed", "date": "2030-01-15", "start": "10:00",
+    }
+    # 1 hour before slot; buffer=2h → deadline=08:00 → now=09:00 > deadline → NOT cancellable
+    now_local = datetime.datetime(2030, 1, 15, 9, 0)
+
+    cancellable, too_late = _filter_cancel_candidates(
+        [booking], [inactive_fac], "tennis", None, now_local, buffer_hours=2
+    )
+    assert len(cancellable) == 0  # past buffer — no false-positive
+    assert len(too_late) == 1    # correctly classified

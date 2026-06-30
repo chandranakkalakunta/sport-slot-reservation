@@ -23,21 +23,44 @@ class BookingRepository(TenantRepository):
         return {snap.to_dict().get("start") for snap in query.stream()}
 
     def list_for_uid(
-        self, uid: str, limit: int = 20, cursor: str | None = None
+        self, uid: str, limit: int = 20, cursor: str | None = None,
+        from_date: str | None = None,
     ) -> tuple[list[dict], str | None]:
         """Caller's own bookings, cursor-paginated by document ID
-        (deterministic IDs sort facility/date/start naturally)."""
+        (deterministic IDs sort facility/date/start naturally).
+
+        If from_date is set, returns only confirmed bookings on or after that
+        date, ordered by date then __name__.  Requires the (uid, status, date)
+        composite index already present in firestore.indexes.json.
+        """
         from sport_slot.repositories.base import _decode_cursor, _encode_cursor
 
-        query = (
-            self._collection
-            .where("uid", "==", uid)
-            .order_by("__name__")
-            .limit(limit + 1)
-        )
-        if cursor:
-            start_ref = self._collection.document(_decode_cursor(cursor))
-            query = query.start_after({"__name__": start_ref})
+        if from_date:
+            query = (
+                self._collection
+                .where("uid", "==", uid)
+                .where("status", "==", "confirmed")
+                .where("date", ">=", from_date)
+                .order_by("date")
+                .order_by("__name__")
+                .limit(limit + 1)
+            )
+            if cursor:
+                # Multi-field sort requires a document snapshot for start_after.
+                snap = self._collection.document(_decode_cursor(cursor)).get()
+                if snap.exists:
+                    query = query.start_after(snap)
+        else:
+            query = (
+                self._collection
+                .where("uid", "==", uid)
+                .order_by("__name__")
+                .limit(limit + 1)
+            )
+            if cursor:
+                start_ref = self._collection.document(_decode_cursor(cursor))
+                query = query.start_after({"__name__": start_ref})
+
         snaps = list(query.stream())
         has_more = len(snaps) > limit
         snaps = snaps[:limit]

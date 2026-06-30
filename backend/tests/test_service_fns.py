@@ -111,3 +111,24 @@ def test_list_my_bookings_cancellable_false_for_past_buffer():
                return_value=([past_booking], None)):
         result = list_my_bookings(CTX, _client(), limit=20)
     assert result["items"][0]["cancellable"] is False
+
+
+# ── Bug 1: from_date forwarded to repository ──────────────────────────────────
+
+def test_list_my_bookings_passes_from_date_to_repo():
+    """from_date must be forwarded so the Firestore query includes the date filter."""
+    upcoming = {"id": "b1", "status": "confirmed", "date": "2030-01-01", "start": "10:00"}
+    with patch("sport_slot.services.bookings.BookingRepository.list_for_uid",
+               return_value=([upcoming], None)) as mock_list:
+        result = list_my_bookings(CTX, _client(), limit=20, from_date="2027-01-01")
+    mock_list.assert_called_once_with(CTX.uid, limit=20, cursor=None, from_date="2027-01-01")
+    assert result["items"][0]["id"] == "b1"
+
+
+def test_list_my_bookings_without_from_date_passes_none_to_repo():
+    """Default call (no from_date) must keep existing repo behaviour — from_date=None."""
+    upcoming = {"id": "b1", "status": "confirmed", "date": "2030-01-01", "start": "10:00"}
+    with patch("sport_slot.services.bookings.BookingRepository.list_for_uid",
+               return_value=([upcoming], None)) as mock_list:
+        list_my_bookings(CTX, _client(), limit=100)
+    mock_list.assert_called_once_with(CTX.uid, limit=100, cursor=None, from_date=None)

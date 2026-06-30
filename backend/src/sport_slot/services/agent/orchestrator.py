@@ -53,7 +53,7 @@ from sport_slot.services.bookings import (
     create_booking,
     list_my_bookings,
 )
-from sport_slot.services.facilities import list_facilities
+from sport_slot.services.facilities import list_all_facilities, list_facilities
 from sport_slot.services.lock import LockService
 from sport_slot.services.policy import PolicyService
 
@@ -697,8 +697,16 @@ async def _dispatch_cancel(
         log.warning("agent_cancel_policy_error", error=str(exc))
         return ("I couldn't retrieve policy settings right now. Please try again.", None, None)
 
+    # Use ALL facilities (active + inactive) for sport/name lookup so that bookings
+    # on deactivated courts remain cancellable.  Display (system prompt) stays active-only.
+    try:
+        all_facs = list_all_facilities(ctx, client)
+    except Exception as exc:
+        log.warning("agent_cancel_all_facs_error", error=str(exc))
+        all_facs = facilities  # graceful fallback to active-only
+
     cancellable, too_late = _filter_cancel_candidates(
-        bookings, facilities, sport, date_hint, now_local, buffer_hours
+        bookings, all_facs, sport, date_hint, now_local, buffer_hours
     )
     n_can = len(cancellable)
     n_late = len(too_late)
@@ -717,7 +725,7 @@ async def _dispatch_cancel(
             candidate = too_late[0]
             fac_id = candidate.get("facility_id", "")
             fac_name = next(
-                (f.get("name", fac_id) for f in facilities if f.get("id") == fac_id),
+                (f.get("name", fac_id) for f in all_facs if f.get("id") == fac_id),
                 fac_id,
             )
             return (
@@ -734,7 +742,7 @@ async def _dispatch_cancel(
         for b in too_late[:5]:
             fac_id = b.get("facility_id", "")
             fac_name = next(
-                (f.get("name", fac_id) for f in facilities if f.get("id") == fac_id),
+                (f.get("name", fac_id) for f in all_facs if f.get("id") == fac_id),
                 fac_id,
             )
             lines.append(f"  • {fac_name} — {b.get('date', '?')} at {b.get('start', '?')}")
@@ -744,7 +752,7 @@ async def _dispatch_cancel(
         candidate = cancellable[0]
         booking_id = candidate["id"]
         fac_id = candidate.get("facility_id", "")
-        fac = next((f for f in facilities if f.get("id") == fac_id), None)
+        fac = next((f for f in all_facs if f.get("id") == fac_id), None)
         fac_name = fac.get("name", fac_id) if fac else fac_id
         fac_sport = (fac.get("sport") or fac.get("facility_type_id") or "") if fac else ""
         date_str = candidate.get("date", "")
@@ -795,7 +803,7 @@ async def _dispatch_cancel(
     for i, b in enumerate(cancellable, 1):
         fac_id = b.get("facility_id", "")
         fac_name = next(
-            (f.get("name", fac_id) for f in facilities if f.get("id") == fac_id),
+            (f.get("name", fac_id) for f in all_facs if f.get("id") == fac_id),
             fac_id,
         )
         lines.append(

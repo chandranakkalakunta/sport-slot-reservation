@@ -1,3 +1,6 @@
+import datetime
+import zoneinfo
+
 import structlog
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
@@ -16,6 +19,7 @@ from sport_slot.services.bookings import (
     list_my_bookings,
 )
 from sport_slot.services.lock import LockService
+from sport_slot.services.policy import PolicyService
 
 router = APIRouter(prefix="/bookings", tags=["bookings"])
 log = structlog.get_logger()
@@ -49,7 +53,9 @@ async def my_bookings(
     ctx: TenantContext = Depends(get_tenant_context),
     client=Depends(get_firestore_client),
 ):
-    return list_my_bookings(ctx, client, limit=limit, cursor=cursor)
+    tz = zoneinfo.ZoneInfo(PolicyService(ctx, client).tenant_timezone())
+    from_date = datetime.datetime.now(tz).date().isoformat()
+    return list_my_bookings(ctx, client, limit=limit, cursor=cursor, from_date=from_date)
 
 
 @router.post("/{booking_id}/cancel")
