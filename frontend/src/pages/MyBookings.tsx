@@ -4,6 +4,7 @@ import { Link } from "react-router-dom";
 import { AppHeader } from "../components/AppHeader";
 import { Button } from "../components/ui/button";
 import { ConfirmDialog } from "../components/ConfirmDialog";
+import { ListRow } from "../components/ListRow";
 import {
   type Booking, useCancelBooking, useFacilities, useMyBookings,
 } from "../hooks/bookingHooks";
@@ -45,7 +46,7 @@ export default function MyBookings() {
   return (
     <>
       <AppHeader />
-      <main className="mx-auto max-w-3xl px-4 py-6 space-y-4">
+      <main className="mx-auto max-w-5xl px-4 py-6 space-y-4">
         <Link to="/" className="text-sm text-primary hover:underline">← Facilities</Link>
         <h1 className="text-2xl font-semibold text-foreground">My bookings</h1>
         {feedback && <p className="text-sm text-success">{feedback}</p>}
@@ -55,31 +56,29 @@ export default function MyBookings() {
         )}
         <div className="space-y-2">
           {upcoming.map((b) => (
-            <div
+            <ListRow
               key={b.id}
-              className="rounded-lg border bg-card p-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
+              action={
+                b.cancellable ? (
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    onClick={() => { setDialogError(null); setTarget(b); }}
+                  >
+                    Cancel
+                  </Button>
+                ) : (
+                  <span className="text-sm text-muted-foreground">Cancellation closed</span>
+                )
+              }
             >
-              <div>
-                <p className="font-semibold text-foreground">
-                  {facilityName(b.facility_id, facData?.items)}
-                </p>
-                <p className="text-sm text-muted-foreground tabular-nums mt-0.5">
-                  {b.date} · {b.start}–{b.end}
-                </p>
-              </div>
-              {b.cancellable ? (
-                <Button
-                  variant="destructive"
-                  size="sm"
-                  className="self-start sm:self-auto"
-                  onClick={() => { setDialogError(null); setTarget(b); }}
-                >
-                  Cancel
-                </Button>
-              ) : (
-                <span className="text-sm text-muted-foreground">Cancellation closed</span>
-              )}
-            </div>
+              <p className="font-semibold text-foreground truncate">
+                {facilityName(b.facility_id, facData?.items)}
+              </p>
+              <p className="text-sm text-muted-foreground tabular-nums mt-0.5">
+                {b.date} · {b.start}–{b.end}
+              </p>
+            </ListRow>
           ))}
         </div>
 

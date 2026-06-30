@@ -4,6 +4,7 @@ import { Link } from "react-router-dom";
 import { AppHeader } from "../../components/AppHeader";
 import { Button } from "../../components/ui/button";
 import { ConfirmDialog } from "../../components/ConfirmDialog";
+import { ListRow } from "../../components/ListRow";
 import { Input } from "../../components/ui/input";
 import {
   useCreateFacility, useDeactivateFacility, useFacilityCatalog,
@@ -50,36 +51,35 @@ export default function TenantFacilities() {
   return (
     <>
       <AppHeader />
-      <main className="mx-auto max-w-3xl px-4 py-6 space-y-6">
+      <main className="mx-auto max-w-5xl px-4 py-6 space-y-6">
         <Link to="/tenant" className="text-sm text-primary hover:underline">← Dashboard</Link>
         <h1 className="text-2xl font-semibold text-foreground">Facilities</h1>
 
         {isLoading && <p className="text-sm text-muted-foreground">Loading…</p>}
 
-        {/* Facility list — plain bordered rows (no Card/grid stretch) */}
+        {/* Facility list — standard ListRow (no flex-col stacking) */}
         <div className="space-y-2">
           {activeFacilities.map((f) => (
-            <div
+            <ListRow
               key={f.id}
-              className="rounded-lg border bg-card p-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
+              action={
+                /* De-emphasized trigger per ADR-0028 §5; ConfirmDialog confirms before mutate */
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                  onClick={() => setConfirmFacilityId(f.id)}
+                >
+                  Remove
+                </Button>
+              }
             >
-              <div>
-                <p className="font-semibold text-foreground">{f.name}</p>
-                <p className="text-sm text-muted-foreground tabular-nums mt-0.5">
-                  {f.sport} · {f.open_time}–{f.close_time} · {f.slot_duration_minutes}min
-                  {f.description ? ` · ${f.description}` : ""}
-                </p>
-              </div>
-              {/* De-emphasized trigger per ADR-0028 §5; ConfirmDialog confirms before mutate */}
-              <Button
-                variant="ghost"
-                size="sm"
-                className="self-start text-muted-foreground hover:text-destructive hover:bg-destructive/10 sm:self-auto"
-                onClick={() => setConfirmFacilityId(f.id)}
-              >
-                Remove
-              </Button>
-            </div>
+              <p className="font-semibold text-foreground truncate">{f.name}</p>
+              <p className="text-sm text-muted-foreground tabular-nums mt-0.5">
+                {f.sport} · {f.open_time}–{f.close_time} · {f.slot_duration_minutes}min
+                {f.description ? ` · ${f.description}` : ""}
+              </p>
+            </ListRow>
           ))}
         </div>
 

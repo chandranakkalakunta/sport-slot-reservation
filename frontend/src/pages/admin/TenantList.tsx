@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 
 import { AppHeader } from "../../components/AppHeader";
 import { Button } from "../../components/ui/button";
+import { ListRow } from "../../components/ListRow";
 import { useTenants } from "../../hooks/adminHooks";
 
 export default function TenantList() {
@@ -10,7 +11,7 @@ export default function TenantList() {
   return (
     <>
       <AppHeader />
-      <main className="mx-auto max-w-3xl px-4 py-6 space-y-4">
+      <main className="mx-auto max-w-5xl px-4 py-6 space-y-4">
         <h1 className="text-2xl font-semibold text-foreground">Platform Admin</h1>
 
         <div className="flex items-center justify-between">
@@ -30,21 +31,25 @@ export default function TenantList() {
 
         <div className="space-y-2">
           {data?.items.map((t) => (
-            <div key={t.tenant_id} className="rounded-lg border bg-card p-4">
-              <p className="font-semibold text-foreground">
+            <ListRow
+              key={t.tenant_id}
+              action={
+                <Link
+                  to={`/admin/tenants/${t.tenant_id}/users/new`}
+                  className="text-sm text-primary hover:underline"
+                  style={{ textDecoration: "none" }}
+                >
+                  + Add admin/user
+                </Link>
+              }
+            >
+              <p className="font-semibold text-foreground truncate">
                 {t.display_name ?? t.name ?? t.slug}
               </p>
               <p className="text-sm text-muted-foreground tabular-nums mt-0.5">
                 slug: {t.slug} · {t.active === false ? "inactive" : "active"}
               </p>
-              <Link
-                to={`/admin/tenants/${t.tenant_id}/users/new`}
-                className="text-sm text-primary hover:underline mt-1 inline-block"
-                style={{ textDecoration: "none" }}
-              >
-                + Add admin/user
-              </Link>
-            </div>
+            </ListRow>
           ))}
         </div>
       </main>

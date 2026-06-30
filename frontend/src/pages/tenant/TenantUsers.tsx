@@ -4,6 +4,7 @@ import { Link } from "react-router-dom";
 import { AppHeader } from "../../components/AppHeader";
 import { Button } from "../../components/ui/button";
 import { ConfirmDialog } from "../../components/ConfirmDialog";
+import { ListRow } from "../../components/ListRow";
 import { CredentialDisplay, type Credential } from "../../components/CredentialDisplay";
 import { Input } from "../../components/ui/input";
 import {
@@ -110,7 +111,7 @@ export default function TenantUsers() {
   return (
     <>
       <AppHeader />
-      <main className="mx-auto max-w-3xl px-4 py-6 space-y-8">
+      <main className="mx-auto max-w-5xl px-4 py-6 space-y-8">
         <Link to="/tenant" className="text-sm text-primary hover:underline">← Dashboard</Link>
         <h1 className="text-2xl font-semibold text-foreground">Residents &amp; Admins</h1>
 
@@ -123,37 +124,37 @@ export default function TenantUsers() {
           )}
           <div className="space-y-2">
             {active.map((u) => (
-              <div
+              <ListRow
                 key={u.uid}
-                className="rounded-lg border bg-card p-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
+                actionClassName="flex-wrap"
+                action={
+                  <>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleReset(u.uid, u.email)}
+                      disabled={resetPw.isPending}
+                    >
+                      Issue temp password
+                    </Button>
+                    {/* De-emphasized trigger per ADR-0028 §5; ConfirmDialog confirms before mutate */}
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                      onClick={() => setConfirmUid(u.uid)}
+                      disabled={deactivate.isPending}
+                    >
+                      Deactivate
+                    </Button>
+                  </>
+                }
               >
-                <div>
-                  <p className="font-semibold text-foreground">{u.display_name}</p>
-                  <p className="text-sm text-muted-foreground mt-0.5">
-                    {u.email} · {u.role}{u.flat_number ? ` · ${u.flat_number}` : ""}
-                  </p>
-                </div>
-                <div className="flex flex-wrap items-center gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleReset(u.uid, u.email)}
-                    disabled={resetPw.isPending}
-                  >
-                    Issue temp password
-                  </Button>
-                  {/* De-emphasized trigger per ADR-0028 §5; ConfirmDialog confirms before mutate */}
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-                    onClick={() => setConfirmUid(u.uid)}
-                    disabled={deactivate.isPending}
-                  >
-                    Deactivate
-                  </Button>
-                </div>
-              </div>
+                <p className="font-semibold text-foreground truncate">{u.display_name}</p>
+                <p className="text-sm text-muted-foreground mt-0.5">
+                  {u.email} · {u.role}{u.flat_number ? ` · ${u.flat_number}` : ""}
+                </p>
+              </ListRow>
             ))}
           </div>
           {resetError && <p className="text-sm text-destructive">{resetError}</p>}
