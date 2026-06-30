@@ -38,10 +38,8 @@ export default function MyBookings() {
     }
   }
 
-  const today = new Date().toISOString().slice(0, 10);
-  const upcoming = (data?.items ?? []).filter(
-    (b) => b.status === "confirmed" && b.date >= today,
-  );
+  // Backend filters to confirmed bookings on/after today (tenant timezone).
+  const upcoming = data?.items ?? [];
 
   return (
     <>

@@ -6,14 +6,11 @@ import { describe, expect, it, vi } from "vitest";
 
 vi.mock("../components/AppHeader", () => ({ AppHeader: () => null }));
 
-import * as hooks from "../hooks/bookingHooks";
-import { ApiClientError } from "../lib/api";
-import MyBookings from "./MyBookings";
-
-vi.mock("../hooks/bookingHooks", async (importOriginal) => {
-  const real = await importOriginal<typeof hooks>();
-  return { ...real };
-});
+vi.mock("../hooks/bookingHooks", () => ({
+  useMyBookings: vi.fn(),
+  useFacilities: vi.fn(),
+  useCancelBooking: vi.fn(),
+}));
 
 vi.mock("../lib/api", () => ({
   ApiClientError: class extends Error {
@@ -27,6 +24,10 @@ vi.mock("../lib/api", () => ({
   },
   apiFetch: vi.fn(),
 }));
+
+import * as hooks from "../hooks/bookingHooks";
+import { ApiClientError } from "../lib/api";
+import MyBookings from "./MyBookings";
 
 function wrap(ui: React.ReactElement) {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -42,19 +43,25 @@ const BOOKING = {
   start: "09:00", end: "10:00", status: "confirmed", cancellable: true,
 };
 
+const FAC_STUB = {
+  data: { items: [] }, isLoading: false,
+} as unknown as ReturnType<typeof hooks.useFacilities>;
+
+const CANCEL_STUB = {
+  mutateAsync: vi.fn(), isPending: false,
+} as unknown as ReturnType<typeof hooks.useCancelBooking>;
+
 it("renders confirmed booking", () => {
-  vi.spyOn(hooks, "useMyBookings").mockReturnValue({
+  vi.mocked(hooks.useMyBookings).mockReturnValue({
     data: { items: [BOOKING] }, isLoading: false,
   } as ReturnType<typeof hooks.useMyBookings>);
-  vi.spyOn(hooks, "useFacilities").mockReturnValue({
+  vi.mocked(hooks.useFacilities).mockReturnValue({
     data: { items: [{ id: "f1", name: "Tennis Court", sport: "tennis",
       open_time: "07:00", close_time: "21:00", slot_duration_minutes: 60,
       active: true }] },
     isLoading: false,
   } as ReturnType<typeof hooks.useFacilities>);
-  vi.spyOn(hooks, "useCancelBooking").mockReturnValue({
-    mutateAsync: vi.fn(), isPending: false,
-  } as unknown as ReturnType<typeof hooks.useCancelBooking>);
+  vi.mocked(hooks.useCancelBooking).mockReturnValue(CANCEL_STUB);
 
   wrap(<MyBookings />);
 
@@ -62,43 +69,44 @@ it("renders confirmed booking", () => {
   expect(screen.getByText(/2027-01-15/)).toBeInTheDocument();
 });
 
-it("filters past and cancelled bookings from display", () => {
-  const pastConfirmed = { ...BOOKING, id: "b-past", date: "2026-06-20" };
-  const futureConfirmed = { ...BOOKING, id: "b-future", date: "2027-01-15" };
-  const futureCancelled = { ...BOOKING, id: "b-cancelled", date: "2027-01-16", status: "cancelled" };
+it("renders all items from backend without client-side date filtering", () => {
+  // Backend is now the authoritative filter.  The frontend renders whatever
+  // the endpoint returns — no UTC date cutoff drops items client-side.
+  const todayBooking = { ...BOOKING, id: "b-today", date: "2026-06-30" };
+  const futureBooking = { ...BOOKING, id: "b-future", date: "2027-01-15" };
 
-  vi.spyOn(hooks, "useMyBookings").mockReturnValue({
-    data: { items: [pastConfirmed, futureConfirmed, futureCancelled] },
-    isLoading: false,
+  vi.mocked(hooks.useMyBookings).mockReturnValue({
+    data: { items: [todayBooking, futureBooking] }, isLoading: false,
   } as ReturnType<typeof hooks.useMyBookings>);
-  vi.spyOn(hooks, "useFacilities").mockReturnValue({
-    data: { items: [] }, isLoading: false,
-  } as unknown as ReturnType<typeof hooks.useFacilities>);
-  vi.spyOn(hooks, "useCancelBooking").mockReturnValue({
-    mutateAsync: vi.fn(), isPending: false,
-  } as unknown as ReturnType<typeof hooks.useCancelBooking>);
+  vi.mocked(hooks.useFacilities).mockReturnValue(FAC_STUB);
+  vi.mocked(hooks.useCancelBooking).mockReturnValue(CANCEL_STUB);
 
   wrap(<MyBookings />);
 
-  // Only the future confirmed booking should appear
+  // Both dates from the backend response must appear (no client-side cutoff).
+  expect(screen.getByText(/2026-06-30/)).toBeInTheDocument();
   expect(screen.getByText(/2027-01-15/)).toBeInTheDocument();
-  // Past confirmed must be hidden
-  expect(screen.queryByText(/2026-06-20/)).toBeNull();
-  // Future cancelled must be hidden
-  expect(screen.queryByText(/2027-01-16/)).toBeNull();
+});
+
+it("shows No upcoming bookings when backend returns empty list", () => {
+  vi.mocked(hooks.useMyBookings).mockReturnValue({
+    data: { items: [] }, isLoading: false,
+  } as unknown as ReturnType<typeof hooks.useMyBookings>);
+  vi.mocked(hooks.useFacilities).mockReturnValue(FAC_STUB);
+  vi.mocked(hooks.useCancelBooking).mockReturnValue(CANCEL_STUB);
+
+  wrap(<MyBookings />);
+
+  expect(screen.getByText("No upcoming bookings.")).toBeInTheDocument();
 });
 
 it("shows Cancellation closed when cancellable is false", () => {
   const nonCancellable = { ...BOOKING, cancellable: false };
-  vi.spyOn(hooks, "useMyBookings").mockReturnValue({
+  vi.mocked(hooks.useMyBookings).mockReturnValue({
     data: { items: [nonCancellable] }, isLoading: false,
   } as ReturnType<typeof hooks.useMyBookings>);
-  vi.spyOn(hooks, "useFacilities").mockReturnValue({
-    data: { items: [] }, isLoading: false,
-  } as unknown as ReturnType<typeof hooks.useFacilities>);
-  vi.spyOn(hooks, "useCancelBooking").mockReturnValue({
-    mutateAsync: vi.fn(), isPending: false,
-  } as unknown as ReturnType<typeof hooks.useCancelBooking>);
+  vi.mocked(hooks.useFacilities).mockReturnValue(FAC_STUB);
+  vi.mocked(hooks.useCancelBooking).mockReturnValue(CANCEL_STUB);
 
   wrap(<MyBookings />);
 
@@ -108,15 +116,11 @@ it("shows Cancellation closed when cancellable is false", () => {
 
 describe("cancellation dialog", () => {
   it("opens confirm dialog when Cancel clicked", async () => {
-    vi.spyOn(hooks, "useMyBookings").mockReturnValue({
+    vi.mocked(hooks.useMyBookings).mockReturnValue({
       data: { items: [BOOKING] }, isLoading: false,
     } as ReturnType<typeof hooks.useMyBookings>);
-    vi.spyOn(hooks, "useFacilities").mockReturnValue({
-      data: { items: [] }, isLoading: false,
-    } as unknown as ReturnType<typeof hooks.useFacilities>);
-    vi.spyOn(hooks, "useCancelBooking").mockReturnValue({
-      mutateAsync: vi.fn(), isPending: false,
-    } as unknown as ReturnType<typeof hooks.useCancelBooking>);
+    vi.mocked(hooks.useFacilities).mockReturnValue(FAC_STUB);
+    vi.mocked(hooks.useCancelBooking).mockReturnValue(CANCEL_STUB);
 
     wrap(<MyBookings />);
     await userEvent.click(screen.getByRole("button", { name: "Cancel" }));
@@ -126,13 +130,11 @@ describe("cancellation dialog", () => {
   });
 
   it("shows error in dialog on cancellation failure and keeps dialog open", async () => {
-    vi.spyOn(hooks, "useMyBookings").mockReturnValue({
+    vi.mocked(hooks.useMyBookings).mockReturnValue({
       data: { items: [BOOKING] }, isLoading: false,
     } as ReturnType<typeof hooks.useMyBookings>);
-    vi.spyOn(hooks, "useFacilities").mockReturnValue({
-      data: { items: [] }, isLoading: false,
-    } as unknown as ReturnType<typeof hooks.useFacilities>);
-    vi.spyOn(hooks, "useCancelBooking").mockReturnValue({
+    vi.mocked(hooks.useFacilities).mockReturnValue(FAC_STUB);
+    vi.mocked(hooks.useCancelBooking).mockReturnValue({
       mutateAsync: vi.fn().mockRejectedValue(
         new ApiClientError({ code: "CANCELLATION_TOO_LATE", message: "too late", status: 422 }),
       ),
