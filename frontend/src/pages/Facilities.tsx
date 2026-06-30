@@ -18,7 +18,7 @@ export default function Facilities() {
         </Button>
       </AppHeader>
 
-      <main className="mx-auto max-w-3xl px-4 py-6 space-y-6">
+      <main className="mx-auto max-w-5xl px-4 py-6 space-y-6">
         <h1 className="text-2xl font-semibold text-foreground">Facilities</h1>
 
         {/* Loading / error / empty states */}
@@ -49,7 +49,7 @@ export default function Facilities() {
         </Link>
 
         {/* Facility grid — 1 col mobile / 2 tablet / 3 desktop; plain Link tiles */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
           {activeFacilities.map((f) => (
             <Link
               key={f.id}

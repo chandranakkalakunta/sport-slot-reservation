@@ -6,6 +6,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added (Phase 10.6g — Standard list row system)
+
+- feat(frontend): Introduced `<ListRow>` component (`src/components/ListRow.tsx`)
+  as the single source of truth for list row layout: `rounded-lg border bg-card p-4
+  flex items-center justify-between gap-3`. Content area gets `min-w-0 flex-1` (enables
+  `truncate`); action area gets `flex items-center gap-2 shrink-0` (inline at all
+  breakpoints). Accepts `actionClassName` for rows that need tight `flex-wrap`
+  (TenantUsers two-button row).
+- fix(frontend): `MyBookings`, `TenantFacilities`, `TenantUsers`, `TenantList` — all
+  list rows converted to `<ListRow>`. Killed `flex-col gap-3 sm:flex-row sm:items-center
+  sm:justify-between` and `self-start/sm:self-auto` patterns. Actions (Cancel,
+  Remove, Deactivate, Issue temp password) are now inline at ALL breakpoints. Facility
+  name, display name, and tenant name get `truncate` for overflow safety.
+- fix(frontend): All five list/grid pages (`Facilities`, `MyBookings`, `TenantFacilities`,
+  `TenantUsers`, `TenantList`) — `max-w-3xl` → `max-w-5xl` on main container.
+- fix(frontend): `Facilities` — grid breakpoint `sm:grid-cols-2` → `md:grid-cols-2`
+  so single-column view persists on small tablets (768px is the new break).
+- fix(frontend): `TenantList` — `+ Add admin/user` link promoted from inline content
+  to `ListRow` action area; consistent right-aligned placement with all other action rows.
+- CI gate: 35 test files, 180 tests green.
+
 ### Added (Phase 10.6e — Responsive multi-column facility grid)
 
 - feat(frontend): Facility tiles now lay out in a responsive grid:
