@@ -36,7 +36,7 @@ export default function Account() {
     return (
       <AuthCard title="Change password">
         <p className="text-sm text-foreground">Your password has been changed.</p>
-        <Link to="/" className="text-sm font-medium text-primary underline underline-offset-2 hover:text-primary/70">
+        <Link to="/" className="block text-sm font-medium text-primary underline underline-offset-2 hover:text-primary/70">
           Back to home
         </Link>
       </AuthCard>
@@ -45,7 +45,7 @@ export default function Account() {
 
   return (
     <AuthCard title="Change password">
-      <Link to="/" className="text-sm font-medium text-primary underline underline-offset-2 hover:text-primary/70">← Back</Link>
+      <Link to="/" className="block text-sm font-medium text-primary underline underline-offset-2 hover:text-primary/70">← Back</Link>
       <p className="text-sm text-muted-foreground">Update your account password.</p>
       <form onSubmit={submit} className="space-y-2">
         <div className="space-y-1">

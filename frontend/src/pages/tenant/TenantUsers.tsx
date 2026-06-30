@@ -4,7 +4,6 @@ import { Link } from "react-router-dom";
 import { AppHeader } from "../../components/AppHeader";
 import { Button } from "../../components/ui/button";
 import { ConfirmDialog } from "../../components/ConfirmDialog";
-import { ListRow } from "../../components/ListRow";
 import { CredentialDisplay, type Credential } from "../../components/CredentialDisplay";
 import { Input } from "../../components/ui/input";
 import {
@@ -112,7 +111,7 @@ export default function TenantUsers() {
     <>
       <AppHeader />
       <main className="mx-auto max-w-6xl px-4 py-6 space-y-8">
-        <Link to="/tenant" className="text-sm font-medium text-primary underline underline-offset-2 hover:text-primary/70">← Dashboard</Link>
+        <Link to="/tenant" className="block text-sm font-medium text-primary underline underline-offset-2 hover:text-primary/70">← Dashboard</Link>
         <h1 className="text-2xl font-semibold text-foreground">Residents &amp; Admins</h1>
 
         {/* User list */}
@@ -124,37 +123,36 @@ export default function TenantUsers() {
           )}
           <div className="space-y-2">
             {active.map((u) => (
-              <ListRow
-                key={u.uid}
-                actionClassName="flex-wrap"
-                action={
-                  <>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleReset(u.uid, u.email)}
-                      disabled={resetPw.isPending}
-                    >
-                      Issue temp password
-                    </Button>
-                    {/* De-emphasized trigger per ADR-0028 §5; ConfirmDialog confirms before mutate */}
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-                      onClick={() => setConfirmUid(u.uid)}
-                      disabled={deactivate.isPending}
-                    >
-                      Deactivate
-                    </Button>
-                  </>
-                }
-              >
-                <p className="font-semibold text-foreground truncate">{u.display_name}</p>
-                <p className="text-sm text-muted-foreground mt-0.5">
-                  {u.email} · {u.role}{u.flat_number ? ` · ${u.flat_number}` : ""}
-                </p>
-              </ListRow>
+              /* Two-button row: info on top, buttons stacked below on mobile; inline on sm+ */
+              <div key={u.uid} className="rounded-lg border bg-card p-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
+                <div className="min-w-0">
+                  <p className="font-semibold text-foreground truncate">{u.display_name}</p>
+                  <p className="text-sm text-muted-foreground mt-0.5">
+                    {u.email} · {u.role}{u.flat_number ? ` · ${u.flat_number}` : ""}
+                  </p>
+                </div>
+                <div className="flex flex-wrap gap-2 sm:shrink-0">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="flex-1 sm:flex-none min-h-[40px]"
+                    onClick={() => handleReset(u.uid, u.email)}
+                    disabled={resetPw.isPending}
+                  >
+                    Issue temp password
+                  </Button>
+                  {/* De-emphasized trigger per ADR-0028 §5; ConfirmDialog confirms before mutate */}
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="flex-1 sm:flex-none min-h-[40px] text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                    onClick={() => setConfirmUid(u.uid)}
+                    disabled={deactivate.isPending}
+                  >
+                    Deactivate
+                  </Button>
+                </div>
+              </div>
             ))}
           </div>
           {resetError && <p className="text-sm text-destructive">{resetError}</p>}
