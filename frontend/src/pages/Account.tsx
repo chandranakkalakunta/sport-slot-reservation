@@ -45,6 +45,7 @@ export default function Account() {
 
   return (
     <AuthCard title="Change password">
+      <Link to="/" className="text-sm text-primary hover:underline">← Back</Link>
       <p className="text-sm text-muted-foreground">Update your account password.</p>
       <form onSubmit={submit} className="space-y-2">
         <div className="space-y-1">

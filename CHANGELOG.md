@@ -6,6 +6,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added (Phase 10.6d — Facility list as plain rows; change-password close)
+
+- fix(frontend): Root cause of tall list rows confirmed: `<div class="grid"> →
+  <Card flex flex-col>` where `align-items: stretch` inflated single-child flex
+  cards to fill the grid row height. Prior `py-0`/`gap-3` fixes addressed padding
+  but not the grid-stretch root.
+- fix(frontend): `Facilities.tsx` — converted facility list from `grid → Card →
+  CardContent → Link` to plain bordered `<Link>` rows (`space-y-3` stack,
+  `rounded-lg border bg-card p-4`), matching the existing Booking Assistant card
+  pattern. `Card`/`CardContent` imports removed.
+- fix(frontend): `MyBookings.tsx` — converted booking list from `grid → Card →
+  CardContent` to plain bordered `<div>` rows (`space-y-2`); mobile stacking
+  (flex-col sm:flex-row) and Cancel/Cancellation-closed affordances preserved.
+  `Card`/`CardContent` imports removed.
+- fix(frontend): `TenantList.tsx` — converted tenant list from `grid → Card →
+  CardContent` to plain bordered `<div>` rows; "+ Add admin/user" link preserved.
+  `Card`/`CardContent` imports removed.
+- fix(frontend): `TenantFacilities.tsx` — converted facility list from
+  `grid → Card → CardContent` to plain bordered `<div>` rows; Remove button,
+  ConfirmDialog flow, and mobile stacking preserved. `Card`/`CardContent` imports
+  removed.
+- fix(frontend): `TenantUsers.tsx` — converted user list from `grid → Card →
+  CardContent` to plain bordered `<div>` rows; Issue temp password + Deactivate
+  buttons, ConfirmDialog flow, and mobile stacking preserved. `Card`/`CardContent`
+  imports removed.
+- fix(frontend): `Account.tsx` — added `← Back` link to `/` on the Change password
+  form so users can exit without submitting.
+- note(frontend): `ForcePasswordChange.tsx` — NOT given a back link. This page is
+  the mandatory gate for temp-password accounts; `ProtectedRoute` redirects back
+  to it until `mustChange = false`. A back link would bypass the security gate.
+  The existing "Sign out" button is the correct and intentional escape hatch.
+- CI gate: 35 test files, 180 tests green; 0 lint errors; clean build — verified
+  with both `.env` and `.env.local` absent.
+
 ### Added (Phase 10.6c — Root card density, sticky footer, platform name, assistant icon)
 
 - fix(frontend): Root card density — `Card` primitive spacing tightened:
