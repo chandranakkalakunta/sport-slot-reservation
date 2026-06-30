@@ -5,10 +5,10 @@ import { describe, expect, it, vi } from "vitest";
 import { SuggestedPrompts } from "./SuggestedPrompts";
 
 const EXPECTED_PROMPTS = [
-  "What's my usual court?",
-  "Book my usual tennis slot tomorrow",
-  "Show my upcoming bookings",
-  "Is tennis free tomorrow?",
+  "Book tennis tomorrow",
+  "Is tennis free today?",
+  "Is football available tomorrow?",
+  "Book badminton this Saturday",
 ];
 
 describe("SuggestedPrompts", () => {

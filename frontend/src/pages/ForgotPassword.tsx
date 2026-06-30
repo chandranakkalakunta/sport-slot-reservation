@@ -34,7 +34,7 @@ export default function ForgotPassword() {
     return (
       <AuthCard title="Reset your password">
         <p className="text-sm text-foreground">{NEUTRAL_MSG}</p>
-        <Link to="/signin" className="text-sm text-primary hover:underline">
+        <Link to="/signin" className="text-sm font-medium text-primary hover:underline">
           Back to sign in
         </Link>
       </AuthCard>

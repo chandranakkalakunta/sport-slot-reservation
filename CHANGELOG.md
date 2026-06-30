@@ -6,6 +6,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Fixed (Phase 10.6h — Password eye, valid assistant prompts, back-links, chat footer)
+
+- fix(frontend): `ResetPassword` and `ForcePasswordChange` — added show/hide eye
+  toggle to both "New password" and "Confirm new password" fields, matching the
+  exact `Eye`/`EyeOff` lucide icon + `type="button"` + `aria-label` pattern from
+  `SignIn`. States `showPw`/`showConfirm` are independent so each field can be
+  revealed separately. Accessible labels: "Show/Hide password" (new-pw field),
+  "Show/Hide confirm password" (confirm field).
+- fix(frontend): `SuggestedPrompts` — replaced invalid example prompts
+  ("What's my usual court?", "Book my usual tennis slot tomorrow",
+  "Show my upcoming bookings") with valid booking/availability queries the agent
+  actually handles: "Book tennis tomorrow", "Is tennis free today?",
+  "Is football available tomorrow?", "Book badminton this Saturday". No agent
+  logic changed. `SuggestedPrompts.test.tsx` updated to match new strings.
+- fix(frontend): `Facilities` — updated Booking Assistant promo-card example text
+  from "book my usual tennis slot" to "book tennis tomorrow" to match actual
+  agent capability.
+- fix(frontend): All back-links (`← Facilities`, `← Dashboard`, `← Back`,
+  `← Back to tenants`, "Back to sign in") across nine pages — added
+  `font-medium` to the shared className for clearer, consistent link affordance.
+  `CreateUser` also gained `text-sm` (previously missing).
+- fix(frontend): `Assistant` — added `paddingBottom: 56` to the outer
+  `height: 100dvh` flex container. This reduces the usable column height by 56px
+  (matching AuthedLayout's `pb-14`), so the MessageInput area clears the fixed
+  "powered by SlotSense" footer without hiding any chat content.
+- CI gate: 35 test files, 180 tests green.
+
 ### Added (Phase 10.6g — Standard list row system)
 
 - feat(frontend): Introduced `<ListRow>` component (`src/components/ListRow.tsx`)

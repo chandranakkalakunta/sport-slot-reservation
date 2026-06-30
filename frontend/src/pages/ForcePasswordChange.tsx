@@ -1,4 +1,5 @@
 import { type FormEvent, useState } from "react";
+import { Eye, EyeOff } from "lucide-react";
 import { Navigate, useNavigate } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 
@@ -17,6 +18,8 @@ export default function ForcePasswordChange() {
   const { user, loading, signOut } = useAuth();
   const [pw, setPw] = useState("");
   const [confirm, setConfirm] = useState("");
+  const [showPw, setShowPw] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -69,27 +72,49 @@ export default function ForcePasswordChange() {
           <label htmlFor="force-pw" className="text-sm font-medium text-foreground">
             New password
           </label>
-          <Input
-            id="force-pw"
-            type="password"
-            placeholder="New password"
-            value={pw}
-            onChange={(e) => setPw(e.target.value)}
-            required
-          />
+          <div className="relative">
+            <Input
+              id="force-pw"
+              type={showPw ? "text" : "password"}
+              placeholder="New password"
+              value={pw}
+              onChange={(e) => setPw(e.target.value)}
+              required
+              className="pr-10"
+            />
+            <button
+              type="button"
+              onClick={() => setShowPw((s) => !s)}
+              aria-label={showPw ? "Hide password" : "Show password"}
+              className="absolute right-2 top-2 text-muted-foreground hover:text-foreground"
+            >
+              {showPw ? <EyeOff className="size-5" /> : <Eye className="size-5" />}
+            </button>
+          </div>
         </div>
         <div className="space-y-1">
           <label htmlFor="force-confirm" className="text-sm font-medium text-foreground">
             Confirm new password
           </label>
-          <Input
-            id="force-confirm"
-            type="password"
-            placeholder="Confirm new password"
-            value={confirm}
-            onChange={(e) => setConfirm(e.target.value)}
-            required
-          />
+          <div className="relative">
+            <Input
+              id="force-confirm"
+              type={showConfirm ? "text" : "password"}
+              placeholder="Confirm new password"
+              value={confirm}
+              onChange={(e) => setConfirm(e.target.value)}
+              required
+              className="pr-10"
+            />
+            <button
+              type="button"
+              onClick={() => setShowConfirm((s) => !s)}
+              aria-label={showConfirm ? "Hide confirm password" : "Show confirm password"}
+              className="absolute right-2 top-2 text-muted-foreground hover:text-foreground"
+            >
+              {showConfirm ? <EyeOff className="size-5" /> : <Eye className="size-5" />}
+            </button>
+          </div>
         </div>
         <Button type="submit" disabled={busy} className="w-full">
           {busy ? "Saving…" : "Set password"}
