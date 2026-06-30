@@ -18,7 +18,7 @@ export default function Facilities() {
         </Button>
       </AppHeader>
 
-      <main className="mx-auto max-w-5xl px-4 py-6 space-y-6">
+      <main className="mx-auto max-w-6xl px-4 py-6 space-y-6">
         <h1 className="text-2xl font-semibold text-foreground">Facilities</h1>
 
         {/* Loading / error / empty states */}
@@ -35,7 +35,7 @@ export default function Facilities() {
         {/* Booking Assistant promo */}
         <Link
           to="/assistant"
-          className="block rounded-lg border border-primary/40 bg-surface p-4 no-underline hover:bg-accent transition-colors"
+          className="block rounded-lg border border-primary/40 bg-surface p-2 no-underline hover:bg-accent transition-colors"
           style={{ textDecoration: "none" }}
         >
           <p className="font-semibold text-primary text-sm flex items-center gap-1.5">
@@ -54,7 +54,7 @@ export default function Facilities() {
             <Link
               key={f.id}
               to={`/facilities/${f.id}`}
-              className="block rounded-lg border bg-card p-4 no-underline text-foreground hover:bg-accent transition-colors"
+              className="block rounded-lg border bg-card p-2 no-underline text-foreground hover:bg-accent transition-colors"
               style={{ textDecoration: "none" }}
             >
               <p className="font-semibold text-foreground">{f.name}</p>
