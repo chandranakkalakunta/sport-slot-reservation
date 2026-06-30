@@ -47,7 +47,7 @@ export default function MyBookings() {
     <>
       <AppHeader />
       <main className="mx-auto max-w-5xl px-4 py-6 space-y-4">
-        <Link to="/" className="text-sm text-primary hover:underline">← Facilities</Link>
+        <Link to="/" className="text-sm font-medium text-primary hover:underline">← Facilities</Link>
         <h1 className="text-2xl font-semibold text-foreground">My bookings</h1>
         {feedback && <p className="text-sm text-success">{feedback}</p>}
         {isLoading && <p className="text-sm text-muted-foreground">Loading…</p>}

@@ -1,8 +1,8 @@
 const PROMPTS = [
-  "What's my usual court?",
-  "Book my usual tennis slot tomorrow",
-  "Show my upcoming bookings",
-  "Is tennis free tomorrow?",
+  "Book tennis tomorrow",
+  "Is tennis free today?",
+  "Is football available tomorrow?",
+  "Book badminton this Saturday",
 ];
 
 export function SuggestedPrompts({ onSelect }: { onSelect: (prompt: string) => void }) {

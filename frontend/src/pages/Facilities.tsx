@@ -43,7 +43,7 @@ export default function Facilities() {
             Booking Assistant
           </p>
           <p className="text-muted-foreground text-xs mt-1">
-            Try &ldquo;book my usual tennis slot&rdquo; or &ldquo;is tennis free tomorrow?&rdquo;
+            Try &ldquo;book tennis tomorrow&rdquo; or &ldquo;is tennis free today?&rdquo;
           </p>
           <p className="text-primary text-xs mt-1.5">Open assistant →</p>
         </Link>

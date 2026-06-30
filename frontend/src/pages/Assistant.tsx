@@ -91,7 +91,7 @@ export default function Assistant() {
   const inputDisabled = isTyping || sendMessage.isPending || confirmAction.isPending;
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100dvh" }}>
+    <div style={{ display: "flex", flexDirection: "column", height: "100dvh", paddingBottom: 56 }}>
       <AppHeader>
         <Link to="/" style={{
           padding: "6px 12px", borderRadius: "var(--radius)",

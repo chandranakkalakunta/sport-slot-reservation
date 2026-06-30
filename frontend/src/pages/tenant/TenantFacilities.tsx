@@ -52,7 +52,7 @@ export default function TenantFacilities() {
     <>
       <AppHeader />
       <main className="mx-auto max-w-5xl px-4 py-6 space-y-6">
-        <Link to="/tenant" className="text-sm text-primary hover:underline">← Dashboard</Link>
+        <Link to="/tenant" className="text-sm font-medium text-primary hover:underline">← Dashboard</Link>
         <h1 className="text-2xl font-semibold text-foreground">Facilities</h1>
 
         {isLoading && <p className="text-sm text-muted-foreground">Loading…</p>}
