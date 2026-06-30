@@ -6,6 +6,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added (Phase 10.6e — Responsive multi-column facility grid)
+
+- feat(frontend): Facility tiles now lay out in a responsive grid:
+  `grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3` (1 mobile / 2 tablet / 3
+  desktop). Tiles remain plain bordered `<Link>` blocks (no Card) — grid stretch
+  gives clean equal-height tiles per row without the dead-space bug. Booking
+  Assistant card stays full-width above the grid (not a grid item). `h-full` not
+  needed: plain `<Link>` block has no inner flex column; stretch is already clean.
+- CI gate: 35 test files, 180 tests green; 0 lint errors; clean build.
+
 ### Added (Phase 10.6d — Facility list as plain rows; change-password close)
 
 - fix(frontend): Root cause of tall list rows confirmed: `<div class="grid"> →

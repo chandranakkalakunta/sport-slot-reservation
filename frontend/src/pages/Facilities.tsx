@@ -48,8 +48,8 @@ export default function Facilities() {
           <p className="text-primary text-xs mt-1.5">Open assistant →</p>
         </Link>
 
-        {/* Facility list — plain bordered rows (no Card/grid stretch) */}
-        <div className="space-y-3">
+        {/* Facility grid — 1 col mobile / 2 tablet / 3 desktop; plain Link tiles */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
           {activeFacilities.map((f) => (
             <Link
               key={f.id}
