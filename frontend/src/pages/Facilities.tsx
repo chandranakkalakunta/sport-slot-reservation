@@ -3,7 +3,6 @@ import { Link } from "react-router-dom";
 
 import { AppHeader } from "../components/AppHeader";
 import { Button } from "../components/ui/button";
-import { Card, CardContent } from "../components/ui/card";
 import { useFacilities } from "../hooks/bookingHooks";
 
 export default function Facilities() {
@@ -49,23 +48,20 @@ export default function Facilities() {
           <p className="text-primary text-xs mt-1.5">Open assistant →</p>
         </Link>
 
-        {/* Facility list */}
-        <div className="grid gap-3">
+        {/* Facility list — plain bordered rows (no Card/grid stretch) */}
+        <div className="space-y-3">
           {activeFacilities.map((f) => (
-            <Card key={f.id} className="hover:bg-accent transition-colors py-0">
-              <CardContent className="p-0">
-                <Link
-                  to={`/facilities/${f.id}`}
-                  className="block p-4 no-underline text-foreground"
-                  style={{ textDecoration: "none" }}
-                >
-                  <p className="font-semibold text-foreground">{f.name}</p>
-                  <p className="text-sm text-muted-foreground tabular-nums mt-0.5">
-                    {f.sport} · {f.open_time}–{f.close_time} · {f.slot_duration_minutes}min
-                  </p>
-                </Link>
-              </CardContent>
-            </Card>
+            <Link
+              key={f.id}
+              to={`/facilities/${f.id}`}
+              className="block rounded-lg border bg-card p-4 no-underline text-foreground hover:bg-accent transition-colors"
+              style={{ textDecoration: "none" }}
+            >
+              <p className="font-semibold text-foreground">{f.name}</p>
+              <p className="text-sm text-muted-foreground tabular-nums mt-0.5">
+                {f.sport} · {f.open_time}–{f.close_time} · {f.slot_duration_minutes}min
+              </p>
+            </Link>
           ))}
         </div>
       </main>

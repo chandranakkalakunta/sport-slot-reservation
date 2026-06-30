@@ -3,7 +3,6 @@ import { Link } from "react-router-dom";
 
 import { AppHeader } from "../components/AppHeader";
 import { Button } from "../components/ui/button";
-import { Card, CardContent } from "../components/ui/card";
 import { ConfirmDialog } from "../components/ConfirmDialog";
 import {
   type Booking, useCancelBooking, useFacilities, useMyBookings,
@@ -54,32 +53,33 @@ export default function MyBookings() {
         {!isLoading && upcoming.length === 0 && (
           <p className="text-sm text-muted-foreground">No upcoming bookings.</p>
         )}
-        <div className="grid gap-3">
+        <div className="space-y-2">
           {upcoming.map((b) => (
-            <Card key={b.id} className="py-0">
-              <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                  <p className="font-semibold text-foreground">
-                    {facilityName(b.facility_id, facData?.items)}
-                  </p>
-                  <p className="text-sm text-muted-foreground tabular-nums mt-0.5">
-                    {b.date} · {b.start}–{b.end}
-                  </p>
-                </div>
-                {b.cancellable ? (
-                  <Button
-                    variant="destructive"
-                    size="sm"
-                    className="self-start sm:self-auto"
-                    onClick={() => { setDialogError(null); setTarget(b); }}
-                  >
-                    Cancel
-                  </Button>
-                ) : (
-                  <span className="text-sm text-muted-foreground">Cancellation closed</span>
-                )}
-              </CardContent>
-            </Card>
+            <div
+              key={b.id}
+              className="rounded-lg border bg-card p-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
+            >
+              <div>
+                <p className="font-semibold text-foreground">
+                  {facilityName(b.facility_id, facData?.items)}
+                </p>
+                <p className="text-sm text-muted-foreground tabular-nums mt-0.5">
+                  {b.date} · {b.start}–{b.end}
+                </p>
+              </div>
+              {b.cancellable ? (
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  className="self-start sm:self-auto"
+                  onClick={() => { setDialogError(null); setTarget(b); }}
+                >
+                  Cancel
+                </Button>
+              ) : (
+                <span className="text-sm text-muted-foreground">Cancellation closed</span>
+              )}
+            </div>
           ))}
         </div>
 

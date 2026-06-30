@@ -2,7 +2,6 @@ import { Link } from "react-router-dom";
 
 import { AppHeader } from "../../components/AppHeader";
 import { Button } from "../../components/ui/button";
-import { Card, CardContent } from "../../components/ui/card";
 import { useTenants } from "../../hooks/adminHooks";
 
 export default function TenantList() {
@@ -29,25 +28,23 @@ export default function TenantList() {
           <p className="text-sm text-muted-foreground">No tenants yet.</p>
         )}
 
-        <div className="grid gap-3">
+        <div className="space-y-2">
           {data?.items.map((t) => (
-            <Card key={t.tenant_id} className="py-0">
-              <CardContent className="p-4">
-                <p className="font-semibold text-foreground">
-                  {t.display_name ?? t.name ?? t.slug}
-                </p>
-                <p className="text-sm text-muted-foreground tabular-nums mt-0.5">
-                  slug: {t.slug} · {t.active === false ? "inactive" : "active"}
-                </p>
-                <Link
-                  to={`/admin/tenants/${t.tenant_id}/users/new`}
-                  className="text-sm text-primary hover:underline mt-1 inline-block"
-                  style={{ textDecoration: "none" }}
-                >
-                  + Add admin/user
-                </Link>
-              </CardContent>
-            </Card>
+            <div key={t.tenant_id} className="rounded-lg border bg-card p-4">
+              <p className="font-semibold text-foreground">
+                {t.display_name ?? t.name ?? t.slug}
+              </p>
+              <p className="text-sm text-muted-foreground tabular-nums mt-0.5">
+                slug: {t.slug} · {t.active === false ? "inactive" : "active"}
+              </p>
+              <Link
+                to={`/admin/tenants/${t.tenant_id}/users/new`}
+                className="text-sm text-primary hover:underline mt-1 inline-block"
+                style={{ textDecoration: "none" }}
+              >
+                + Add admin/user
+              </Link>
+            </div>
           ))}
         </div>
       </main>

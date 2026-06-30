@@ -3,7 +3,6 @@ import { Link } from "react-router-dom";
 
 import { AppHeader } from "../../components/AppHeader";
 import { Button } from "../../components/ui/button";
-import { Card, CardContent } from "../../components/ui/card";
 import { ConfirmDialog } from "../../components/ConfirmDialog";
 import { Input } from "../../components/ui/input";
 import {
@@ -57,29 +56,30 @@ export default function TenantFacilities() {
 
         {isLoading && <p className="text-sm text-muted-foreground">Loading…</p>}
 
-        {/* Facility list */}
-        <div className="grid gap-3">
+        {/* Facility list — plain bordered rows (no Card/grid stretch) */}
+        <div className="space-y-2">
           {activeFacilities.map((f) => (
-            <Card key={f.id} className="py-0">
-              <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                  <p className="font-semibold text-foreground">{f.name}</p>
-                  <p className="text-sm text-muted-foreground tabular-nums mt-0.5">
-                    {f.sport} · {f.open_time}–{f.close_time} · {f.slot_duration_minutes}min
-                    {f.description ? ` · ${f.description}` : ""}
-                  </p>
-                </div>
-                {/* De-emphasized trigger per ADR-0028 §5; ConfirmDialog confirms before mutate */}
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="self-start text-muted-foreground hover:text-destructive hover:bg-destructive/10 sm:self-auto"
-                  onClick={() => setConfirmFacilityId(f.id)}
-                >
-                  Remove
-                </Button>
-              </CardContent>
-            </Card>
+            <div
+              key={f.id}
+              className="rounded-lg border bg-card p-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
+            >
+              <div>
+                <p className="font-semibold text-foreground">{f.name}</p>
+                <p className="text-sm text-muted-foreground tabular-nums mt-0.5">
+                  {f.sport} · {f.open_time}–{f.close_time} · {f.slot_duration_minutes}min
+                  {f.description ? ` · ${f.description}` : ""}
+                </p>
+              </div>
+              {/* De-emphasized trigger per ADR-0028 §5; ConfirmDialog confirms before mutate */}
+              <Button
+                variant="ghost"
+                size="sm"
+                className="self-start text-muted-foreground hover:text-destructive hover:bg-destructive/10 sm:self-auto"
+                onClick={() => setConfirmFacilityId(f.id)}
+              >
+                Remove
+              </Button>
+            </div>
           ))}
         </div>
 
