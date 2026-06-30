@@ -54,7 +54,7 @@ export default function CreateUser() {
           Add another
         </Button>
         <p className="text-sm">
-          <Link to="/admin" className="text-sm font-medium text-primary underline underline-offset-2 hover:text-primary/70">← Back to tenants</Link>
+          <Link to="/admin" className="block text-sm font-medium text-primary underline underline-offset-2 hover:text-primary/70">← Back to tenants</Link>
         </p>
       </main>
     );

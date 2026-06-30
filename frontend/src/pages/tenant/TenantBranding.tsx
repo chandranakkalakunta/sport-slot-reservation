@@ -58,7 +58,7 @@ export default function TenantBranding() {
     <>
       <AppHeader />
       <main className="mx-auto max-w-lg px-4 py-6 space-y-6">
-        <Link to="/tenant" className="text-sm font-medium text-primary underline underline-offset-2 hover:text-primary/70">← Dashboard</Link>
+        <Link to="/tenant" className="block text-sm font-medium text-primary underline underline-offset-2 hover:text-primary/70">← Dashboard</Link>
         <h1 className="text-2xl font-semibold text-foreground">Branding</h1>
         <form onSubmit={submit} className="space-y-4">
           <div className="space-y-1">

@@ -6,6 +6,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Fixed (Phase 10.6j — Back-link visibility, assistant footer spacing, TenantUsers button overlap)
+
+- **Back-link resize-to-appear bug (all pages):** In Tailwind v4, `space-y-*` applies
+  `margin-block-end` via `> :not(:last-child)`. When the first child is an inline `<a>`
+  (the back-link), some mobile browsers collapse its effective height on initial paint
+  and only correct on resize. Fix: added `block` to every back-link `<Link>` so it is
+  always a block-level element — immediate visibility on load, left-aligned with the
+  container's padding edge (same as cards below). Affected: `FacilityAvailability`,
+  `MyBookings`, `Account` (×2), `TenantFacilities`, `TenantUsers`, `TenantPolicies`,
+  `TenantBranding`, `CreateUser`.
+- **Assistant footer dead gap:** `paddingBottom: 56` on a `height: 100dvh` element in
+  CSS `content-box` mode adds blank space *below* flex content (not above it) — the
+  inner div becomes `100dvh + 56 px` tall, and the AuthedLayout `pb-14` (112 px) adds
+  another 112 px, totalling `100dvh + 168 px` of page height and a large scrollable
+  gap. Fix: changed the outer chat container to `position: fixed; inset: 0` so it is
+  exactly viewport-sized with no page overflow; `paddingBottom: 72` (≥ footer height
+  ~65 px) ensures the chat input sits just above the fixed footer with ~7 px clearance.
+- **TenantUsers two-button overlap (mobile):** The two action buttons ("Issue temp
+  password" ~188 px + "Deactivate" ~128 px + gap = ~332 px) exceeded the 326 px
+  mobile container. `shrink-0` on the action div prevented shrinking, causing the
+  buttons to overlay the user info text. Fix: replaced `ListRow` on user rows with a
+  responsive card — `flex-col gap-2` on mobile (info block above, buttons as equal-
+  width `flex-1` row below), `sm:flex-row sm:items-center sm:justify-between` on
+  desktop. Both buttons keep their exact labels, handlers, and ConfirmDialog flow;
+  `min-h-[40px]` ensures ≥ 40 px touch targets at all breakpoints.
+- CI gate: 35 test files, 181 tests green; `pnpm lint` 0 errors; `pnpm build` clean.
+
 ### Changed (Phase 10.6i — Measurement-driven padding / width / back-link optimization)
 
 - **Discovery:** `theme.css:86` sets `--spacing: 8px`, so Tailwind v4's `p-4` renders as
