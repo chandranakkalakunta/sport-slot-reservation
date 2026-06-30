@@ -33,6 +33,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   "powered by SlotSense" footer without hiding any chat content.
 - CI gate: 35 test files, 180 tests green.
 
+
 ### Added (Phase 10.6g — Standard list row system)
 
 - feat(frontend): Introduced `<ListRow>` component (`src/components/ListRow.tsx`)
