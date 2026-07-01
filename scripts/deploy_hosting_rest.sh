@@ -102,7 +102,13 @@ def translate(h):
         item={}
         if "source" in r: item["glob"]=r["source"]
         elif "regex" in r: item["regex"]=r["regex"]
-        item["headers"]=r.get("headers",[])
+        # firebase.json CLI format: headers=[{key,value}]; REST API v1beta1
+        # expects a map<string,string>.  Convert list → dict here.
+        raw=r.get("headers",[])
+        if isinstance(raw,list):
+            item["headers"]={e["key"]:e["value"] for e in raw}
+        else:
+            item["headers"]=raw
         hd.append(item)
     if hd: cfg["headers"]=hd
     for k in ("cleanUrls","trailingSlash","appAssociation","i18n"):
