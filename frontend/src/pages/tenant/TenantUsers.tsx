@@ -111,7 +111,7 @@ export default function TenantUsers() {
     <>
       <AppHeader />
       <main className="mx-auto max-w-6xl px-4 py-6 space-y-8">
-        <Link to="/tenant" className="block text-sm font-medium text-primary underline underline-offset-2 hover:text-primary/70">← Dashboard</Link>
+        <Link to="/tenant" className="block text-sm font-medium text-link underline underline-offset-2 hover:text-link/70">← Dashboard</Link>
         <h1 className="text-2xl font-semibold text-foreground">Residents &amp; Admins</h1>
 
         {/* User list */}

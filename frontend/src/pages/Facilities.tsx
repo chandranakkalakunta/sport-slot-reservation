@@ -2,13 +2,15 @@ import { Bot } from "lucide-react";
 import { Link } from "react-router-dom";
 
 import { AppHeader } from "../components/AppHeader";
+import { InstallPrompt } from "../components/InstallPrompt";
 import { Button } from "../components/ui/button";
 import { useFacilities } from "../hooks/bookingHooks";
 
 export default function Facilities() {
   const { data, isLoading, error } = useFacilities();
 
-  const activeFacilities = data?.items.filter((f) => f.active) ?? [];
+  const activeFacilities = (data?.items.filter((f) => f.active) ?? [])
+    .sort((a, b) => a.name.localeCompare(b.name));
 
   return (
     <>
@@ -19,6 +21,7 @@ export default function Facilities() {
       </AppHeader>
 
       <main className="mx-auto max-w-6xl px-4 py-6 space-y-6">
+        <InstallPrompt />
         <h1 className="text-2xl font-semibold text-foreground">Facilities</h1>
 
         {/* Loading / error / empty states */}

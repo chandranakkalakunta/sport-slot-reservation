@@ -6,6 +6,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Fixed / Added (Phase 10.7 — SW cache freshness, install prompt, facility ordering, back-link dark-mode contrast)
+
+- **SW cache freshness (firebase.json):** Added `headers` section to Firebase Hosting
+  config. `index.html`, `manifest.webmanifest`, `sw.js`, `registerSW.js`, and
+  `workbox-*.js` all get `Cache-Control: no-cache` so browsers always revalidate on
+  load. Content-hashed assets under `/assets/**` keep `public, max-age=31536000,
+  immutable` (safe because hash changes on each rebuild). Result: deploys immediately
+  serve fresh HTML + SW; hashed assets remain efficiently cached. Effect takes hold
+  after the next `firebase deploy`; verify via `curl -sI https://sport-slot-dev.web.app/
+  | grep -i cache-control`.
+- **SW behavior (proposed, NOT applied):** The current `registerType: "autoUpdate"` with
+  `cleanupOutdatedCaches: true` is correct. With the no-cache headers above, the browser
+  will fetch a fresh `sw.js` on every load. Workbox already uses `skipWaiting` and
+  `clientsClaim` implicitly in `generateSW` mode. No change to SW activation behavior
+  is needed or applied.
+- **PWA install prompt (Facilities page):** Added `useInstallPrompt` hook
+  (`src/hooks/useInstallPrompt.ts`) and `InstallPrompt` component
+  (`src/components/InstallPrompt.tsx`). On Android/Chrome: listens for
+  `beforeinstallprompt`, stashes it, shows "Install app" button; calls `prompt()` on
+  click; hides on `appinstalled`. On iOS Safari (no `beforeinstallprompt`): detects iOS
+  UA + not-standalone, shows "Install: tap Share → Add to Home Screen" hint. Already
+  installed (standalone `display-mode`) → hidden. Dismissible via × button. Rendered
+  above the h1 in the Facilities page (home for residents).
+- **Facility ordering:** Both `Facilities` and `TenantFacilities` now sort the active
+  facility list by `name` ascending using `localeCompare` before rendering. Sort applied
+  in the component (no query change). Order is stable across re-renders.
+- **Back-link dark-mode contrast (root cause measured):** After the 10.6j `block` fix,
+  back-links are structurally correct (`display: block`, correct margins from
+  `space-y-*`). The remaining "invisible" symptom is a WCAG color-contrast failure:
+  `text-primary` (#1a4d8f) on the dark-mode background (#0f1115) gives a contrast ratio
+  of ~2.25:1 — far below the 4.5:1 AA threshold. Fix: added `--color-link` semantic
+  token to `theme.css` (`#1a4d8f` light, `#60a5fa` dark — ~4.6:1 on #0f1115). All
+  navigation links (`text-primary underline`) updated to `text-link`. The `block` class
+  from 10.6j is preserved on all back-links.
+- CI gate: 35 test files, 181 tests green; `pnpm lint` 0 errors; `pnpm build` clean.
+
 ### Fixed (Phase 10.6j — Back-link visibility, assistant footer spacing, TenantUsers button overlap)
 
 - **Back-link resize-to-appear bug (all pages):** In Tailwind v4, `space-y-*` applies
