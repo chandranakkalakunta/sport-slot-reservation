@@ -47,7 +47,7 @@ export default function FacilityAvailability() {
 
   return (
     <main className="mx-auto max-w-3xl px-4 py-6 space-y-4">
-      <Link to="/" className="block text-sm font-medium text-primary underline underline-offset-2 hover:text-primary/70">← Facilities</Link>
+      <Link to="/" className="block text-sm font-medium text-link underline underline-offset-2 hover:text-link/70">← Facilities</Link>
       <h1 className="text-2xl font-semibold text-foreground">Availability</h1>
 
       <div className="flex items-center gap-3">

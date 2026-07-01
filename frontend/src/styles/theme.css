@@ -33,6 +33,9 @@
   --color-input: #e2e8f0;
   --color-ring: #1a4d8f;
 
+  /* Interactive link color — uses primary in light mode, lighter in dark for contrast */
+  --color-link: #1a4d8f;
+
   /* Functional / semantic — system-controlled, NOT tenant-themable */
   --color-destructive: #b3261e;
   --color-destructive-foreground: #ffffff;
@@ -75,6 +78,7 @@
   --color-destructive: #f0635c;
   --color-success: #4ade80;
   --color-warning: #f0a23b;
+  --color-link: #60a5fa;
 }
 
 /* Backward-compatibility aliases for existing inline styles.
