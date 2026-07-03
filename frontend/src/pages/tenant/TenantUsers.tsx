@@ -241,6 +241,7 @@ export default function TenantUsers() {
             accept=".csv,text/csv"
             onChange={handleCSV}
             disabled={bulkCreate.isPending}
+            aria-label="Upload CSV for bulk user import"
             className="text-sm text-foreground"
           />
           {bulkCreate.isPending && <p className="text-sm text-muted-foreground">Importing…</p>}
