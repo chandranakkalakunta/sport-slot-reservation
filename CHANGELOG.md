@@ -6,6 +6,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Fixed / Added (Phase 10.8 — FOUC fix, hamburger overflow fix, always-on install banner)
+
+- **Dark-mode FOUC fix (index.html):** Added a tiny blocking (non-module) inline `<script>`
+  in `<head>` that runs synchronously before any CSS is applied. It reads
+  `localStorage.getItem("slotsense-theme")` and `prefers-color-scheme` and sets
+  `document.documentElement.dataset.mode = "dark"` immediately if needed. This prevents the
+  flash where dark-mode-aware CSS tokens (e.g. `--color-link: #1a4d8f` dark-blue, invisible
+  on dark background) resolve to their light-mode values on the first paint. The existing
+  `applyMode()` call in `main.tsx` continues to handle subsequent toggles. Wrapped in
+  `try/catch` so any localStorage/matchMedia unavailability is silently ignored.
+- **Hamburger icon overflow fix (AppHeader.tsx):** With `--spacing: 8px`, the right icon
+  cluster (`dark-toggle 72px + gap 16px + hamburger 72px = 160px`) and a `shrink-0` brand
+  div together overflow narrow viewports when a wide tenant logo or long brand name is
+  configured. Root cause: brand div was `shrink-0` with no min-w-0, preventing compression.
+  Fix: removed `shrink-0` from brand div; added `min-w-0` (allows flex shrink); logo `<img>`
+  gets `shrink-0 max-w-[80px] object-contain` (capped at 80px, proportional scale); brand
+  `<Link>` gets `truncate` (ellipsis if compressed). Hamburger verified in-viewport at
+  320/336/375/390/414px via Playwright (with 120px logo + long brand name).
+- **Always-on install banner (InstallPrompt.tsx):** The existing banner was gated on
+  `beforeinstallprompt` having fired (Chrome engagement heuristic — may never fire on first
+  visit). Updated to show unconditionally for any non-standalone session. States: `ready`
+  (native prompt available — tapping Install calls `prompt()` directly); `ios-hint` (iOS
+  Safari — shows "Tap Share → Add to Home Screen" immediately); `manual-hint` (Android/other
+  before engagement — shows Install button; tapping reveals "Tap ⋮ menu → Install app"
+  inline). Dismiss persists `slotsense-install-dismissed=1` to localStorage (never-show-again
+  policy). Already-installed (standalone) sessions render nothing.
+- CI gate: 36 test files, 191 tests green (+10 InstallPrompt tests); `pnpm lint` 0 errors;
+  `pnpm build` clean; contract diffs empty.
+
 ### Fixed / Added (Phase 10.7 — SW cache freshness, install prompt, facility ordering, back-link dark-mode contrast)
 
 - **SW cache freshness (firebase.json):** Added `headers` section to Firebase Hosting

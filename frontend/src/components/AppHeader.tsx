@@ -31,13 +31,13 @@ export function AppHeader({ children }: { children?: React.ReactNode }) {
       {/* Top bar — always visible */}
       <div className="flex items-center justify-between gap-2 px-4 py-3">
         {/* Brand */}
-        <div className="flex items-center gap-3 shrink-0">
+        <div className="flex items-center gap-3 min-w-0">
           {branding?.brand_logo_url && (
-            <img src={branding.brand_logo_url} alt="" className="h-8" />
+            <img src={branding.brand_logo_url} alt="" className="h-8 shrink-0 max-w-[80px] object-contain" />
           )}
           <Link
             to="/"
-            className="text-xl font-bold text-primary"
+            className="text-xl font-bold text-primary truncate"
             style={{ textDecoration: "none" }}
           >
             {branding?.brand_name || "SportSlot"}
