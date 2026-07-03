@@ -73,9 +73,10 @@ export default function TenantBranding() {
             />
           </div>
           <div className="space-y-1">
-            <label className="text-sm font-medium text-foreground">Primary color</label>
+            <label htmlFor="brand-primary-color" className="text-sm font-medium text-foreground">Primary color</label>
             <div className="flex items-center gap-2">
               <input
+                id="brand-primary-color"
                 type="color"
                 value={primaryColor}
                 onChange={(e) => setPrimaryColor(e.target.value)}
@@ -90,9 +91,10 @@ export default function TenantBranding() {
             </div>
           </div>
           <div className="space-y-1">
-            <label className="text-sm font-medium text-foreground">Secondary color</label>
+            <label htmlFor="brand-secondary-color" className="text-sm font-medium text-foreground">Secondary color</label>
             <div className="flex items-center gap-2">
               <input
+                id="brand-secondary-color"
                 type="color"
                 value={secondaryColor}
                 onChange={(e) => setSecondaryColor(e.target.value)}

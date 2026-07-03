@@ -6,6 +6,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added / Fixed (Phase 10.5 — Accessibility audit, axe-core scan, keyboard & focus-trap verification)
+
+- **Automated axe-core audit added (`src/a11y.audit.test.tsx`):** 44 tests covering all 14 key
+  pages (SignIn, Facilities, FacilityAvailability, MyBookings, Account, Assistant,
+  TenantDashboard, TenantFacilities, TenantUsers, TenantPolicies, TenantBranding,
+  TenantList, CreateTenant, CreateUser) in both light and dark mode via `jest-axe` + vitest/jsdom.
+  Zero axe `serious`/`critical` violations after fixes.
+- **TenantBranding — two unlabeled `<input type="color">` fixed (confirmed `label` violation):**
+  Primary-color and secondary-color pickers had visible `<label>` text but no `htmlFor`/`id`
+  association, so screen readers could not announce the label. Added `htmlFor="brand-primary-color"`
+  / `id="brand-primary-color"` and the same for secondary. No visual change.
+- **TenantUsers — unlabeled `<input type="file">` fixed (confirmed `label` violation):**
+  The CSV bulk-import file picker had no accessible name. Added
+  `aria-label="Upload CSV for bulk user import"`. No visual change.
+- **Keyboard navigation verified:** Tab order confirmed through SignIn (email → password →
+  show/hide toggle → submit → Google → forgot-pw), Facilities (facility links reachable),
+  FacilityAvailability (date input + available slot buttons reachable; disabled slots
+  correctly skipped by Tab), Account (both password fields + submit), MyBookings (Cancel button
+  reachable and dialog opens via Enter).
+- **ConfirmDialog focus-trap verified (Radix FocusScope):** Focus moves into dialog on open;
+  10 Tab cycles stay inside the dialog (trap confirmed); Escape closes dialog and calls onCancel;
+  Cancel and Confirm buttons both operable via keyboard.
+- **SlotGrid accessible states verified:** Each slot button exposes its time + state text in the
+  accessible name (`getByRole("button", { name: /08:00.*available/ })`), so state is not
+  color/text-only. Disabled buttons are correctly `disabled`. All three states (available,
+  booked, past) have visible text labels.
+- **CSS contrast note:** jsdom does not compute CSS custom-property values, so color-contrast
+  violations cannot be caught programmatically in this setup. The Phase 10.7 back-link contrast
+  fix remains the last known contrast issue; dark-mode token values are unchanged since that fix.
+  Manual verification with a real browser (Lighthouse / DevTools) is recommended on each
+  token-value change per ADR-0028.
+- **dep:** `jest-axe@10.0.0` + `@types/jest-axe@3.5.9` added as devDependencies.
+- CI gate: 37 test files, 238 tests green; `pnpm lint` 0 errors; `pnpm build` clean;
+  contract diffs empty (TenantBranding.tsx and TenantUsers.tsx — aria attributes only).
+
 ### Fixed / Changed (Phase 10.9 — Dark-mode toggle into menu; install banner clarity)
 
 - **Dark-mode toggle relocated to hamburger menu (mobile):** The persistent moon/sun icon in
