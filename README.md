@@ -9,10 +9,10 @@ documented, every phase independently validated.
 The repo name remains `sport-slot-reservation` (URL stability); the
 product was renamed to SlotSense during Phase 9.
 
-**Status:** Phase 9 complete — AI booking agent live on top of the
-multi-tenant SaaS foundation. Phase 8 (production hardening: CMEK,
-VPC, MFA, pen testing, DPDP formalization) is next, deferred during
-Phase 9 in favor of the agent build.
+**Status:** Phase 10 complete — portfolio-quality UI with Tailwind v4/shadcn
+design system, PWA installability, dark mode, and verified accessibility
+layered on top of the Phase 9 AI agent. Phase 8 (production hardening: CMEK,
+VPC, MFA, pen testing) remains deferred.
 
 ## What this is
 
@@ -46,9 +46,19 @@ vendor-fee value proposition, see
   output classifier for hallucination detection; Python-side guards
   for temporal reasoning, quota arithmetic, and disambiguation
 - **Per-tenant branding** — subdomain-based; each tenant's logo,
-  colors, font, and footer applied via CSS variables
-- **PWA-first delivery** — one codebase serves iOS, Android, and web;
-  100dvh layout, 44pt tap targets, keyboard-aware flex
+  colors, and name applied via CSS variables at runtime; tenant brand
+  is the primary identity in the header; "powered by SlotSense" footer
+  attribution is the platform's secondary presence (ADR-0029)
+- **Portfolio-quality UI** — Tailwind v4 + shadcn/ui (Radix primitives)
+  design system; Inter typeface; light/dark mode; responsive across
+  mobile, tablet, and desktop; 238 frontend tests across 37 test files
+- **PWA installable** — real app icons, correct Workbox cache strategy
+  (`no-cache` on HTML/manifest/SW; immutable long-cache on hashed
+  assets); install prompt on iOS, Android, and desktop
+- **Verified accessibility** — 28 automated axe-core scans (14 pages ×
+  2 modes) with zero serious/critical violations; keyboard navigation
+  and ConfirmDialog focus-trap confirmed; slot states are not
+  color-only (Radix + text labels)
 - **Production engineering posture** — 91%+ backend test coverage,
   branch-protected `main`, Workload Identity Federation for
   deployments (zero JSON keys), structured JSON logging, ADRs
@@ -118,19 +128,19 @@ setup, and known issues.
 - [`docs/SLOTSENSE_ARTICLE.md`](docs/SLOTSENSE_ARTICLE.md) — the
   portfolio article: architectural decisions, vendor-fee economics,
   what I'd reconsider with hindsight
-- [`docs/adr/`](docs/adr/) — 27 Architecture Decision Records covering
+- [`docs/adr/`](docs/adr/) — 29 Architecture Decision Records covering
   stack, data, tenant isolation, cost, API design, auth, booking
   domain, slot locking, audit, frontend, error presentation, admin
   identity, facility catalog, user provisioning, deletion lifecycle,
-  CI/CD security, notification architecture, password policy, and
-  the seven Phase 9 ADRs documenting the AI agent's safety
-  architecture
+  CI/CD security, notification architecture, password policy, the
+  seven Phase 9 ADRs documenting the AI agent's safety architecture,
+  and two Phase 10 ADRs (design system + co-branding hierarchy)
 - [`docs/retrospectives/`](docs/retrospectives/) — phase closure
   narratives. Phase 2 through 5 documented previously; Phase 9
-  added during the recent closure ceremony. Phases 6, 7, and 8
-  (deferred) are intentionally undocumented as retrospectives —
-  see the Phase 9 retrospective's "honest reflections" section for
-  why
+  and Phase 10 added during their respective closure ceremonies.
+  Phases 6, 7, and 8 (deferred) are intentionally undocumented as
+  retrospectives — see the Phase 9 retrospective's "honest reflections"
+  section for why
 - [`docs/security/charter.md`](docs/security/charter.md) — principles,
   threat model, phased controls, DPDP compliance, identity and
   credential model
@@ -142,8 +152,9 @@ setup, and known issues.
 **Backend:** Python 3.12 · FastAPI · uv · structlog ·
 zoneinfo (per-tenant timezones) · pytest with hermetic Firestore mocks
 
-**Frontend:** React 18 · Vite · TypeScript · pnpm · React Query 5 ·
-react-router-dom 7 · PWA-first
+**Frontend:** React 18 · Vite 6 · TypeScript · pnpm · React Query 5 ·
+react-router-dom 7 · Tailwind v4 · shadcn/ui (Radix primitives) ·
+lucide-react · Inter · PWA (Workbox)
 
 **Data:** Firestore (Native Mode) · Memorystore Redis (distributed
 locks + pending actions) · BigQuery (federation for cross-country
@@ -174,16 +185,19 @@ Identity Federation
 | 7 | Notifications (7.1) + Auth/password reset (7.2) | ◐ Partial (7.3–7.6 deferred) |
 | 8 | Production hardening (CMEK, VPC, MFA, pen test) | — Deferred; next up |
 | 9 | AI Booking Agent (SlotSense) | ✓ Complete |
-| 10 | TBD — voice mode, push notifications, or other | — Planned |
+| 10 | UI redesign + PWA + accessibility audit | ✓ Complete |
+| 11 | TBD — push notifications, voice mode, or other | — Planned |
 
-Phase 9 was prioritized over Phase 8 because the agent demonstrates
-more technical breadth and is more central to the product story.
-Phase 8 remains a real deliverable for the project's transition out
-of dev.
+Phase 8 (production hardening) remains the deferred work item before
+production launch. Phases 9 and 10 were prioritized over Phase 8
+because they demonstrate more technical breadth and are more central
+to the product story. Phase 8 is next.
 
-The 16-slice Phase 9 build, the seven live-testing rounds, and the
-eleven protocol-level lessons that emerged from them are documented
-in [`docs/retrospectives/phase-9.md`](docs/retrospectives/phase-9.md).
+Phase 9 and Phase 10 retrospectives document the build process,
+lessons learned, and process improvements adopted:
+
+- [`docs/retrospectives/phase-9.md`](docs/retrospectives/phase-9.md) — the 16-slice AI agent build and its seven live-testing rounds
+- [`docs/retrospectives/phase-10.md`](docs/retrospectives/phase-10.md) — the UI redesign, the density saga, deploy/cache lessons, a11y audit
 
 ## Engineering method
 

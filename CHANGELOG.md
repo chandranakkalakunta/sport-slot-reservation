@@ -6,6 +6,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Phase 10 complete — UI Redesign + PWA + Accessibility (PRs #48–#73, 26 PRs, July 2026)
+
+Phase 10 raised the SlotSense frontend from functional-but-unstyled to
+portfolio-quality consumer product. Key outcomes:
+
+- **Design system:** Tailwind v4 + shadcn/ui (Radix primitives) + Inter, mapped
+  onto the existing `--color-*` CSS-variable branding contract. All 14 page
+  surfaces restyled. Dark mode first-class via `data-mode`/FOUC-free inline
+  script. Test count grew from 107 to 238 across 37 test files.
+- **PWA:** Real app icons, correct Workbox cache strategy (`no-cache` on
+  navigation files, `immutable` on content-hashed assets), always-on install
+  prompt with platform-aware wording. Two deploy-pipeline bugs found and fixed
+  during rollout (Firebase Hosting REST API schema; `source:"/"` vs.
+  `source:"/index.html"` path matching — see PRs #69–#70).
+- **Co-branding:** Tenant brand is the dominant app identity; "powered by
+  SlotSense" footer is the secondary platform attribution. ADR-0029 captures
+  this hierarchy and forward-binds future surfaces (push notifications,
+  email, install prompt). Manifest name remains "SlotSense" (install-time
+  constraint; per-tenant manifest serving deferred).
+- **Booking fix (PR #65):** Removed client-side date filtering in `useMyBookings`
+  that was silently dropping confirmed bookings for residents in non-UTC
+  timezones. Backend is now the declared single source of truth for the
+  "upcoming" booking set.
+- **Accessibility audit (Phase 10.5):** 28 automated axe-core scans (14 pages
+  × 2 modes) — zero serious/critical violations after fixing two confirmed
+  findings (unlabeled color pickers in TenantBranding; unlabeled file input in
+  TenantUsers). Keyboard navigation and Radix FocusScope focus-trap confirmed.
+- **ADRs:** ADR-0028 (design system + theming) and ADR-0029 (co-branding
+  hierarchy).
+- **Retrospective:** `docs/retrospectives/phase-10.md` — the density saga,
+  deploy/cache lessons, and process improvements adopted.
+
 ### Added / Fixed (Phase 10.5 — Accessibility audit, axe-core scan, keyboard & focus-trap verification)
 
 - **Automated axe-core audit added (`src/a11y.audit.test.tsx`):** 44 tests covering all 14 key
