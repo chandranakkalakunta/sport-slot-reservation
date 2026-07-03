@@ -56,15 +56,16 @@ describe("AppHeader — existing contract", () => {
   });
 });
 
-describe("AppHeader — dark mode toggle", () => {
-  it("renders the dark-mode toggle button", () => {
+describe("AppHeader — dark mode toggle (header, desktop-visible)", () => {
+  it("renders the dark-mode toggle button in the header", () => {
     wrap(<AppHeader />);
+    // Menu closed: only header toggle is in DOM (mobile menu not rendered)
     expect(
       screen.getByRole("button", { name: "Switch to dark mode" })
     ).toBeInTheDocument();
   });
 
-  it("clicking toggle sets data-mode=dark and updates aria-label", async () => {
+  it("clicking header toggle sets data-mode=dark and updates aria-label", async () => {
     const user = userEvent.setup();
     wrap(<AppHeader />);
 
@@ -76,12 +77,55 @@ describe("AppHeader — dark mode toggle", () => {
     ).toBeInTheDocument();
   });
 
-  it("clicking toggle twice returns to light mode", async () => {
+  it("clicking header toggle twice returns to light mode", async () => {
     const user = userEvent.setup();
     wrap(<AppHeader />);
 
     await user.click(screen.getByRole("button", { name: "Switch to dark mode" }));
     await user.click(screen.getByRole("button", { name: "Switch to light mode" }));
+
+    expect(document.documentElement.dataset.mode).toBeUndefined();
+  });
+});
+
+describe("AppHeader — dark mode toggle (mobile menu)", () => {
+  it("mobile menu contains a dark-mode toggle with label text", async () => {
+    const user = userEvent.setup();
+    wrap(<AppHeader />);
+
+    await user.click(screen.getByRole("button", { name: "Open menu" }));
+
+    const mobileNav = screen.getByRole("navigation", { name: "Mobile navigation" });
+    expect(
+      within(mobileNav).getByRole("button", { name: "Switch to dark mode" })
+    ).toBeInTheDocument();
+    expect(within(mobileNav).getByText("Dark mode")).toBeInTheDocument();
+  });
+
+  it("tapping mobile menu toggle sets data-mode=dark", async () => {
+    const user = userEvent.setup();
+    wrap(<AppHeader />);
+
+    await user.click(screen.getByRole("button", { name: "Open menu" }));
+
+    const mobileNav = screen.getByRole("navigation", { name: "Mobile navigation" });
+    await user.click(
+      within(mobileNav).getByRole("button", { name: "Switch to dark mode" })
+    );
+
+    expect(document.documentElement.dataset.mode).toBe("dark");
+    expect(within(mobileNav).getByText("Light mode")).toBeInTheDocument();
+  });
+
+  it("tapping mobile menu toggle twice returns to light mode", async () => {
+    const user = userEvent.setup();
+    wrap(<AppHeader />);
+
+    await user.click(screen.getByRole("button", { name: "Open menu" }));
+
+    const mobileNav = screen.getByRole("navigation", { name: "Mobile navigation" });
+    await user.click(within(mobileNav).getByRole("button", { name: "Switch to dark mode" }));
+    await user.click(within(mobileNav).getByRole("button", { name: "Switch to light mode" }));
 
     expect(document.documentElement.dataset.mode).toBeUndefined();
   });
@@ -122,7 +166,7 @@ describe("AppHeader — mobile menu", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("clicking hamburger opens mobile nav with Account and Sign out", async () => {
+  it("clicking hamburger opens mobile nav with dark-mode toggle, Account, and Sign out", async () => {
     const user = userEvent.setup();
     wrap(<AppHeader />);
 
@@ -130,6 +174,7 @@ describe("AppHeader — mobile menu", () => {
 
     const mobileNav = screen.getByRole("navigation", { name: "Mobile navigation" });
     expect(mobileNav).toBeInTheDocument();
+    expect(within(mobileNav).getByRole("button", { name: "Switch to dark mode" })).toBeInTheDocument();
     expect(within(mobileNav).getByRole("link", { name: "Account" })).toBeInTheDocument();
     expect(within(mobileNav).getByRole("button", { name: /Sign out/ })).toBeInTheDocument();
   });

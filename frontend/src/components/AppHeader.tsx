@@ -61,10 +61,11 @@ export function AppHeader({ children }: { children?: React.ReactNode }) {
             </span>
           )}
 
-          {/* Dark-mode toggle — reachable at all widths */}
+          {/* Dark-mode toggle — desktop header only; mobile version lives in the hamburger menu */}
           <Button
             variant="ghost"
             size="icon"
+            className="hidden sm:inline-flex"
             onClick={toggleMode}
             aria-label={mode === "dark" ? "Switch to light mode" : "Switch to dark mode"}
           >
@@ -115,6 +116,18 @@ export function AppHeader({ children }: { children?: React.ReactNode }) {
           className="sm:hidden flex flex-col gap-3 border-t border-border px-4 py-4"
         >
           {children}
+
+          {/* Dark-mode toggle as a menu item — mobile only; mirrors header toggle behavior */}
+          <Button
+            variant="ghost"
+            size="sm"
+            className="min-h-[44px] justify-start gap-2"
+            onClick={toggleMode}
+            aria-label={mode === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+          >
+            {mode === "dark" ? <Sun className="size-4" /> : <Moon className="size-4" />}
+            {mode === "dark" ? "Light mode" : "Dark mode"}
+          </Button>
 
           {user && (
             <span className="text-sm text-muted-foreground">

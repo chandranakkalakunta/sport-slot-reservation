@@ -6,6 +6,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Fixed / Changed (Phase 10.9 — Dark-mode toggle into menu; install banner clarity)
+
+- **Dark-mode toggle relocated to hamburger menu (mobile):** The persistent moon/sun icon in
+  the mobile header row (`size-9 = 72px` with `--spacing: 8px`) consumed 88px of brand space
+  that is now freed. The toggle is hidden on mobile via `hidden sm:inline-flex` and rendered
+  as the first item in the opened mobile nav (Button `ghost sm` with Moon/Sun icon + "Dark
+  mode"/"Light mode" label). On desktop (≥640px, no hamburger) it stays in the persistent
+  header row — unchanged. Keyboard accessibility, aria-label, and `applyMode()` behavior are
+  fully preserved; only the toggle's DOM location on mobile changes.
+- **Brand name room improvement:** With only the hamburger (72px) in the mobile right cluster,
+  available brand width at 375px grows from 135px to 223px. A tenant with "RVRG Residency"
+  (114px text) + 80px logo (218px total) now fits from ~266px viewport onward vs. ~394px
+  previously — an 128px improvement in the breakeven width.
+- **Install banner wording fix (Android/manual-hint):** The instruction `"Tap ⋮ menu →
+  Install app"` was ambiguous — Coordinator confused it with the app's own ☰ hamburger. Fixed
+  to `"Open your browser's ⋮ menu → Install app"`, making it unambiguous that the BROWSER's
+  three-dot menu is meant (not the app's). Investigation confirmed no logic coupling between
+  the Install banner's onClick handler and AppHeader's hamburger state — pure wording issue.
+- CI gate: 36 test files, 194 tests green (+3 AppHeader mobile-menu toggle tests); `pnpm lint`
+  0 errors; `pnpm build` clean; contract diffs empty.
+
 ### Fixed / Added (Phase 10.8 — FOUC fix, hamburger overflow fix, always-on install banner)
 
 - **Dark-mode FOUC fix (index.html):** Added a tiny blocking (non-module) inline `<script>`

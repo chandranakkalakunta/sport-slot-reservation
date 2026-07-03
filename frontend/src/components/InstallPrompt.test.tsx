@@ -34,10 +34,12 @@ describe("InstallPrompt — manual-hint (no native prompt yet)", () => {
     expect(screen.getByText(/Install SlotSense/i)).toBeInTheDocument();
   });
 
-  it("reveals ⋮ instructions after tapping Install", () => {
+  it("reveals browser ⋮ instructions (not app menu) after tapping Install", () => {
     vi.mocked(hook.useInstallPrompt).mockReturnValue({ kind: "manual-hint" });
     render(<InstallPrompt />);
     fireEvent.click(screen.getByRole("button", { name: "Install app" }));
+    // Instruction must explicitly say "browser's" to avoid confusion with the app's own ☰
+    expect(screen.getByText(/browser's/i)).toBeInTheDocument();
     expect(screen.getByText("⋮ menu")).toBeInTheDocument();
     expect(screen.getByText("Install app")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Install app" })).not.toBeInTheDocument();
