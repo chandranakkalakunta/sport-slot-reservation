@@ -5,11 +5,11 @@ interface BeforeInstallPromptEvent extends Event {
   readonly userChoice: Promise<{ outcome: "accepted" | "dismissed" }>;
 }
 
-function isIOS(): boolean {
+export function isIOS(): boolean {
   return /iphone|ipad|ipod/i.test(navigator.userAgent);
 }
 
-function isStandalone(): boolean {
+export function isStandalone(): boolean {
   if (typeof window === "undefined") return false;
   const mq = typeof window.matchMedia === "function"
     ? window.matchMedia("(display-mode: standalone)").matches
@@ -18,9 +18,10 @@ function isStandalone(): boolean {
 }
 
 export type InstallState =
-  | { kind: "ready"; prompt: () => void }    // Android/Chrome: show install button
-  | { kind: "ios-hint" }                     // iOS Safari: show share-menu hint
-  | { kind: "hidden" };                      // installed or unsupported
+  | { kind: "ready"; prompt: () => void }    // Android/Chrome: native OS install dialog available
+  | { kind: "ios-hint" }                     // iOS Safari: show Share → Add to Home Screen
+  | { kind: "manual-hint" }                  // non-standalone, no native prompt yet (show instructions on request)
+  | { kind: "hidden" };                      // already installed (standalone)
 
 export function useInstallPrompt(): InstallState {
   const [deferredEvent, setDeferredEvent] = useState<BeforeInstallPromptEvent | null>(null);
@@ -58,7 +59,7 @@ export function useInstallPrompt(): InstallState {
     };
   }
 
-  if (isIOS() && !isStandalone()) return { kind: "ios-hint" };
+  if (isIOS()) return { kind: "ios-hint" };
 
-  return { kind: "hidden" };
+  return { kind: "manual-hint" };
 }
