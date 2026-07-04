@@ -33,7 +33,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from sport_slot.auth.context import TenantContext
-from sport_slot.services.agent.orchestrator import run_agent, run_agent_confirm
+from sport_slot.services.agent.orchestrator import _facility_list_text, run_agent, run_agent_confirm
 from sport_slot.services.agent.vertex_client import AgentResponse
 
 # ── fixtures ──────────────────────────────────────────────────────────────────
@@ -1159,3 +1159,41 @@ async def test_dispatch_book_am_future_not_advanced():
     assert turn.pending_action_id is not None
     _, _, params = store.propose_calls[0]
     assert params["start"] == "09:00"  # not advanced
+
+
+# ── facility list text includes sport (fix/agent-facility-resolution) ─────────
+
+def test_facility_list_text_includes_sport_in_booking_fixture():
+    """_facility_list_text renders sport for the booking-suite FACILITY fixture.
+
+    The FACILITY fixture has sport="tennis" which differs from the facility
+    name "Tennis Court 1", confirming sport is rendered separately from name.
+    """
+    result = _facility_list_text([FACILITY])
+    assert "(sport=tennis)" in result
+    assert "(id=f-court1)" in result
+    assert "Tennis Court 1" in result
+
+
+@pytest.mark.asyncio
+async def test_system_prompt_includes_sport_in_facility_list():
+    """System prompt passed to Vertex contains sport= for each facility.
+
+    NOTE: Verifies the instruction text is PRESENT in the rendered system
+    prompt. Does NOT verify the LLM follows the instructions — live manual
+    testing required.
+    """
+    text_response = AgentResponse(function_call=None, text="Sure.")
+    store = FakePendingActionStore()
+
+    with (
+        patch("sport_slot.services.agent.vertex_client.generate",
+              new_callable=AsyncMock, return_value=text_response) as mock_gen,
+        patch("sport_slot.services.agent.vertex_client.classify_output",
+              new_callable=AsyncMock, return_value=True),
+    ):
+        await run_agent(CTX, _firestore_client(), store, "What courts are available?")
+
+    system_instruction = mock_gen.call_args_list[0].kwargs["system_instruction"]
+    assert "(sport=tennis)" in system_instruction
+    assert "(id=f-court1)" in system_instruction

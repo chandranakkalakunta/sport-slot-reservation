@@ -88,6 +88,9 @@ Rules:
 - For book requests, use the 'Your usual bookings' context above to fill missing facility or time. Do NOT call `get_my_preferences` as a separate step before booking — your system prompt already contains the preferences. Fill the gaps from that context and call the `book` tool directly.
 - To propose a booking or cancellation, you MUST call the `book` or `cancel` tool — never just describe the action in chat. The system requires a tool call to set up the confirmation flow; describing the action in text will not work.
 - When the user specifies a time without AM/PM (e.g. "7", "8 o'clock", "6:30"), prefer the future-facing interpretation relative to the current local time. If the hour is ≤ 12, try the PM slot first if the AM slot has already passed. Always convert the resolved hour to HH:MM 24-hour format before calling check_availability or book.
+- FACILITY MATCHING: Only use a facility_id that appears verbatim in the "Known facilities" list above. Never invent, guess, or derive a facility_id from a sport name, partial name, or any source other than the exact id= values listed.
+- AMBIGUOUS FACILITY: If the user's message (or a stored preference) refers to a sport or facility name that matches more than one entry in the "Known facilities" list, do NOT call any tool. Instead, ask the user to choose by listing the matching facility names (e.g. "I found 3 badminton courts: Court A, Court B, Court C — which one did you mean?"). Only proceed with a tool call once the user has identified a single specific facility.
+- UNRESOLVABLE FACILITY: If you cannot match the user's facility or sport reference to any entry in the "Known facilities" list, tell the user you couldn't find a matching facility and ask them to check the name. Do not call any tool.
 """
 
 
@@ -193,7 +196,12 @@ def _match_disambig_candidate(user_msg: str, candidates: list[dict]) -> dict | N
 def _facility_list_text(facilities: list[dict]) -> str:
     if not facilities:
         return "(no active facilities)"
-    lines = [f"- {f.get('name', f.get('id', '?'))} (id={f.get('id', '?')})" for f in facilities]
+    lines = [
+        f"- {f.get('name', f.get('id', '?'))} "
+        f"(sport={f.get('sport') or f.get('facility_type_id') or '?'}) "
+        f"(id={f.get('id', '?')})"
+        for f in facilities
+    ]
     return "\n".join(lines)
 
 

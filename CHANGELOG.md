@@ -6,6 +6,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Agent Facility Resolution Reliability (backend, July 2026)
+
+Prompt-level fix for facility matching on the AI agent. **Requires live manual
+verification** — automated tests confirm the instruction text is present in the
+rendered system prompt, but cannot verify that the LLM follows the instructions.
+
+- **`_facility_list_text`** (`orchestrator.py`): Each facility line now includes
+  `(sport=...)` alongside the name and id, e.g.
+  `- North Court (sport=badminton) (id=abc123)`. Gives the model a cleaner signal
+  when the user refers to a sport rather than a facility name. Falls back to
+  `facility_type_id` when the `sport` field is absent.
+- **Disambiguation rules** (`_SYSTEM_TEMPLATE`, `orchestrator.py`): Three new
+  rules appended to the system prompt:
+  - `FACILITY MATCHING` — only use a `facility_id` that appears verbatim in the
+    "Known facilities" list; never invent or derive one from a sport name.
+  - `AMBIGUOUS FACILITY` — if a sport/name matches more than one facility, do NOT
+    call any tool; ask the user to choose by listing the matching names.
+  - `UNRESOLVABLE FACILITY` — if no match can be found, tell the user and do not
+    call any tool.
+- **Tests:** 6 new tests (372 → 378, 0 failed):
+  - `test_agent.py`: `_facility_list_text` renders sport + id for non-obvious
+    fixture; falls back to `facility_type_id`; empty returns placeholder; system
+    prompt contains `FACILITY MATCHING`, `AMBIGUOUS FACILITY`, and
+    `UNRESOLVABLE FACILITY` text.
+  - `test_agent_booking.py`: `_facility_list_text` renders sport for booking-suite
+    fixture; system prompt includes `(sport=tennis)` for the facility.
+  - All new tests are labelled where applicable: "verifies instruction is PRESENT
+    in prompt text; does NOT verify the LLM follows it — requires live manual
+    testing."
+
 ### Clone Facility + Edit-Dialog Scroll Fix (frontend, July 2026)
 
 Two improvements to the tenant-admin facility management flow.

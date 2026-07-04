@@ -21,7 +21,7 @@ import pytest
 
 from sport_slot.auth.context import TenantContext
 from sport_slot.services.agent.guardrails import rules_pass
-from sport_slot.services.agent.orchestrator import run_agent
+from sport_slot.services.agent.orchestrator import _facility_list_text, run_agent
 from sport_slot.services.agent.tools import REGISTERED_TOOLS
 from sport_slot.services.agent.vertex_client import AgentResponse
 
@@ -511,3 +511,73 @@ async def test_list_my_bookings_dispatch_fetches_enough_rows_to_see_future():
     turn2_msg = mock_gen.call_args_list[1].kwargs["message"]
     assert "total_bookings=1" in turn2_msg
     assert future in turn2_msg
+
+
+# ── facility list text includes sport (fix/agent-facility-resolution) ─────────
+
+def test_facility_list_text_includes_sport_field():
+    """_facility_list_text renders sport alongside name and id.
+
+    Uses a fixture where sport differs visibly from the facility name so the
+    assertion is meaningful (not just a substring of the name).
+    """
+    facilities = [
+        {"id": "abc123", "name": "West Wing Hall", "sport": "squash"},
+        {"id": "def456", "name": "Pool Annex",     "sport": "swimming"},
+    ]
+    result = _facility_list_text(facilities)
+
+    assert "(sport=squash)" in result
+    assert "(id=abc123)" in result
+    assert "(sport=swimming)" in result
+    assert "(id=def456)" in result
+    # Names must also be present
+    assert "West Wing Hall" in result
+    assert "Pool Annex" in result
+
+
+def test_facility_list_text_falls_back_to_facility_type_id_when_sport_absent():
+    """_facility_list_text uses facility_type_id when sport is absent."""
+    facilities = [{"id": "xyz", "name": "Court A", "facility_type_id": "badminton"}]
+    result = _facility_list_text(facilities)
+    assert "(sport=badminton)" in result
+    assert "(id=xyz)" in result
+
+
+def test_facility_list_text_empty_returns_placeholder():
+    result = _facility_list_text([])
+    assert result == "(no active facilities)"
+
+
+# ── system prompt contains disambiguation instructions ────────────────────────
+
+@pytest.mark.asyncio
+async def test_system_prompt_contains_facility_matching_rules():
+    """System prompt includes the exact-match and disambiguation rules.
+
+    NOTE: This test verifies the instruction text is PRESENT in the rendered
+    system prompt. It does NOT verify that the LLM follows the instructions —
+    that requires live manual testing with a real model.
+    """
+    text_response = AgentResponse(function_call=None, text="Hello.")
+
+    with (
+        patch("sport_slot.services.agent.vertex_client.generate",
+              new_callable=AsyncMock, return_value=text_response) as mock_gen,
+        patch("sport_slot.services.agent.vertex_client.classify_output",
+              new_callable=AsyncMock, return_value=True),
+    ):
+        await _ra(CTX, _firestore_client(), "Hi")
+
+    system_instruction = mock_gen.call_args_list[0].kwargs["system_instruction"]
+
+    # Exact-match rule
+    assert "FACILITY MATCHING" in system_instruction
+    assert "verbatim" in system_instruction
+
+    # Ambiguous facility rule
+    assert "AMBIGUOUS FACILITY" in system_instruction
+    assert "ask the user to choose" in system_instruction
+
+    # Unresolvable facility rule
+    assert "UNRESOLVABLE FACILITY" in system_instruction
