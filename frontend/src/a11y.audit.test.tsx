@@ -38,6 +38,7 @@ vi.mock("./hooks/tenantAdminHooks", () => ({
   useFacilityCatalog: vi.fn(),
   useTenantFacilities: vi.fn(),
   useCreateFacility: vi.fn(),
+  useUpdateFacility: vi.fn(),
   useDeactivateFacility: vi.fn(),
   useTenantUsers: vi.fn(),
   useCreateTenantUser: vi.fn(),
@@ -111,9 +112,21 @@ import { type Slot } from "./hooks/bookingHooks";
 
 // ─── Stub data ────────────────────────────────────────────────────────────────
 
+const EMPTY_SCHEDULE = {
+  monday: [], tuesday: [], wednesday: [], thursday: [],
+  friday: [], saturday: [], sunday: [],
+};
 const FACILITY = {
   id: "f1", name: "Tennis Court A", sport: "tennis",
-  open_time: "07:00", close_time: "21:00", slot_duration_minutes: 60, active: true,
+  weekly_schedule: {
+    ...EMPTY_SCHEDULE,
+    monday: [{ start: "07:00", end: "21:00" }],
+    tuesday: [{ start: "07:00", end: "21:00" }],
+    wednesday: [{ start: "07:00", end: "21:00" }],
+    thursday: [{ start: "07:00", end: "21:00" }],
+    friday: [{ start: "07:00", end: "21:00" }],
+  },
+  slot_duration_minutes: 60, active: true,
 };
 const SLOTS: Slot[] = [
   { start: "08:00", end: "09:00", status: "available", bookable: true, reason: null },
@@ -134,7 +147,15 @@ const TENANT_USER = {
 const CATALOG = [{ type_id: "badminton", name: "Badminton", sport: "badminton" }];
 const ACTIVE_FAC = {
   id: "fac-1", facility_type_id: "badminton", sport: "badminton",
-  name: "North Court", open_time: "06:00", close_time: "22:00",
+  name: "North Court",
+  weekly_schedule: {
+    ...EMPTY_SCHEDULE,
+    monday: [{ start: "06:00", end: "22:00" }],
+    tuesday: [{ start: "06:00", end: "22:00" }],
+    wednesday: [{ start: "06:00", end: "22:00" }],
+    thursday: [{ start: "06:00", end: "22:00" }],
+    friday: [{ start: "06:00", end: "22:00" }],
+  },
   slot_duration_minutes: 60, active: true, description: null,
 };
 
@@ -166,6 +187,9 @@ function setupDefaultMocks() {
   vi.mocked(tenantHooks.useCreateFacility).mockReturnValue({
     mutateAsync: vi.fn(), isPending: false,
   } as unknown as ReturnType<typeof tenantHooks.useCreateFacility>);
+  vi.mocked(tenantHooks.useUpdateFacility).mockReturnValue({
+    mutateAsync: vi.fn(), isPending: false,
+  } as unknown as ReturnType<typeof tenantHooks.useUpdateFacility>);
   vi.mocked(tenantHooks.useDeactivateFacility).mockReturnValue({
     mutate: vi.fn(), isPending: false,
   } as unknown as ReturnType<typeof tenantHooks.useDeactivateFacility>);

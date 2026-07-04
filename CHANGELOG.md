@@ -6,6 +6,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Booking-Model v2.2 — Weekly schedule editor + facility edit flow (frontend, July 2026)
+
+Frontend sub-phase completing the v2.1 backend migration on the client side.
+
+- **Shared types** (`src/types/facilitySchedule.ts`): `DayName`, `TimeRange`,
+  `WeeklySchedule`, and `DAY_ORDER` constant — single source of truth shared across
+  both hook files and new components.
+- **Interface updates:** `Facility` (bookingHooks) and `TenantFacility`
+  (tenantAdminHooks) drop `open_time`/`close_time` and gain `weekly_schedule: WeeklySchedule`.
+  `useUpdateFacility` typed with a proper `UpdateFacilityPayload` (no more
+  `Record<string, unknown>`).
+- **WeeklyScheduleEditor** (`src/components/tenant/WeeklyScheduleEditor.tsx`):
+  7-day list with per-day Dialog (composed from existing `Dialog`/`Input`/`Button`
+  shadcn primitives only, per ADR-0028). Per-day carry-forward pre-fill: if a day
+  has zero ranges and is not Monday, it opens pre-filled with the previous day's
+  ranges as an editable starting point. Inline validation (start < end,
+  non-overlapping) disables Save and surfaces error before write.
+- **Facility create form** (TenantFacilities): replaces `openTime`/`closeTime` plain
+  text inputs with `WeeklyScheduleEditor`. Mutation payload now carries `weekly_schedule`.
+- **Facility edit flow** (TenantFacilities): new "Edit" action per facility row opens
+  a Dialog pre-filled with existing values (name, type, duration, description,
+  weekly schedule). Wires `useUpdateFacility` — previously dead code now in active use.
+  PATCH always sends the complete 7-day `weekly_schedule` object.
+- **Resident-facing display** (Facilities.tsx): replaces `open_time–close_time` string
+  with today's ranges resolved from `weekly_schedule` via `new Date().getDay()` weekday
+  mapping. Shows "Today: HH:MM–HH:MM, …" or "Closed today" when no ranges for the day.
+- **Tests:** 11 new WeeklyScheduleEditor tests; TenantFacilities updated to
+  `weekly_schedule` fixtures + new edit-flow test; Facilities updated with
+  `vi.setSystemTime`-based Monday/Saturday coverage; a11y audit stubs updated;
+  MyBookings stale fixture fixed. Baseline: 238 tests → 252 tests, 0 failed.
+
 ### Booking-Model v2.1 — Weekly multi-range facility schedule (backend, July 2026)
 
 Backend-only sub-phase replacing the flat `open_time`/`close_time` per-facility

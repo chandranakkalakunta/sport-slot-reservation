@@ -5,6 +5,17 @@ import { AppHeader } from "../components/AppHeader";
 import { InstallPrompt } from "../components/InstallPrompt";
 import { Button } from "../components/ui/button";
 import { useFacilities } from "../hooks/bookingHooks";
+import { DAY_ORDER } from "../types/facilitySchedule";
+import type { WeeklySchedule } from "../types/facilitySchedule";
+
+function todayRanges(schedule: WeeklySchedule): string {
+  // new Date().getDay() returns 0=Sunday..6=Saturday; DAY_ORDER is monday=0..sunday=6
+  const jsDay = new Date().getDay();
+  const dayIndex = jsDay === 0 ? 6 : jsDay - 1;
+  const ranges = schedule[DAY_ORDER[dayIndex]];
+  if (!ranges || ranges.length === 0) return "Closed today";
+  return "Today: " + ranges.map((r) => `${r.start}–${r.end}`).join(", ");
+}
 
 export default function Facilities() {
   const { data, isLoading, error } = useFacilities();
@@ -62,7 +73,7 @@ export default function Facilities() {
             >
               <p className="font-semibold text-foreground">{f.name}</p>
               <p className="text-sm text-muted-foreground tabular-nums mt-0.5">
-                {f.sport} · {f.open_time}–{f.close_time} · {f.slot_duration_minutes}min
+                {f.sport} · {f.slot_duration_minutes}min · {todayRanges(f.weekly_schedule)}
               </p>
             </Link>
           ))}

@@ -57,10 +57,17 @@ it("renders confirmed booking", () => {
   } as ReturnType<typeof hooks.useMyBookings>);
   vi.mocked(hooks.useFacilities).mockReturnValue({
     data: { items: [{ id: "f1", name: "Tennis Court", sport: "tennis",
-      open_time: "07:00", close_time: "21:00", slot_duration_minutes: 60,
-      active: true }] },
+      weekly_schedule: {
+        monday: [{ start: "07:00", end: "21:00" }],
+        tuesday: [{ start: "07:00", end: "21:00" }],
+        wednesday: [{ start: "07:00", end: "21:00" }],
+        thursday: [{ start: "07:00", end: "21:00" }],
+        friday: [{ start: "07:00", end: "21:00" }],
+        saturday: [], sunday: [],
+      },
+      slot_duration_minutes: 60, active: true }] },
     isLoading: false,
-  } as ReturnType<typeof hooks.useFacilities>);
+  } as unknown as ReturnType<typeof hooks.useFacilities>);
   vi.mocked(hooks.useCancelBooking).mockReturnValue(CANCEL_STUB);
 
   wrap(<MyBookings />);
