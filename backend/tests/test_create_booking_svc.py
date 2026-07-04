@@ -16,9 +16,10 @@ from sport_slot.services.bookings import create_booking
 CTX = TenantContext(uid="u1", tenant_id="t-1", tenant_slug="demo",
                     role="resident", household_id="h-1")
 
+_DAYS = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]
 FACILITY = {
     "id": "f1", "active": True, "slot_duration_minutes": 60,
-    "open_time": "06:00", "close_time": "22:00",
+    "weekly_schedule": {day: [{"start": "06:00", "end": "22:00"}] for day in _DAYS},
 }
 POLICY_SNAP = {
     "timezone": "UTC",

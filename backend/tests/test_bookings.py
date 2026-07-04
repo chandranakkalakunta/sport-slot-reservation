@@ -17,9 +17,12 @@ BOOKED = "sport_slot.api.v1.bookings.BookingRepository.booked_starts"
 CREATE = "sport_slot.api.v1.bookings.create_booking_with_quota"
 ENQUEUE = "sport_slot.services.bookings.enqueue_notification"
 
-FACILITY = {"id": "f1", "active": True, "slot_duration_minutes": 60,
-            "open_time": "06:00", "close_time": "22:00",
-            "name": "Court 1", "sport": "Tennis"}
+_DAYS = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]
+FACILITY = {
+    "id": "f1", "active": True, "slot_duration_minutes": 60,
+    "weekly_schedule": {day: [{"start": "06:00", "end": "22:00"}] for day in _DAYS},
+    "name": "Court 1", "sport": "Tennis",
+}
 # Wide-horizon policy so a far-future date is cleanly bookable in tests
 TENANT = {"policies": {"booking_horizon_days": 3650},
           "timezone": "Asia/Kolkata"}

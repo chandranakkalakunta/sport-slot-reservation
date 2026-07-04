@@ -44,10 +44,11 @@ CTX = TenantContext(uid="u1", tenant_id="t-1", tenant_slug="demo",
 CTX_OTHER = TenantContext(uid="u-other", tenant_id="t-1", tenant_slug="demo",
                           role="resident", household_id="h-2")
 
+_DAYS = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]
 FACILITY = {
     "id": "f-court1", "name": "Tennis Court 1", "sport": "tennis",
     "active": True, "slot_duration_minutes": 60,
-    "open_time": "08:00", "close_time": "12:00",
+    "weekly_schedule": {day: [{"start": "08:00", "end": "12:00"}] for day in _DAYS},
 }
 
 POLICY_SNAP = {

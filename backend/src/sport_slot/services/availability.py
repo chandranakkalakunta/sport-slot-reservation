@@ -38,8 +38,6 @@ def compute_slots(
     window_open: str,
 ) -> list[dict]:
     duration = datetime.timedelta(minutes=facility["slot_duration_minutes"])
-    open_dt = datetime.datetime.combine(date, _parse_hhmm(facility["open_time"]))
-    close_dt = datetime.datetime.combine(date, _parse_hhmm(facility["close_time"]))
 
     today = now_local.date()
     days_ahead = (date - today).days
@@ -53,29 +51,36 @@ def compute_slots(
     else:
         date_reason = None
 
+    # date is already the caller's local date; weekday is derived directly.
+    weekday = date.strftime("%A").lower()
+    ranges = facility["weekly_schedule"].get(weekday, [])
+
     slots = []
-    cursor = open_dt
     naive_now = now_local.replace(tzinfo=None)
-    while cursor + duration <= close_dt:
-        start_s = cursor.strftime("%H:%M")
-        end_s = (cursor + duration).strftime("%H:%M")
-        if cursor + duration <= naive_now:
-            status, bookable, reason = STATUS_PAST, False, "PAST"
-        elif start_s in booked_starts:
-            status, bookable, reason = STATUS_BOOKED, False, "BOOKED"
-        elif date_reason:
-            status, bookable, reason = STATUS_AVAILABLE, False, date_reason
-        elif cursor <= naive_now < cursor + duration:
-            # In progress: bookable remainder, marked so the UI can
-            # warn before confirming (3.6 decision).
-            status, bookable, reason = STATUS_AVAILABLE, True, "IN_PROGRESS"
-        else:
-            status, bookable, reason = STATUS_AVAILABLE, True, None
-        slots.append(
-            {"start": start_s, "end": end_s, "status": status,
-             "bookable": bookable, "reason": reason}
-        )
-        cursor += duration
+    for r in ranges:
+        open_dt = datetime.datetime.combine(date, _parse_hhmm(r["start"]))
+        close_dt = datetime.datetime.combine(date, _parse_hhmm(r["end"]))
+        cursor = open_dt
+        while cursor + duration <= close_dt:
+            start_s = cursor.strftime("%H:%M")
+            end_s = (cursor + duration).strftime("%H:%M")
+            if cursor + duration <= naive_now:
+                status, bookable, reason = STATUS_PAST, False, "PAST"
+            elif start_s in booked_starts:
+                status, bookable, reason = STATUS_BOOKED, False, "BOOKED"
+            elif date_reason:
+                status, bookable, reason = STATUS_AVAILABLE, False, date_reason
+            elif cursor <= naive_now < cursor + duration:
+                # In progress: bookable remainder, marked so the UI can
+                # warn before confirming (3.6 decision).
+                status, bookable, reason = STATUS_AVAILABLE, True, "IN_PROGRESS"
+            else:
+                status, bookable, reason = STATUS_AVAILABLE, True, None
+            slots.append(
+                {"start": start_s, "end": end_s, "status": status,
+                 "bookable": bookable, "reason": reason}
+            )
+            cursor += duration
     return slots
 
 

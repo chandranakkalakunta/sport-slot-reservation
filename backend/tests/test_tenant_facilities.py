@@ -10,12 +10,14 @@ AUTH = {"authorization": "Bearer fake"}
 HOST = {"host": "demo.sportbook.chandraailabs.com"}
 VERIFY = "sport_slot.auth.dependency.fb_auth.verify_id_token"
 
+_DAYS = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]
+_SCHEDULE_6_22 = {day: [{"start": "06:00", "end": "22:00"}] for day in _DAYS}
+
 CATALOG_ITEM = {"type_id": "badminton", "name": "Badminton", "sport": "badminton"}
 NEW_FAC_BODY = {
     "facility_type_id": "badminton",
     "name": "Court 1",
-    "open_time": "06:00",
-    "close_time": "22:00",
+    "weekly_schedule": _SCHEDULE_6_22,
     "slot_duration_minutes": 60,
 }
 EXISTING_FAC = {
@@ -23,8 +25,7 @@ EXISTING_FAC = {
     "facility_type_id": "badminton",
     "sport": "badminton",
     "name": "Court 1",
-    "open_time": "06:00",
-    "close_time": "22:00",
+    "weekly_schedule": _SCHEDULE_6_22,
     "slot_duration_minutes": 60,
     "description": None,
     "active": True,

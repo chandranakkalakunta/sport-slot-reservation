@@ -6,6 +6,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Booking-Model v2.1 — Weekly multi-range facility schedule (backend, July 2026)
+
+Backend-only sub-phase replacing the flat `open_time`/`close_time` per-facility
+fields with a `weekly_schedule: dict[str, list[TimeRange]]` structure.
+
+- **ADR-0030** documents the decision: hard cutover (dev-only, no production data),
+  `slot_duration_minutes` unchanged, day-of-week resolution inside `compute_slots`
+  (signature unchanged → `create_booking` and agent orchestrator require zero changes).
+- **Schema:** `FacilityCreate` and `FacilityUpdate` now carry `weekly_schedule`
+  (7 required keys, each a list of `{"start": "HH:MM", "end": "HH:MM"}` ranges).
+  `TimeRange` is validated: HH:MM format, `start < end`, ranges per day must be
+  non-overlapping and chronologically ordered. `FacilityUpdate.weekly_schedule` is
+  whole-object (PATCH replaces the full 7-day schedule — no partial-day merge, per
+  ADR-0030 decision 4).
+- **`compute_slots` rewrite:** resolves `date.strftime("%A").lower()` → looks up that
+  day's ranges in `facility["weekly_schedule"]` → loops the existing
+  slot-increment/status logic once per range, concatenating results in chronological
+  order. Empty range list = closed day = zero slots returned.
+- **Tests:** all 9 backend test files with facility stubs updated to `weekly_schedule`
+  (`test_bookings.py` was an additional file found during the update pass, not in the
+  original investigation list). Three new tests added to `test_availability.py`:
+  two-range day (gap verified), closed day (empty list), different schedules on
+  different days. Test count: 369 → 372.
+- **Note:** the tenant-admin facility create/edit form (`TenantFacilities.tsx`) is
+  intentionally broken until v2.2 lands — expected, no external users affected.
+
 ### Phase 10 complete — UI Redesign + PWA + Accessibility (PRs #48–#73, 26 PRs, July 2026)
 
 Phase 10 raised the SlotSense frontend from functional-but-unstyled to

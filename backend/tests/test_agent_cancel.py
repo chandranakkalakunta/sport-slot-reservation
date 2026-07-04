@@ -57,15 +57,16 @@ CTX = TenantContext(
     role="resident", household_id="h-1",
 )
 
+_DAYS = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]
 TENNIS_FAC = {
     "id": "f-tennis1", "name": "Tennis Court 1", "sport": "tennis",
     "active": True, "slot_duration_minutes": 60,
-    "open_time": "08:00", "close_time": "20:00",
+    "weekly_schedule": {day: [{"start": "08:00", "end": "20:00"}] for day in _DAYS},
 }
 BADMINTON_FAC = {
     "id": "f-badminton1", "name": "Badminton Hall A", "sport": "badminton",
     "active": True, "slot_duration_minutes": 45,
-    "open_time": "07:00", "close_time": "22:00",
+    "weekly_schedule": {day: [{"start": "07:00", "end": "22:00"}] for day in _DAYS},
 }
 FACILITIES = [TENNIS_FAC, BADMINTON_FAC]
 

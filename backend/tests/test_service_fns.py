@@ -12,8 +12,11 @@ from sport_slot.services.bookings import _is_cancellable, list_my_bookings
 CTX = TenantContext(uid="u1", tenant_id="t-1", tenant_slug="demo",
                     role="resident", household_id="h-1")
 
-FACILITY = {"id": "f1", "active": True, "slot_duration_minutes": 60,
-            "open_time": "06:00", "close_time": "10:00"}
+_DAYS = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]
+FACILITY = {
+    "id": "f1", "active": True, "slot_duration_minutes": 60,
+    "weekly_schedule": {day: [{"start": "06:00", "end": "10:00"}] for day in _DAYS},
+}
 
 POLICY_SNAP = {"timezone": "UTC",
                "policies": {"booking_horizon_days": 3650,
