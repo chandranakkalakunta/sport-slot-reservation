@@ -1,11 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { apiFetch } from "../lib/api";
+import type { WeeklySchedule } from "../types/facilitySchedule";
 
 export interface CatalogType { type_id: string; name: string; sport: string; }
 export interface TenantFacility {
   id: string; facility_type_id: string; sport: string; name: string;
-  open_time: string; close_time: string; slot_duration_minutes: number;
+  weekly_schedule: WeeklySchedule; slot_duration_minutes: number;
   description?: string | null; active: boolean;
 }
 
@@ -34,10 +35,19 @@ export function useCreateFacility() {
   });
 }
 
+export interface UpdateFacilityPayload {
+  id: string;
+  name?: string;
+  facility_type_id?: string;
+  description?: string | null;
+  slot_duration_minutes?: number;
+  weekly_schedule?: WeeklySchedule;
+}
+
 export function useUpdateFacility() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, ...body }: { id: string } & Record<string, unknown>) =>
+    mutationFn: ({ id, ...body }: UpdateFacilityPayload) =>
       apiFetch<TenantFacility>(`/tenant/facilities/${id}`, {
         method: "PATCH", body: JSON.stringify(body),
       }),

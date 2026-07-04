@@ -1,14 +1,14 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { apiFetch } from "../lib/api";
+import type { WeeklySchedule } from "../types/facilitySchedule";
 
 export interface Facility {
   id: string;
   name: string;
   sport: string;
   slot_duration_minutes: number;
-  open_time: string;
-  close_time: string;
+  weekly_schedule: WeeklySchedule;
   active: boolean;
 }
 
