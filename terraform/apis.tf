@@ -4,8 +4,10 @@
 # DOCUMENTATION OF EXISTING RESOURCES (Phase 1.4.2 — Option C)
 # ═══════════════════════════════════════════════════════════════
 #
-# The 18 APIs below were enabled via `gcloud services enable` in
-# Phase 1.3.1. They are NOT currently managed by Terraform.
+# The 20 APIs below were enabled via `gcloud services enable` and
+# are NOT currently managed by Terraform.
+#   - 18 APIs enabled Phase 1.3.1 (Batch 1 + Batch 2)
+#   - 2 APIs enabled Phase 8b.1: compute, networksecurity
 #
 # To bring these under Terraform management in a future phase:
 #   1. Uncomment the resource block below
@@ -18,6 +20,7 @@
 
 locals {
   # Core infrastructure APIs (enabled Phase 1.3.1 Batch 1)
+  # compute + networksecurity added Phase 8b.1 (LB + Cloud Armor)
   core_apis = [
     "cloudresourcemanager.googleapis.com",
     "iam.googleapis.com",
@@ -28,6 +31,8 @@ locals {
     "identitytoolkit.googleapis.com",
     "secretmanager.googleapis.com",
     "cloudbuild.googleapis.com",
+    "compute.googleapis.com",
+    "networksecurity.googleapis.com",
   ]
 
   # Operational services APIs (enabled Phase 1.3.1 Batch 2)

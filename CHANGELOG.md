@@ -6,6 +6,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Phase 8b.1 — LB Foundation: ADR + APIs + Static IP + Wildcard Cert (infra, July 2026)
+
+First slice of the Global External HTTPS Load Balancer build for wildcard subdomain
+routing (`*.slotsense.chandraailabs.com`). **NOT YET APPLIED** — Coordinator must run
+`make tf-apply-dev` after reviewing the plan.
+
+- **ADR-0031** (`docs/adr/0031-load-balancer-wildcard-subdomains.md`): Documents the
+  Phase 8b architecture decision — additive LB alongside existing Firebase Hosting,
+  URL map path routing for API vs. frontend, Cloud Armor attachment, Cloud Run ingress
+  restriction as the final step, and `slotsense.chandraailabs.com` as the target domain
+  (product rename from `sportbook`).
+- **APIs enabled** (`gcloud services enable`, documented in `terraform/apis.tf` locals):
+  - `compute.googleapis.com` — required for all LB/networking resources
+  - `networksecurity.googleapis.com` — required for Cloud Armor (Phase 8b.3)
+- **`terraform/load_balancer_network.tf`** (new file, 2 resources):
+  - `google_compute_global_address.slotsense_lb_ip` — reserved static global IPv4 at
+    name `slotsense-lb-ip`; DNS A record for `*.slotsense.chandraailabs.com` should
+    point here before the LB is fully wired.
+  - `google_compute_managed_ssl_certificate.slotsense_wildcard_cert` — managed wildcard
+    cert for `*.slotsense.chandraailabs.com`; will remain `PROVISIONING` until DNS and
+    the LB forwarding rule are both active.
+- `terraform plan` confirmed: **2 to add, 0 to change, 0 to destroy**.
+- `terraform fmt` and `terraform validate` clean.
+
 ### Agent Facility Resolution Reliability (backend, July 2026)
 
 Prompt-level fix for facility matching on the AI agent. **Requires live manual
