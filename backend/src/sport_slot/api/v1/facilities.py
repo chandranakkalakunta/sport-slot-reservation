@@ -1,7 +1,8 @@
+import re
 import uuid
 
 from fastapi import APIRouter, Depends
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 
 from sport_slot.api import error_codes
 from sport_slot.api.errors import ApiError
@@ -53,21 +54,74 @@ async def facility_availability(
 
 
 # ── Catalog-based tenant-admin management router (ADR-0015 §2, §5) ─────────
+
+# Reuses the same HH:MM pattern as booking_window_open_time in tenant_config.py.
+_HHMM = re.compile(r"^([01]\d|2[0-3]):[0-5]\d$")
+_DAYS = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]
+
+
+class TimeRange(BaseModel):
+    start: str
+    end: str
+
+    @field_validator("start", "end")
+    @classmethod
+    def _hhmm_format(cls, v: str) -> str:
+        if not _HHMM.match(v):
+            raise ValueError("must be HH:MM (00:00–23:59)")
+        return v
+
+    @field_validator("end")
+    @classmethod
+    def _end_after_start(cls, v: str, info) -> str:
+        start = info.data.get("start")
+        if start and _HHMM.match(start) and v <= start:
+            raise ValueError("end must be after start")
+        return v
+
+
+def _validate_schedule(schedule: dict) -> dict:
+    missing = [d for d in _DAYS if d not in schedule]
+    extra = [k for k in schedule if k not in _DAYS]
+    if missing:
+        raise ValueError(f"weekly_schedule missing days: {missing}")
+    if extra:
+        raise ValueError(f"weekly_schedule has unknown day keys: {extra}")
+    for day, ranges in schedule.items():
+        for i in range(1, len(ranges)):
+            if ranges[i].start < ranges[i - 1].end:
+                raise ValueError(
+                    f"{day}: ranges must be chronologically ordered and non-overlapping "
+                    f"(range {i} start {ranges[i].start!r} overlaps previous end {ranges[i-1].end!r})"
+                )
+    return schedule
+
+
 class FacilityCreate(BaseModel):
     facility_type_id: str
     name: str
-    open_time: str          # "06:00"
-    close_time: str         # "22:00"
+    weekly_schedule: dict[str, list[TimeRange]]
     slot_duration_minutes: int
     description: str | None = None
+
+    @field_validator("weekly_schedule")
+    @classmethod
+    def _valid_schedule(cls, v: dict) -> dict:
+        return _validate_schedule(v)
 
 
 class FacilityUpdate(BaseModel):
     name: str | None = None
-    open_time: str | None = None
-    close_time: str | None = None
+    weekly_schedule: dict[str, list[TimeRange]] | None = None
     slot_duration_minutes: int | None = None
     description: str | None = None
+
+    @field_validator("weekly_schedule")
+    @classmethod
+    def _valid_schedule(cls, v: dict | None) -> dict | None:
+        if v is None:
+            return v
+        return _validate_schedule(v)
 
 
 tenant_facilities_router = APIRouter(prefix="/tenant/facilities", tags=["facilities"])
@@ -90,8 +144,10 @@ async def create_facility(
         "facility_type_id": body.facility_type_id,
         "sport": (cat.to_dict() or {}).get("sport"),
         "name": body.name,
-        "open_time": body.open_time,
-        "close_time": body.close_time,
+        "weekly_schedule": {
+            day: [r.model_dump() for r in ranges]
+            for day, ranges in body.weekly_schedule.items()
+        },
         "slot_duration_minutes": body.slot_duration_minutes,
         "description": body.description,
         "active": True,

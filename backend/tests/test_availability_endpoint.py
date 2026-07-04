@@ -9,8 +9,11 @@ HOST = {"host": "demo.sportbook.chandraailabs.com"}
 VERIFY = "sport_slot.auth.dependency.fb_auth.verify_id_token"
 BOOKED = "sport_slot.api.v1.facilities.BookingRepository.booked_starts"
 
-FACILITY = {"id": "f1", "active": True, "slot_duration_minutes": 60,
-            "open_time": "06:00", "close_time": "22:00"}
+_DAYS = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]
+FACILITY = {
+    "id": "f1", "active": True, "slot_duration_minutes": 60,
+    "weekly_schedule": {day: [{"start": "06:00", "end": "22:00"}] for day in _DAYS},
+}
 
 
 def _client(facility=FACILITY, tenant=None):
