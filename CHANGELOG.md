@@ -6,6 +6,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Phase 8b.1 Correction — Certificate Manager for Wildcard Cert (infra, July 2026)
+
+`google_compute_managed_ssl_certificate` does not support wildcard domains (GCP API
+error: "Wildcard domains not supported" — hard platform limitation, not a config error).
+Replaced with Google Cloud Certificate Manager, which supports wildcards via DNS
+authorization. **NOT YET APPLIED** — Coordinator must run `make tf-apply-dev`, then add
+the DNS authorization CNAME record at Namecheap (values available only after apply).
+
+- **`certificatemanager.googleapis.com`** enabled via `gcloud services enable`, documented
+  in `terraform/apis.tf` locals (count updated to 21).
+- **`terraform/load_balancer_network.tf`**: removed `google_compute_managed_ssl_certificate`
+  (never reached state — creation errored before an ID was returned, confirmed via
+  `terraform state list`). Added 4 Certificate Manager resources:
+  - `google_certificate_manager_dns_authorization.slotsense` (name: `slotsense-dns-auth`,
+    domain: `slotsense.chandraailabs.com`) — generates the CNAME record Namecheap needs
+  - `google_certificate_manager_certificate.slotsense_wildcard_cert` (name:
+    `slotsense-wildcard-cert`, domains: apex + wildcard, linked to dns_authorization)
+  - `google_certificate_manager_certificate_map.slotsense` (name: `slotsense-cert-map`)
+  - `google_certificate_manager_certificate_map_entry.slotsense_wildcard` (PRIMARY matcher)
+- **ADR-0031 addendum** appended documenting the classic-cert limitation and the switch to
+  Certificate Manager; notes the CNAME must remain permanently for auto-renewal.
+- `terraform plan` confirmed: **4 to add, 0 to change, 0 to destroy**; static IP shows
+  0 changes (already in state).
+- `terraform fmt` and `terraform validate` clean.
+
 ### Phase 8b.1 — LB Foundation: ADR + APIs + Static IP + Wildcard Cert (infra, July 2026)
 
 First slice of the Global External HTTPS Load Balancer build for wildcard subdomain

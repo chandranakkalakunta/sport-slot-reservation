@@ -80,3 +80,16 @@ reads these as configured values, not hardcoded strings.
 - Migrating to slotsense.in later is expected to be DNS/cert-only;
   this assumption should be re-verified when that migration is
   actually planned, not assumed permanently true.
+
+## Addendum (Phase 8b.1 correction)
+`google_compute_managed_ssl_certificate` does not support wildcard
+domains (confirmed via GCP documentation and a live API error:
+"Wildcard domains not supported"). Replaced with Google Cloud
+Certificate Manager (`google_certificate_manager_certificate`) using
+DNS authorization, which supports wildcards. This requires one
+additional one-time DNS record (a CNAME proving domain ownership
+to Certificate Manager) beyond the eventual routing record that
+points `*.slotsense.chandraailabs.com` at the LB's static IP. The
+DNS authorization CNAME must remain in place permanently to allow
+automatic certificate renewal — removing it revokes Google's
+ability to renew.
