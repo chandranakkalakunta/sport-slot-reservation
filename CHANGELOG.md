@@ -6,6 +6,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Post-v2.2 Cleanup — Edit dialog stale state, sport display name, default schedule (frontend, July 2026)
+
+Three targeted fixes on the `fix/post-v2.2-cleanup` branch following the v2.2 merge.
+
+- **Edit dialog stale state** (`TenantFacilities.tsx`): Added `key={editingFacility?.id ?? ""}` to the
+  `WeeklyScheduleEditor` inside the edit Dialog. React tears down and recreates the component tree
+  per-facility, preventing stale `draft` state from a previously opened facility from showing through
+  when the admin opens a different facility's edit dialog without a full page reload.
+- **Sport display name** (`TenantFacilities.tsx`, `Facilities.tsx`, `bookingHooks.ts`): Raw sport slugs
+  (e.g. `"table-tennis"`) replaced with the catalog's human-readable `name` field (e.g. `"Table Tennis"`).
+  `useFacilityCatalog` + `CatalogType` added to `bookingHooks.ts` (same `queryKey: ["facility-catalog"]`
+  as `tenantAdminHooks.ts` — React Query cache deduplication applies). Admin list resolves by
+  `facility_type_id`; resident page resolves by `sport` field (Facility interface lacks `facility_type_id`).
+- **Default create schedule** (`WeeklyScheduleEditor.tsx`, `TenantFacilities.tsx`): New facilities now
+  initialize the weekly schedule with `[{start:"06:00",end:"10:00"},{start:"16:00",end:"21:00"}]` on all
+  7 days via `defaultCreateSchedule()`. The edit path is unaffected — it always pre-fills from the
+  facility's stored schedule.
+- **Tests:** Regression test for the edit-dialog stale-state bug (open A → close → open B → assert B's
+  data); default schedule assertion for create form; assertion that editing shows real schedule not default;
+  catalog name display test; `useFacilityCatalog` added to bookingHooks mock in `a11y.audit.test.tsx`.
+  Baseline: 252 tests → 257 tests, 0 failed.
+
 ### Booking-Model v2.2 — Weekly schedule editor + facility edit flow (frontend, July 2026)
 
 Frontend sub-phase completing the v2.1 backend migration on the client side.

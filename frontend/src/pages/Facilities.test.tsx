@@ -1,7 +1,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("../components/AppHeader", () => ({ AppHeader: () => null }));
 
@@ -9,6 +9,7 @@ vi.mock("../components/AppHeader", () => ({ AppHeader: () => null }));
 // (which throws auth/invalid-api-key in CI where no Firebase env vars exist).
 vi.mock("../hooks/bookingHooks", () => ({
   useFacilities: vi.fn(),
+  useFacilityCatalog: vi.fn(),
 }));
 
 import * as hooks from "../hooks/bookingHooks";
@@ -22,6 +23,11 @@ function wrap(ui: React.ReactElement) {
     </QueryClientProvider>,
   );
 }
+
+const CATALOG = [
+  { type_id: "tennis-1", name: "Tennis", sport: "tennis" },
+  { type_id: "tt-1", name: "Table Tennis", sport: "table-tennis" },
+];
 
 const FACILITY = {
   id: "f1",
@@ -39,6 +45,12 @@ const FACILITY = {
   slot_duration_minutes: 60,
   active: true,
 };
+
+beforeEach(() => {
+  vi.spyOn(hooks, "useFacilityCatalog").mockReturnValue({
+    data: { items: CATALOG },
+  } as unknown as ReturnType<typeof hooks.useFacilityCatalog>);
+});
 
 afterEach(() => {
   vi.useRealTimers();
@@ -125,6 +137,42 @@ describe("Facilities", () => {
 
     wrap(<Facilities />);
     expect(screen.getByText("No facilities available.")).toBeInTheDocument();
+  });
+
+  it("displays the catalog display name instead of the raw sport slug", () => {
+    const tableTennisFacility = {
+      ...FACILITY,
+      id: "f2",
+      name: "Table Tennis Room",
+      sport: "table-tennis",
+    };
+    vi.spyOn(hooks, "useFacilities").mockReturnValue({
+      data: { items: [tableTennisFacility], next_cursor: null },
+      isLoading: false,
+      error: null,
+    } as unknown as ReturnType<typeof hooks.useFacilities>);
+
+    wrap(<Facilities />);
+    // Both the facility name "Table Tennis Room" and the sport label "Table Tennis" match;
+    // use getAllByText so we don't throw on multiple matches.
+    expect(screen.getAllByText(/Table Tennis/).length).toBeGreaterThan(0);
+    expect(screen.queryByText(/table-tennis/)).not.toBeInTheDocument();
+  });
+
+  it("falls back to raw sport slug when catalog is not yet loaded", () => {
+    vi.spyOn(hooks, "useFacilityCatalog").mockReturnValue({
+      data: undefined,
+    } as unknown as ReturnType<typeof hooks.useFacilityCatalog>);
+    vi.spyOn(hooks, "useFacilities").mockReturnValue({
+      data: { items: [FACILITY], next_cursor: null },
+      isLoading: false,
+      error: null,
+    } as unknown as ReturnType<typeof hooks.useFacilities>);
+
+    wrap(<Facilities />);
+    // The card <a> wrapper's text content also matches /tennis/ alongside the inner <p>;
+    // use getAllByText to avoid "multiple elements" throw.
+    expect(screen.getAllByText(/tennis/).length).toBeGreaterThan(0);
   });
 
   it("shows today's hours when the facility is open today", () => {

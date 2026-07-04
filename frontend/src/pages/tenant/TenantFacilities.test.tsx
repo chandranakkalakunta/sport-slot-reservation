@@ -34,6 +34,7 @@ vi.mock("../../lib/api", () => ({
 
 const CATALOG_ITEMS = [
   { type_id: "badminton", name: "Badminton", sport: "badminton" },
+  { type_id: "table-tennis", name: "Table Tennis", sport: "table-tennis" },
 ];
 const ACTIVE_FACILITY = {
   id: "fac-1", facility_type_id: "badminton", sport: "badminton",
@@ -48,6 +49,17 @@ const ACTIVE_FACILITY = {
     sunday: [],
   },
   slot_duration_minutes: 60, active: true, description: null,
+};
+
+const FACILITY_B = {
+  id: "fac-2", facility_type_id: "table-tennis", sport: "table-tennis",
+  name: "South Table",
+  weekly_schedule: {
+    monday: [{ start: "09:00", end: "17:00" }],
+    tuesday: [{ start: "09:00", end: "17:00" }],
+    wednesday: [], thursday: [], friday: [], saturday: [], sunday: [],
+  },
+  slot_duration_minutes: 30, active: true, description: null,
 };
 
 beforeEach(() => {
@@ -78,10 +90,18 @@ function renderPage() {
 }
 
 describe("TenantFacilities", () => {
-  it("lists active facilities", () => {
+  it("lists active facilities using catalog display name, not raw sport slug", () => {
     renderPage();
     expect(screen.getByText("North Court")).toBeInTheDocument();
-    expect(screen.getByText(/badminton/)).toBeInTheDocument();
+    // "Badminton" appears in the list item AND the <option>; use getAllByText.
+    expect(screen.getAllByText(/Badminton/).length).toBeGreaterThan(0);
+  });
+
+  it("create form initializes with the default schedule (06-10 + 16-21 on all 7 days)", async () => {
+    renderPage();
+    // The weekly editor shows all 7 days; Monday should show the default ranges summary
+    const summaries = screen.getAllByText("06:00–10:00, 16:00–21:00");
+    expect(summaries.length).toBe(7);
   });
 
   it("fires create mutation with weekly_schedule on valid form submit", async () => {
@@ -107,17 +127,25 @@ describe("TenantFacilities", () => {
           facility_type_id: "badminton",
           name: "South Court",
           weekly_schedule: expect.objectContaining({
-            monday: expect.any(Array),
-            tuesday: expect.any(Array),
-            wednesday: expect.any(Array),
-            thursday: expect.any(Array),
-            friday: expect.any(Array),
-            saturday: expect.any(Array),
-            sunday: expect.any(Array),
+            monday: [{ start: "06:00", end: "10:00" }, { start: "16:00", end: "21:00" }],
+            sunday: [{ start: "06:00", end: "10:00" }, { start: "16:00", end: "21:00" }],
           }),
         }),
       );
     });
+  });
+
+  it("edit dialog opens pre-filled with the facility's real schedule, not the default", async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(screen.getByRole("button", { name: /^edit$/i }));
+
+    const dialog = screen.getByRole("dialog", { name: /edit facility/i });
+    // Facility's real monday schedule: 06:00-22:00 (not the default 06:00-10:00, 16:00-21:00).
+    // Mon-Fri all have this range, so multiple rows match — use getAllByText.
+    expect(within(dialog).getAllByText("06:00–22:00").length).toBeGreaterThan(0);
+    expect(within(dialog).queryByText("06:00–10:00, 16:00–21:00")).not.toBeInTheDocument();
   });
 
   it("edit dialog opens pre-filled and fires update mutation with correct payload", async () => {
@@ -128,14 +156,11 @@ describe("TenantFacilities", () => {
     const user = userEvent.setup();
     renderPage();
 
-    // Open edit dialog for North Court
     await user.click(screen.getByRole("button", { name: /^edit$/i }));
 
     const dialog = screen.getByRole("dialog", { name: /edit facility/i });
-    // Pre-filled name
     expect(within(dialog).getByDisplayValue("North Court")).toBeInTheDocument();
 
-    // Change the name
     const nameInput = within(dialog).getByDisplayValue("North Court");
     await user.clear(nameInput);
     await user.type(nameInput, "South Court");
@@ -155,6 +180,39 @@ describe("TenantFacilities", () => {
     });
   });
 
+  it("edit dialog shows facility B's schedule after switching from facility A (stale-state regression)", async () => {
+    // Two facilities: A (06:00-22:00 mon) and B (09:00-17:00 mon)
+    vi.mocked(useTenantFacilities).mockReturnValue({
+      data: { items: [ACTIVE_FACILITY, FACILITY_B] },
+      isLoading: false,
+    } as unknown as ReturnType<typeof useTenantFacilities>);
+
+    const user = userEvent.setup();
+    renderPage();
+
+    // Open edit for North Court (A)
+    const editButtons = screen.getAllByRole("button", { name: /^edit$/i });
+    await user.click(editButtons[0]); // North Court (sorted alphabetically first)
+
+    let dialog = screen.getByRole("dialog", { name: /edit facility/i });
+    expect(within(dialog).getByDisplayValue("North Court")).toBeInTheDocument();
+
+    // Close the dialog
+    const closeBtn = within(dialog).getByRole("button", { name: /close/i });
+    await user.click(closeBtn);
+
+    // Open edit for South Table (B)
+    const editButtons2 = screen.getAllByRole("button", { name: /^edit$/i });
+    await user.click(editButtons2[1]); // South Table (second after sort)
+
+    dialog = screen.getByRole("dialog", { name: /edit facility/i });
+    // Must show B's name and B's monday schedule (09:00-17:00), not A's (06:00-22:00).
+    // Mon+Tue both have "09:00-17:00", so multiple rows match — use getAllByText.
+    expect(within(dialog).getByDisplayValue("South Table")).toBeInTheDocument();
+    expect(within(dialog).getAllByText("09:00–17:00").length).toBeGreaterThan(0);
+    expect(within(dialog).queryByText("06:00–22:00")).not.toBeInTheDocument();
+  });
+
   it("fires deactivate mutation after confirming Remove in dialog", async () => {
     const mutate = vi.fn();
     vi.mocked(useDeactivateFacility).mockImplementation(
@@ -163,7 +221,6 @@ describe("TenantFacilities", () => {
     const user = userEvent.setup();
     renderPage();
 
-    // De-emphasized trigger opens the ConfirmDialog (ADR-0028 §5 destructive posture)
     await user.click(screen.getByRole("button", { name: /remove/i }));
     await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Remove" }));
     expect(mutate).toHaveBeenCalledWith("fac-1");

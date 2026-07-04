@@ -13,6 +13,7 @@ import {
 import { ListRow } from "../../components/ListRow";
 import { Input } from "../../components/ui/input";
 import {
+  defaultCreateSchedule,
   emptyWeeklySchedule,
   WeeklyScheduleEditor,
 } from "../../components/tenant/WeeklyScheduleEditor";
@@ -40,7 +41,7 @@ export default function TenantFacilities() {
   const [name, setName] = useState("");
   const [duration, setDuration] = useState(60);
   const [description, setDescription] = useState("");
-  const [schedule, setSchedule] = useState<WeeklySchedule>(emptyWeeklySchedule);
+  const [schedule, setSchedule] = useState<WeeklySchedule>(defaultCreateSchedule);
   const [error, setError] = useState<string | null>(null);
   const [ok, setOk] = useState<string | null>(null);
 
@@ -85,7 +86,7 @@ export default function TenantFacilities() {
         weekly_schedule: schedule,
       });
       setOk(`Created ${name}.`);
-      setName(""); setDescription(""); setSchedule(emptyWeeklySchedule());
+      setName(""); setDescription(""); setSchedule(defaultCreateSchedule());
     } catch (e) {
       setError(e instanceof ApiClientError ? messageForCode(e.code) : "Failed to create facility.");
     }
@@ -109,6 +110,8 @@ export default function TenantFacilities() {
       setEditError(e instanceof ApiClientError ? messageForCode(e.code) : "Failed to update facility.");
     }
   }
+
+  const catalogMap = new Map(catalog?.items.map((c) => [c.type_id, c.name]) ?? []);
 
   const activeFacilities = (facilities?.items.filter((f) => f.active) ?? [])
     .sort((a, b) => a.name.localeCompare(b.name));
@@ -150,7 +153,7 @@ export default function TenantFacilities() {
             >
               <p className="font-semibold text-foreground truncate">{f.name}</p>
               <p className="text-sm text-muted-foreground tabular-nums mt-0.5">
-                {f.sport} · {f.slot_duration_minutes}min slots
+                {catalogMap.get(f.facility_type_id) ?? f.sport} · {f.slot_duration_minutes}min slots
                 {f.description ? ` · ${f.description}` : ""}
               </p>
             </ListRow>
@@ -282,7 +285,7 @@ export default function TenantFacilities() {
             </div>
             <div className="space-y-1">
               <p className="text-sm font-medium text-foreground">Weekly schedule</p>
-              <WeeklyScheduleEditor value={editSchedule} onChange={setEditSchedule} />
+              <WeeklyScheduleEditor key={editingFacility?.id ?? ""} value={editSchedule} onChange={setEditSchedule} />
             </div>
             {editError && <p className="text-sm text-destructive">{editError}</p>}
             {editOk && <p className="text-sm text-success">{editOk}</p>}
