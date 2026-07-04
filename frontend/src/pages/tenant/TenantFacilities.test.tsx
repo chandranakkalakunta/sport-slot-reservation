@@ -90,6 +90,8 @@ function renderPage() {
 }
 
 describe("TenantFacilities", () => {
+  // ── Existing tests (preserved, unweakened) ──────────────────────────────────
+
   it("lists active facilities using catalog display name, not raw sport slug", () => {
     renderPage();
     expect(screen.getByText("North Court")).toBeInTheDocument();
@@ -99,7 +101,7 @@ describe("TenantFacilities", () => {
 
   it("create form initializes with the default schedule (06-10 + 16-21 on all 7 days)", async () => {
     renderPage();
-    // The weekly editor shows all 7 days; Monday should show the default ranges summary
+    // The weekly editor shows all 7 days; each day should show the default ranges summary
     const summaries = screen.getAllByText("06:00–10:00, 16:00–21:00");
     expect(summaries.length).toBe(7);
   });
@@ -224,5 +226,98 @@ describe("TenantFacilities", () => {
     await user.click(screen.getByRole("button", { name: /remove/i }));
     await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Remove" }));
     expect(mutate).toHaveBeenCalledWith("fac-1");
+  });
+
+  // ── New: Clone tests ────────────────────────────────────────────────────────
+
+  it("clone opens dialog with type/duration/schedule pre-filled and name/description empty", async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(screen.getByRole("button", { name: /^clone$/i }));
+
+    const dialog = screen.getByRole("dialog", { name: /clone facility/i });
+    // Name must be empty — not "North Court"
+    expect(within(dialog).getByLabelText(/^name$/i)).toHaveValue("");
+    // Description must be empty
+    expect(within(dialog).getByLabelText(/description/i)).toHaveValue("");
+    // Duration pre-filled from source (60)
+    expect(within(dialog).getByLabelText(/slot duration/i)).toHaveValue(60);
+    // Schedule pre-filled — Mon-Fri all show 06:00-22:00 from source facility
+    expect(within(dialog).getAllByText("06:00–22:00").length).toBeGreaterThan(0);
+  });
+
+  it("clone save fires createFacility.mutateAsync, not updateFacility.mutateAsync", async () => {
+    const createMutateAsync = vi.fn().mockResolvedValue(ACTIVE_FACILITY);
+    const updateMutateAsync = vi.fn().mockResolvedValue(ACTIVE_FACILITY);
+    vi.mocked(useCreateFacility).mockImplementation(
+      () => ({ mutateAsync: createMutateAsync, isPending: false }) as unknown as ReturnType<typeof useCreateFacility>,
+    );
+    vi.mocked(useUpdateFacility).mockImplementation(
+      () => ({ mutateAsync: updateMutateAsync, isPending: false }) as unknown as ReturnType<typeof useUpdateFacility>,
+    );
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(screen.getByRole("button", { name: /^clone$/i }));
+
+    const dialog = screen.getByRole("dialog", { name: /clone facility/i });
+    // Provide a name (required field) before saving
+    await user.type(within(dialog).getByLabelText(/^name$/i), "North Court Copy");
+
+    await user.click(within(dialog).getByRole("button", { name: /create clone/i }));
+
+    await waitFor(() => {
+      expect(createMutateAsync).toHaveBeenCalledWith(
+        expect.objectContaining({
+          facility_type_id: "badminton",
+          name: "North Court Copy",
+          slot_duration_minutes: 60,
+          weekly_schedule: expect.objectContaining({
+            monday: [{ start: "06:00", end: "22:00" }],
+          }),
+        }),
+      );
+      // Must NOT have been called with an id field
+      expect(createMutateAsync).toHaveBeenCalledWith(
+        expect.not.objectContaining({ id: expect.anything() }),
+      );
+    });
+    // updateFacility must never fire
+    expect(updateMutateAsync).not.toHaveBeenCalled();
+  });
+
+  it("opening Edit(A) then Clone(A) shows blanked name/description, not stale edit-name", async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    // Open Edit for North Court (A) — fills editName = "North Court"
+    await user.click(screen.getByRole("button", { name: /^edit$/i }));
+    let dialog = screen.getByRole("dialog", { name: /edit facility/i });
+    expect(within(dialog).getByDisplayValue("North Court")).toBeInTheDocument();
+
+    // Close
+    await user.click(within(dialog).getByRole("button", { name: /close/i }));
+
+    // Open Clone for North Court (A) — must show blank name, not "North Court"
+    await user.click(screen.getByRole("button", { name: /^clone$/i }));
+    dialog = screen.getByRole("dialog", { name: /clone facility/i });
+    expect(within(dialog).getByLabelText(/^name$/i)).toHaveValue("");
+    expect(within(dialog).queryByDisplayValue("North Court")).not.toBeInTheDocument();
+  });
+
+  it("dialog title shows 'Edit facility' in edit mode and 'Clone facility' in clone mode", async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    // Edit mode
+    await user.click(screen.getByRole("button", { name: /^edit$/i }));
+    expect(screen.getByRole("dialog", { name: "Edit facility" })).toBeInTheDocument();
+    await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: /close/i }));
+
+    // Clone mode
+    await user.click(screen.getByRole("button", { name: /^clone$/i }));
+    expect(screen.getByRole("dialog", { name: "Clone facility" })).toBeInTheDocument();
+    await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: /close/i }));
   });
 });

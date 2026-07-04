@@ -6,6 +6,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Clone Facility + Edit-Dialog Scroll Fix (frontend, July 2026)
+
+Two improvements to the tenant-admin facility management flow.
+
+- **Clone facility** (`TenantFacilities.tsx`): Added a "Clone" action per facility card. Opens the
+  existing edit dialog pre-filled with the source facility's `facility_type_id`,
+  `slot_duration_minutes`, and `weekly_schedule`, while `name` and `description` are explicitly
+  blank (never copied). A `dialogMode: "edit" | "clone"` discriminant was added — `submitEdit`
+  branches on this: `"clone"` calls `createFacility.mutateAsync` (no `id` field); `"edit"` calls
+  `updateFacility.mutateAsync` (unchanged). Dialog title is dynamic: "Edit facility" / "Clone
+  facility". `WeeklyScheduleEditor` key extended to `${dialogMode}-${editingFacility?.id}` so
+  switching between edit and clone on the same facility still remounts cleanly. `closeEdit` resets
+  mode to `"edit"` as safe default. Clone success closes the dialog; edit success shows inline
+  confirmation.
+- **Edit dialog scroll** (`TenantFacilities.tsx`): The form body inside `<DialogContent>` is now
+  wrapped in `<div className="max-h-[70vh] overflow-y-auto pr-1">`. `DialogHeader`/`DialogTitle`
+  remain outside this scrollable region and stay visible at all times. `dialog.tsx` (off-limits per
+  ADR-0028) was not touched — `DialogContent` already accepts className overrides; the fix lives
+  entirely at the call-site.
+- **Tests:** 4 new tests — clone opens with pre-filled type/duration/schedule and blank
+  name/description; clone save calls `createFacility` not `updateFacility`; Edit(A)→close→Clone(A)
+  shows blanked name (no stale edit-name leak); dialog title reflects mode. All existing 7 tests
+  preserved unweakened. Baseline: 257 → 261 tests, 0 failed.
+
 ### Post-v2.2 Cleanup — Edit dialog stale state, sport display name, default schedule (frontend, July 2026)
 
 Three targeted fixes on the `fix/post-v2.2-cleanup` branch following the v2.2 merge.
