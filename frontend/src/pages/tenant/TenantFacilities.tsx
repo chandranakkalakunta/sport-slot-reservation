@@ -45,7 +45,8 @@ export default function TenantFacilities() {
   const [error, setError] = useState<string | null>(null);
   const [ok, setOk] = useState<string | null>(null);
 
-  // Edit dialog state
+  // Edit/Clone dialog state — shared state family, discriminated by dialogMode
+  const [dialogMode, setDialogMode] = useState<"edit" | "clone">("edit");
   const [editingFacility, setEditingFacility] = useState<TenantFacility | null>(null);
   const [editTypeId, setEditTypeId] = useState("");
   const [editName, setEditName] = useState("");
@@ -59,6 +60,7 @@ export default function TenantFacilities() {
   const [confirmFacilityId, setConfirmFacilityId] = useState<string | null>(null);
 
   function openEdit(f: TenantFacility) {
+    setDialogMode("edit");
     setEditingFacility(f);
     setEditTypeId(f.facility_type_id);
     setEditName(f.name);
@@ -69,8 +71,21 @@ export default function TenantFacilities() {
     setEditOk(null);
   }
 
+  function openClone(f: TenantFacility) {
+    setDialogMode("clone");
+    setEditingFacility(f);
+    setEditTypeId(f.facility_type_id);
+    setEditName("");
+    setEditDuration(f.slot_duration_minutes);
+    setEditDescription("");
+    setEditSchedule(f.weekly_schedule);
+    setEditError(null);
+    setEditOk(null);
+  }
+
   function closeEdit() {
     setEditingFacility(null);
+    setDialogMode("edit");
   }
 
   async function submit(e: FormEvent) {
@@ -97,17 +112,29 @@ export default function TenantFacilities() {
     if (!editingFacility) return;
     setEditError(null); setEditOk(null);
     try {
-      await updateFacility.mutateAsync({
-        id: editingFacility.id,
-        facility_type_id: editTypeId,
-        name: editName,
-        slot_duration_minutes: Number(editDuration),
-        description: editDescription || null,
-        weekly_schedule: editSchedule,
-      });
-      setEditOk(`Updated ${editName}.`);
+      if (dialogMode === "clone") {
+        await createFacility.mutateAsync({
+          facility_type_id: editTypeId,
+          name: editName,
+          slot_duration_minutes: Number(editDuration),
+          description: editDescription || null,
+          weekly_schedule: editSchedule,
+        });
+        setEditOk(`Cloned facility created.`);
+        closeEdit();
+      } else {
+        await updateFacility.mutateAsync({
+          id: editingFacility.id,
+          facility_type_id: editTypeId,
+          name: editName,
+          slot_duration_minutes: Number(editDuration),
+          description: editDescription || null,
+          weekly_schedule: editSchedule,
+        });
+        setEditOk(`Updated ${editName}.`);
+      }
     } catch (e) {
-      setEditError(e instanceof ApiClientError ? messageForCode(e.code) : "Failed to update facility.");
+      setEditError(e instanceof ApiClientError ? messageForCode(e.code) : "Failed to save facility.");
     }
   }
 
@@ -138,6 +165,13 @@ export default function TenantFacilities() {
                     onClick={() => openEdit(f)}
                   >
                     Edit
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => openClone(f)}
+                  >
+                    Clone
                   </Button>
                   {/* De-emphasized trigger per ADR-0028 §5; ConfirmDialog confirms before mutate */}
                   <Button
@@ -227,72 +261,87 @@ export default function TenantFacilities() {
         </section>
       </main>
 
-      {/* Edit facility dialog */}
+      {/* Edit / Clone facility dialog — shared state, discriminated by dialogMode */}
       <Dialog open={editingFacility !== null} onOpenChange={(open) => { if (!open) closeEdit(); }}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Edit facility</DialogTitle>
+            <DialogTitle>
+              {dialogMode === "clone" ? "Clone facility" : "Edit facility"}
+            </DialogTitle>
           </DialogHeader>
-          <form onSubmit={submitEdit} className="space-y-3">
-            <div className="space-y-1">
-              <label htmlFor="edit-facility-type" className="text-sm font-medium text-foreground">
-                Type
-              </label>
-              <select
-                id="edit-facility-type"
-                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-                value={editTypeId}
-                onChange={(e) => setEditTypeId(e.target.value)}
+          {/* Scrollable form body — header stays pinned above this region */}
+          <div className="max-h-[70vh] overflow-y-auto pr-1">
+            <form onSubmit={submitEdit} className="space-y-3">
+              <div className="space-y-1">
+                <label htmlFor="edit-facility-type" className="text-sm font-medium text-foreground">
+                  Type
+                </label>
+                <select
+                  id="edit-facility-type"
+                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                  value={editTypeId}
+                  onChange={(e) => setEditTypeId(e.target.value)}
+                >
+                  <option value="">Select a type…</option>
+                  {catalog?.items.map((c) => (
+                    <option key={c.type_id} value={c.type_id}>{c.name}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="space-y-1">
+                <label htmlFor="edit-facility-name" className="text-sm font-medium text-foreground">
+                  Name
+                </label>
+                <Input
+                  id="edit-facility-name"
+                  value={editName}
+                  onChange={(e) => setEditName(e.target.value)}
+                  required
+                />
+              </div>
+              <div className="space-y-1">
+                <label htmlFor="edit-facility-duration" className="text-sm font-medium text-foreground">
+                  Slot duration (minutes)
+                </label>
+                <Input
+                  id="edit-facility-duration"
+                  type="number"
+                  value={editDuration}
+                  onChange={(e) => setEditDuration(Number(e.target.value))}
+                  required
+                />
+              </div>
+              <div className="space-y-1">
+                <label htmlFor="edit-facility-desc" className="text-sm font-medium text-foreground">
+                  Description (optional)
+                </label>
+                <Input
+                  id="edit-facility-desc"
+                  value={editDescription}
+                  onChange={(e) => setEditDescription(e.target.value)}
+                />
+              </div>
+              <div className="space-y-1">
+                <p className="text-sm font-medium text-foreground">Weekly schedule</p>
+                <WeeklyScheduleEditor
+                  key={`${dialogMode}-${editingFacility?.id ?? ""}`}
+                  value={editSchedule}
+                  onChange={setEditSchedule}
+                />
+              </div>
+              {editError && <p className="text-sm text-destructive">{editError}</p>}
+              {editOk && <p className="text-sm text-success">{editOk}</p>}
+              <Button
+                type="submit"
+                disabled={createFacility.isPending || updateFacility.isPending}
+                className="w-full"
               >
-                <option value="">Select a type…</option>
-                {catalog?.items.map((c) => (
-                  <option key={c.type_id} value={c.type_id}>{c.name}</option>
-                ))}
-              </select>
-            </div>
-            <div className="space-y-1">
-              <label htmlFor="edit-facility-name" className="text-sm font-medium text-foreground">
-                Name
-              </label>
-              <Input
-                id="edit-facility-name"
-                value={editName}
-                onChange={(e) => setEditName(e.target.value)}
-                required
-              />
-            </div>
-            <div className="space-y-1">
-              <label htmlFor="edit-facility-duration" className="text-sm font-medium text-foreground">
-                Slot duration (minutes)
-              </label>
-              <Input
-                id="edit-facility-duration"
-                type="number"
-                value={editDuration}
-                onChange={(e) => setEditDuration(Number(e.target.value))}
-                required
-              />
-            </div>
-            <div className="space-y-1">
-              <label htmlFor="edit-facility-desc" className="text-sm font-medium text-foreground">
-                Description (optional)
-              </label>
-              <Input
-                id="edit-facility-desc"
-                value={editDescription}
-                onChange={(e) => setEditDescription(e.target.value)}
-              />
-            </div>
-            <div className="space-y-1">
-              <p className="text-sm font-medium text-foreground">Weekly schedule</p>
-              <WeeklyScheduleEditor key={editingFacility?.id ?? ""} value={editSchedule} onChange={setEditSchedule} />
-            </div>
-            {editError && <p className="text-sm text-destructive">{editError}</p>}
-            {editOk && <p className="text-sm text-success">{editOk}</p>}
-            <Button type="submit" disabled={updateFacility.isPending} className="w-full">
-              {updateFacility.isPending ? "Saving…" : "Save changes"}
-            </Button>
-          </form>
+                {(createFacility.isPending || updateFacility.isPending)
+                  ? "Saving…"
+                  : dialogMode === "clone" ? "Create clone" : "Save changes"}
+              </Button>
+            </form>
+          </div>
         </DialogContent>
       </Dialog>
 
