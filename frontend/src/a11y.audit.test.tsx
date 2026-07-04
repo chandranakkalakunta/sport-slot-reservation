@@ -28,6 +28,7 @@ vi.mock("./auth/AuthContext", () => ({
 
 vi.mock("./hooks/bookingHooks", () => ({
   useFacilities: vi.fn(),
+  useFacilityCatalog: vi.fn(),
   useAvailability: vi.fn(),
   useCreateBooking: vi.fn(),
   useMyBookings: vi.fn(),
@@ -165,6 +166,9 @@ function setupDefaultMocks() {
   vi.mocked(bookingHooks.useFacilities).mockReturnValue({
     data: { items: [FACILITY], next_cursor: null }, isLoading: false, error: null,
   } as unknown as ReturnType<typeof bookingHooks.useFacilities>);
+  vi.mocked(bookingHooks.useFacilityCatalog).mockReturnValue({
+    data: { items: CATALOG },
+  } as unknown as ReturnType<typeof bookingHooks.useFacilityCatalog>);
   vi.mocked(bookingHooks.useAvailability).mockReturnValue({
     data: { facility_id: "f1", date: "2027-01-15", slots: SLOTS }, isLoading: false,
   } as unknown as ReturnType<typeof bookingHooks.useAvailability>);

@@ -38,6 +38,15 @@ export interface Booking {
   cancellable?: boolean;
 }
 
+export interface CatalogType { type_id: string; name: string; sport: string; }
+
+export function useFacilityCatalog() {
+  return useQuery({
+    queryKey: ["facility-catalog"],
+    queryFn: () => apiFetch<{ items: CatalogType[] }>("/facility-catalog"),
+  });
+}
+
 export function useFacilities() {
   return useQuery({
     queryKey: ["facilities"],

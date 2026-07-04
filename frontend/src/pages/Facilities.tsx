@@ -4,7 +4,7 @@ import { Link } from "react-router-dom";
 import { AppHeader } from "../components/AppHeader";
 import { InstallPrompt } from "../components/InstallPrompt";
 import { Button } from "../components/ui/button";
-import { useFacilities } from "../hooks/bookingHooks";
+import { useFacilities, useFacilityCatalog } from "../hooks/bookingHooks";
 import { DAY_ORDER } from "../types/facilitySchedule";
 import type { WeeklySchedule } from "../types/facilitySchedule";
 
@@ -19,6 +19,8 @@ function todayRanges(schedule: WeeklySchedule): string {
 
 export default function Facilities() {
   const { data, isLoading, error } = useFacilities();
+  const { data: catalogData } = useFacilityCatalog();
+  const catalogBySport = new Map(catalogData?.items.map((c) => [c.sport, c.name]) ?? []);
 
   const activeFacilities = (data?.items.filter((f) => f.active) ?? [])
     .sort((a, b) => a.name.localeCompare(b.name));
@@ -73,7 +75,7 @@ export default function Facilities() {
             >
               <p className="font-semibold text-foreground">{f.name}</p>
               <p className="text-sm text-muted-foreground tabular-nums mt-0.5">
-                {f.sport} · {f.slot_duration_minutes}min · {todayRanges(f.weekly_schedule)}
+                {catalogBySport.get(f.sport) ?? f.sport} · {f.slot_duration_minutes}min · {todayRanges(f.weekly_schedule)}
               </p>
             </Link>
           ))}

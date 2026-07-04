@@ -188,3 +188,11 @@ export function emptyWeeklySchedule(): WeeklySchedule {
     friday: [], saturday: [], sunday: [],
   };
 }
+
+export function defaultCreateSchedule(): WeeklySchedule {
+  const ranges = [{ start: "06:00", end: "10:00" }, { start: "16:00", end: "21:00" }];
+  return {
+    monday: [...ranges], tuesday: [...ranges], wednesday: [...ranges],
+    thursday: [...ranges], friday: [...ranges], saturday: [...ranges], sunday: [...ranges],
+  };
+}
