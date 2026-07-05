@@ -18,10 +18,10 @@ resource "google_compute_security_policy" "api" {
   type    = "CLOUD_ARMOR"
 
   # Default rule: allow all — preview-only rollout; no default-deny at this stage.
+  # GCP does not permit preview=true on the mandatory default rule (priority 2147483647).
   rule {
     priority = 2147483647
     action   = "allow"
-    preview  = true
     match {
       versioned_expr = "SRC_IPS_V1"
       config {
@@ -66,10 +66,10 @@ resource "google_compute_security_policy" "frontend_edge" {
   type    = "CLOUD_ARMOR_EDGE"
 
   # Default rule: allow all — preview-only rollout; no default-deny at this stage.
+  # GCP does not permit preview=true on the mandatory default rule (priority 2147483647).
   rule {
     priority = 2147483647
     action   = "allow"
-    preview  = true
     match {
       versioned_expr = "SRC_IPS_V1"
       config {

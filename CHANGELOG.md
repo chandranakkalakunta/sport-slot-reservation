@@ -6,6 +6,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Phase 8b.5 correction 2 — remove preview from default rule (July 2026)
+
+GCP rejects `preview = true` on the mandatory default rule (priority 2147483647) with:
+"Cannot preview the default rule". Removed `preview = true` from the default allow rule
+in both `google_compute_security_policy.api` and `.frontend_edge` — no behavior change,
+allow rules are non-blocking regardless. SQLi/XSS deny rules retain `preview = true`
+unchanged. NOT YET APPLIED.
+
 ### Phase 8b.5 correction — evaluatePreconfiguredWaf (July 2026)
 
 `evaluatePreconfiguredExpr` does not accept a sensitivity map argument (API error:
