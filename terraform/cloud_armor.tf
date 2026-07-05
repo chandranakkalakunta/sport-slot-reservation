@@ -65,7 +65,12 @@ resource "google_compute_security_policy" "frontend_edge" {
   project = var.project_id
   type    = "CLOUD_ARMOR_EDGE"
 
-  # Default rule: allow all — preview-only rollout; no default-deny at this stage.
+  # CLOUD_ARMOR_EDGE does not support preconfigured WAF expressions (evaluatePreconfiguredWaf
+  # is only valid on CLOUD_ARMOR type — confirmed via API error on apply attempt).
+  # Policy contains only the mandatory default rule. Custom CEL-based edge rules are
+  # deferred as a deliberate future addition.
+
+  # Default rule: allow all — no default-deny at this stage.
   # GCP does not permit preview=true on the mandatory default rule (priority 2147483647).
   rule {
     priority = 2147483647
@@ -76,32 +81,6 @@ resource "google_compute_security_policy" "frontend_edge" {
         src_ip_ranges = ["*"]
       }
     }
-    description = "default allow — preview mode, non-enforcing"
-  }
-
-  # CRS 4.22 SQLi WAF rule (preview, log-only).
-  rule {
-    priority = 1000
-    action   = "deny(403)"
-    preview  = true
-    match {
-      expr {
-        expression = "evaluatePreconfiguredWaf('sqli-v422-stable', {'sensitivity': 1})"
-      }
-    }
-    description = "SQLi CRS 4.22 sensitivity 1 — preview only"
-  }
-
-  # CRS 4.22 XSS WAF rule (preview, log-only).
-  rule {
-    priority = 2000
-    action   = "deny(403)"
-    preview  = true
-    match {
-      expr {
-        expression = "evaluatePreconfiguredWaf('xss-v422-stable', {'sensitivity': 1})"
-      }
-    }
-    description = "XSS CRS 4.22 sensitivity 1 — preview only"
+    description = "default allow"
   }
 }
