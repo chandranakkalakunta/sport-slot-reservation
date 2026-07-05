@@ -10,10 +10,10 @@ RESIDENT_CLAIMS = {
 ADMIN_CLAIMS = {"uid": "admin-1", "role": "platform_admin"}
 
 AUTH = {"authorization": "Bearer fake-token"}
-TENANT_HOST = {"host": "demo.sportbook.chandraailabs.com"}
-OTHER_TENANT_HOST = {"host": "other.sportbook.chandraailabs.com"}
-ADMIN_HOST = {"host": "admin.sportbook.chandraailabs.com"}
-RVRG_SUBDOMAIN_HOST = {"host": "rvrg.sportbook.chandraailabs.com"}
+TENANT_HOST = {"host": "demo.slotsense.chandraailabs.com"}
+OTHER_TENANT_HOST = {"host": "other.slotsense.chandraailabs.com"}
+ADMIN_HOST = {"host": "admin.slotsense.chandraailabs.com"}
+RVRG_SUBDOMAIN_HOST = {"host": "rvrg.slotsense.chandraailabs.com"}
 
 RVRG_CLAIMS = {
     "uid": "user-2",
@@ -23,8 +23,8 @@ RVRG_CLAIMS = {
     "household_id": "h-7",
 }
 
-XFH_TENANT_HOST = {"x-forwarded-host": "demo.sportbook.chandraailabs.com"}
-XFH_OTHER_HOST = {"x-forwarded-host": "other.sportbook.chandraailabs.com"}
+XFH_TENANT_HOST = {"x-forwarded-host": "demo.slotsense.chandraailabs.com"}
+XFH_OTHER_HOST = {"x-forwarded-host": "other.slotsense.chandraailabs.com"}
 XFH_WEBAPP_HOST = {"x-forwarded-host": "sport-slot-dev.web.app"}
 RUN_APP_HOST = {"host": "sport-slot-api-xxx.run.app"}
 
@@ -124,7 +124,7 @@ async def test_platform_admin_on_localhost_allowed_regression_5221(make_client):
 
 async def test_resident_token_on_admin_host_403(make_client):
     # Still 403 — but now via the tenant cross-check (slug "admin" from
-    # admin.sportbook.chandraailabs.com mismatches JWT tenant_slug "demo"),
+    # admin.slotsense.chandraailabs.com mismatches JWT tenant_slug "demo"),
     # not the removed admin-host gate.
     with patch(VERIFY, return_value=RESIDENT_CLAIMS):
         async with make_client() as client:

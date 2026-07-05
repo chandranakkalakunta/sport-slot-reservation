@@ -6,6 +6,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Phase 8b.4 — App Domain Config: sportbook → slotsense.chandraailabs.com (backend + frontend, July 2026)
+
+Renames every forward-looking config and test reference from the old `sportbook.chandraailabs.com`
+naming to `slotsense.chandraailabs.com`, matching Phase 8b's LB target domain. Both the code
+default AND the deploy-time env var override are updated so neither can silently keep the old
+value after the other is changed.
+
+- **`backend/src/sport_slot/config.py`** (lines 17–18): `base_domain` default changed to
+  `slotsense.chandraailabs.com`; `admin_host` default changed to
+  `admin.slotsense.chandraailabs.com`.
+- **`scripts/deploy_cloud_run.sh`** (line 68): `SPORTSLOT_BASE_DOMAIN` and
+  `SPORTSLOT_ADMIN_HOST` in the `--set-env-vars` flag updated to match.
+- **`backend/.env.example`** (lines 4–5): template file updated; developers copying this to
+  `.env` will get the correct domain out of the box.
+- **Backend test fixtures** (10 files): all `"*.sportbook.chandraailabs.com"` host constants
+  updated to `"*.slotsense.chandraailabs.com"` in `test_auth.py`, `test_bookings.py`,
+  `test_agent_booking.py`, `test_tenant_facilities.py`, `test_cancellation.py`,
+  `test_availability_endpoint.py`, `test_admin_provisioning.py`, `test_tenant_config.py`,
+  `test_users_me.py`, `test_facilities_and_policy.py`. Assertion logic unchanged; only
+  fixture values updated.
+- **`frontend/src/lib/tenant.ts`** (line 1): `BASE_DOMAIN` constant updated. This is
+  functional code — the slug parser uses this to recognize `{slug}.slotsense.chandraailabs.com`
+  subdomains; without this change the frontend would fail to extract the tenant slug from
+  the new LB-served subdomain URLs.
+- **`frontend/src/lib/tenant.test.ts`** (lines 6, 29): both subdomain test assertions
+  updated to `demo.slotsense.chandraailabs.com`.
+- **Deliberately NOT changed**: `backend/scripts/reset_superadmin.py` and
+  `backend/scripts/seed_platform_admin.py` — these reference `admin@sportbook.chandraailabs.com`
+  as an email address of a real, sole platform-admin account in Firestore/Firebase Auth;
+  changing the script default without migrating that account would desync the script from
+  reality (coordinator decision, Phase 8b.4).
+- **ADR/docs files**: not changed — historical records preserve the original domain name
+  as written at decision time.
+- All gates green: backend **378 passed** (unchanged), frontend `tsc` clean, lint 0 errors,
+  **261 tests passed**.
+
 ### Phase 8b.2b — CDN Origin Headers + GCS Sync (infra + ci, July 2026)
 
 Two changes closing the loop between the Phase 8b.2 LB backend and live frontend delivery.

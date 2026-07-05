@@ -7,8 +7,8 @@ from sport_slot.config import get_settings
 from sport_slot.dependencies import get_firestore_client
 
 AUTH = {"authorization": "Bearer fake"}
-ADMIN_HOST = {"host": "admin.sportbook.chandraailabs.com"}
-TENANT_HOST = {"host": "demo.sportbook.chandraailabs.com"}
+ADMIN_HOST = {"host": "admin.slotsense.chandraailabs.com"}
+TENANT_HOST = {"host": "demo.slotsense.chandraailabs.com"}
 
 ADMIN_CLAIMS = {"uid": "sa-1", "role": "platform_admin"}
 RESIDENT_CLAIMS = {

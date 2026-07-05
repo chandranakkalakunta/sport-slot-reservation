@@ -1,8 +1,8 @@
-const BASE_DOMAIN = "sportbook.chandraailabs.com";
+const BASE_DOMAIN = "slotsense.chandraailabs.com";
 const DEV_HOSTS = new Set(["localhost", "127.0.0.1"]);
 
 /** Tenant slug from the hostname.
- *  - Real subdomain {slug}.sportbook.chandraailabs.com → that slug
+ *  - Real subdomain {slug}.slotsense.chandraailabs.com → that slug
  *    (production; the authoritative host-based path).
  *  - localhost / 127.0.0.1 → VITE_DEV_TENANT_SLUG (local dev).
  *  - Any other host (e.g. *.web.app, the single-tenant DEV

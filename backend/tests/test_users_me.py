@@ -10,7 +10,7 @@ RESIDENT_CLAIMS = {
     "household_id": "h-9",
 }
 AUTH = {"authorization": "Bearer fake-token"}
-HOST = {"host": "demo.sportbook.chandraailabs.com"}
+HOST = {"host": "demo.slotsense.chandraailabs.com"}
 VERIFY = "sport_slot.auth.dependency.fb_auth.verify_id_token"
 
 

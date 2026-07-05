@@ -14,8 +14,8 @@ class Settings(BaseSettings):
 
     environment: str = "development"
     gcp_project: str = "sport-slot-dev"
-    base_domain: str = "sportbook.chandraailabs.com"
-    admin_host: str = "admin.sportbook.chandraailabs.com"
+    base_domain: str = "slotsense.chandraailabs.com"
+    admin_host: str = "admin.slotsense.chandraailabs.com"
     log_level: str = "INFO"
     rate_limit: str = "30/minute"
     redis_host: str = "localhost"

@@ -65,7 +65,7 @@ gcloud run deploy "$SERVICE" \
   --allow-unauthenticated \
   --min-instances=0 --max-instances=2 \
   --memory=512Mi --cpu=1 \
-  --set-env-vars="SPORTSLOT_ENVIRONMENT=development,SPORTSLOT_GCP_PROJECT=${PROJECT},SPORTSLOT_BASE_DOMAIN=sportbook.chandraailabs.com,SPORTSLOT_ADMIN_HOST=admin.sportbook.chandraailabs.com,SPORTSLOT_REDIS_HOST=${REDIS_HOST},SPORTSLOT_REDIS_PORT=${REDIS_PORT},SPORTSLOT_TASKS_QUEUE=${TASKS_QUEUE},SPORTSLOT_TASKS_LOCATION=${REGION},SPORTSLOT_WORKER_BASE_URL=${WORKER_URL},SPORTSLOT_TASKS_INVOKER_SA=${TASKS_INVOKER_SA}" \
+  --set-env-vars="SPORTSLOT_ENVIRONMENT=development,SPORTSLOT_GCP_PROJECT=${PROJECT},SPORTSLOT_BASE_DOMAIN=slotsense.chandraailabs.com,SPORTSLOT_ADMIN_HOST=admin.slotsense.chandraailabs.com,SPORTSLOT_REDIS_HOST=${REDIS_HOST},SPORTSLOT_REDIS_PORT=${REDIS_PORT},SPORTSLOT_TASKS_QUEUE=${TASKS_QUEUE},SPORTSLOT_TASKS_LOCATION=${REGION},SPORTSLOT_WORKER_BASE_URL=${WORKER_URL},SPORTSLOT_TASKS_INVOKER_SA=${TASKS_INVOKER_SA}" \
   --network=default --subnet=default \
   --vpc-egress=private-ranges-only \
   --set-secrets="SPORTSLOT_REDIS_AUTH=redis-auth:latest,SPORTSLOT_RESEND_API_KEY=resend-api-key:latest"
