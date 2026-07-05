@@ -35,10 +35,11 @@ resource "google_storage_bucket_iam_member" "frontend_public_read" {
 # ── Frontend backend bucket (LB attachment, CDN enabled) ──
 
 resource "google_compute_backend_bucket" "frontend" {
-  name        = "slotsense-frontend-bucket"
-  project     = var.project_id
-  bucket_name = google_storage_bucket.frontend.name
-  enable_cdn  = true
+  name                 = "slotsense-frontend-bucket"
+  project              = var.project_id
+  bucket_name          = google_storage_bucket.frontend.name
+  enable_cdn           = true
+  edge_security_policy = google_compute_security_policy.frontend_edge.id
 
   # USE_ORIGIN_HEADERS: Cloud CDN respects Cache-Control values set as GCS
   # object metadata at upload time. Required so that no-cache files (index.html,
@@ -69,6 +70,7 @@ resource "google_compute_backend_service" "api" {
   protocol              = "HTTPS"
   load_balancing_scheme = "EXTERNAL_MANAGED"
   enable_cdn            = false
+  security_policy       = google_compute_security_policy.api.id
 
   backend {
     group = google_compute_region_network_endpoint_group.api_neg.id
