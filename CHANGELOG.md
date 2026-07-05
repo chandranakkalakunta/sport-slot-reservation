@@ -6,6 +6,46 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Phase 8b.2 — LB Backend Infra + HTTP Redirect (infra, July 2026)
+
+Full backend infrastructure for the Global External HTTPS Load Balancer: Cloud Run NEG +
+backend service for the API; GCS bucket + backend bucket for the static frontend (with SPA
+catch-all 404→200 fallback); URL map + HTTPS proxy + forwarding rule wiring the HTTPS path;
+parallel HTTP→HTTPS redirect on port 80. **NOT YET APPLIED** — Coordinator must run
+`make tf-apply-dev`. After apply the GCS bucket will be EMPTY (frontend CI sync is Phase
+8b.2b); DNS A record for `*.slotsense.chandraailabs.com` still needed (Phase 8b.3).
+
+- **`terraform/load_balancer_backends.tf`** (new file, 5 resources):
+  - `google_storage_bucket.frontend` — `sport-slot-dev-frontend`, ASIA-SOUTH1, uniform
+    bucket-level access enabled
+  - `google_storage_bucket_iam_member.frontend_public_read` — `allUsers`
+    `roles/storage.objectViewer` (deliberate: public static web assets, no PII)
+  - `google_compute_backend_bucket.frontend` — `slotsense-frontend-bucket`, CDN enabled
+  - `google_compute_region_network_endpoint_group.api_neg` — `slotsense-api-neg`, serverless
+    NEG for Cloud Run service `sport-slot-api` in `asia-south1`
+  - `google_compute_backend_service.api` — `slotsense-api-backend`, HTTPS, EXTERNAL_MANAGED,
+    request logging enabled at 100% sample rate
+- **`terraform/load_balancer_routing.tf`** (new file, 6 resources):
+  - `google_compute_url_map.slotsense_https` — `slotsense-https-url-map`; host_rule for
+    `*.slotsense.chandraailabs.com`; path_matcher routes `/api/*`, `/health`, `/readyz` to
+    API backend, everything else to frontend bucket; `defaultCustomErrorResponsePolicy` at
+    path_matcher level intercepts GCS 404s → serves `/index.html` with HTTP 200, replicating
+    Firebase Hosting's SPA catch-all (GCS `NotFoundPage` returns 404 status — this policy
+    is the correct GCP LB mechanism to override that)
+  - `google_compute_target_https_proxy.slotsense` — `slotsense-https-proxy`; references the
+    Phase 8b.1 Certificate Manager cert map via the required
+    `//certificatemanager.googleapis.com/<map-id>` format
+  - `google_compute_global_forwarding_rule.slotsense_https` — `slotsense-https-forwarding-rule`,
+    port 443, `EXTERNAL_MANAGED`, references Phase 8b.1 static IP
+  - `google_compute_url_map.slotsense_http_redirect` — `slotsense-http-redirect`;
+    `default_url_redirect` with `https_redirect=true`, `strip_query=false`
+  - `google_compute_target_http_proxy.slotsense_redirect` — `slotsense-http-proxy`
+  - `google_compute_global_forwarding_rule.slotsense_http` — `slotsense-http-forwarding-rule`,
+    port 80, same static IP as HTTPS rule
+- `terraform plan` confirmed: **11 to add, 0 to change, 0 to destroy**; all Phase 8b.1
+  resources show 0 changes.
+- `terraform fmt` and `terraform validate` clean.
+
 ### Phase 8b.1 Correction — Certificate Manager for Wildcard Cert (infra, July 2026)
 
 `google_compute_managed_ssl_certificate` does not support wildcard domains (GCP API

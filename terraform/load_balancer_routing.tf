@@ -1,0 +1,116 @@
+# Load Balancer Routing — Phase 8b.2
+#
+# URL maps, target proxies, and forwarding rules that wire together the
+# backends from load_balancer_backends.tf with the static IP and certificate
+# map provisioned in Phase 8b.1 (load_balancer_network.tf).
+#
+# Two forwarding rules share the same static IP:
+#   port 443 → HTTPS → slotsense_https_url_map  (routes traffic to backends)
+#   port 80  → HTTP  → slotsense_http_redirect   (301 HTTPS redirect, no content)
+#
+# URL map host_rule matches ONLY *.slotsense.chandraailabs.com; the
+# path_matcher routes /api/*, /health, /readyz to the Cloud Run backend
+# service and everything else to the GCS frontend bucket. The
+# defaultCustomErrorResponsePolicy on the path_matcher intercepts GCS 404s
+# (e.g. client-side routes like /dashboard that have no GCS object) and
+# re-serves /index.html with HTTP 200, replicating Firebase Hosting's SPA
+# catch-all rewrite (see load_balancer_backends.tf for full explanation).
+
+# ── Main HTTPS URL map ──
+
+resource "google_compute_url_map" "slotsense_https" {
+  name            = "slotsense-https-url-map"
+  project         = var.project_id
+  default_service = google_compute_backend_bucket.frontend.id
+
+  host_rule {
+    hosts        = ["*.slotsense.chandraailabs.com"]
+    path_matcher = "slotsense-paths"
+  }
+
+  path_matcher {
+    name            = "slotsense-paths"
+    default_service = google_compute_backend_bucket.frontend.id
+
+    path_rule {
+      paths   = ["/api/*", "/health", "/readyz"]
+      service = google_compute_backend_service.api.id
+    }
+
+    # SPA catch-all: GCS returns 404 for every client-side route that has no
+    # matching object key. This policy intercepts those 404s, fetches
+    # /index.html from the same frontend bucket, and returns HTTP 200 —
+    # matching Firebase Hosting's "source: **" catch-all rewrite behaviour.
+    default_custom_error_response_policy {
+      error_response_rule {
+        match_response_codes   = ["404"]
+        path                   = "/index.html"
+        override_response_code = 200
+      }
+      error_service = google_compute_backend_bucket.frontend.id
+    }
+  }
+
+  # Applies when no host_rule matches (direct IP access or unrecognised host).
+  default_custom_error_response_policy {
+    error_response_rule {
+      match_response_codes   = ["404"]
+      path                   = "/index.html"
+      override_response_code = 200
+    }
+    error_service = google_compute_backend_bucket.frontend.id
+  }
+}
+
+# ── HTTPS target proxy (references 8b.1 cert map) ──
+
+# certificate_map uses the full Certificate Manager resource name format:
+# //certificatemanager.googleapis.com/<id>
+resource "google_compute_target_https_proxy" "slotsense" {
+  name            = "slotsense-https-proxy"
+  project         = var.project_id
+  url_map         = google_compute_url_map.slotsense_https.id
+  certificate_map = "//certificatemanager.googleapis.com/${google_certificate_manager_certificate_map.slotsense.id}"
+}
+
+# ── HTTPS forwarding rule (port 443, uses 8b.1 static IP) ──
+
+resource "google_compute_global_forwarding_rule" "slotsense_https" {
+  name                  = "slotsense-https-forwarding-rule"
+  project               = var.project_id
+  load_balancing_scheme = "EXTERNAL_MANAGED"
+  target                = google_compute_target_https_proxy.slotsense.id
+  ip_address            = google_compute_global_address.slotsense_lb_ip.id
+  port_range            = "443"
+
+  labels = var.default_labels
+}
+
+# ── HTTP → HTTPS redirect (port 80, same static IP) ──
+
+resource "google_compute_url_map" "slotsense_http_redirect" {
+  name    = "slotsense-http-redirect"
+  project = var.project_id
+
+  default_url_redirect {
+    https_redirect = true
+    strip_query    = false
+  }
+}
+
+resource "google_compute_target_http_proxy" "slotsense_redirect" {
+  name    = "slotsense-http-proxy"
+  project = var.project_id
+  url_map = google_compute_url_map.slotsense_http_redirect.id
+}
+
+resource "google_compute_global_forwarding_rule" "slotsense_http" {
+  name                  = "slotsense-http-forwarding-rule"
+  project               = var.project_id
+  load_balancing_scheme = "EXTERNAL_MANAGED"
+  target                = google_compute_target_http_proxy.slotsense_redirect.id
+  ip_address            = google_compute_global_address.slotsense_lb_ip.id
+  port_range            = "80"
+
+  labels = var.default_labels
+}
