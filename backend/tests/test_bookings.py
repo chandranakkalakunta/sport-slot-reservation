@@ -11,7 +11,7 @@ from sport_slot.repositories.bookings import (
 RESIDENT = {"uid": "u1", "role": "resident", "tenant_id": "t-1",
             "tenant_slug": "demo", "household_id": "h-1"}
 AUTH = {"authorization": "Bearer fake"}
-HOST = {"host": "demo.sportbook.chandraailabs.com"}
+HOST = {"host": "demo.slotsense.chandraailabs.com"}
 VERIFY = "sport_slot.auth.dependency.fb_auth.verify_id_token"
 BOOKED = "sport_slot.api.v1.bookings.BookingRepository.booked_starts"
 CREATE = "sport_slot.api.v1.bookings.create_booking_with_quota"

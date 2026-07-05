@@ -463,7 +463,7 @@ async def test_agent_query_non_resident_blocked(make_client):
                 json={"message": "hello"},
                 headers={
                     "Authorization": "Bearer fake",
-                    "Host": "demo.sportbook.chandraailabs.com",
+                    "Host": "demo.slotsense.chandraailabs.com",
                 },
             )
 

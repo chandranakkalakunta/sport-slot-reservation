@@ -14,7 +14,7 @@ RESIDENT = {
     "tenant_slug": "demo", "household_id": "h-1",
 }
 AUTH = {"authorization": "Bearer fake"}
-HOST = {"host": "demo.sportbook.chandraailabs.com"}
+HOST = {"host": "demo.slotsense.chandraailabs.com"}
 VERIFY = "sport_slot.auth.dependency.fb_auth.verify_id_token"
 CREATE_FB = "sport_slot.services.provisioning.fb_auth.create_user"
 CLAIMS_FB = "sport_slot.services.provisioning.fb_auth.set_custom_user_claims"

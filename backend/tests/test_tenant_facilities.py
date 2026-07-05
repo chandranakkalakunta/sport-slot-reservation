@@ -7,7 +7,7 @@ ADMIN = {"uid": "a1", "role": "tenant_admin", "tenant_id": "t-1",
 RESIDENT = {"uid": "u1", "role": "resident", "tenant_id": "t-1",
             "tenant_slug": "demo", "household_id": "h-1"}
 AUTH = {"authorization": "Bearer fake"}
-HOST = {"host": "demo.sportbook.chandraailabs.com"}
+HOST = {"host": "demo.slotsense.chandraailabs.com"}
 VERIFY = "sport_slot.auth.dependency.fb_auth.verify_id_token"
 
 _DAYS = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]

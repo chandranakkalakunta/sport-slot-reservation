@@ -10,7 +10,7 @@ OTHER = {"uid": "u2", "role": "resident", "tenant_id": "t-1",
 ADMIN = {"uid": "a1", "role": "tenant_admin", "tenant_id": "t-1",
          "tenant_slug": "demo", "household_id": "h-0"}
 AUTH = {"authorization": "Bearer fake"}
-HOST = {"host": "demo.sportbook.chandraailabs.com"}
+HOST = {"host": "demo.slotsense.chandraailabs.com"}
 VERIFY = "sport_slot.auth.dependency.fb_auth.verify_id_token"
 GET = "sport_slot.api.v1.bookings.BookingRepository.get"
 UPDATE = "sport_slot.api.v1.bookings.BookingRepository.update"
