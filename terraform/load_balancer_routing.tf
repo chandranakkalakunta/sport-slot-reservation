@@ -32,6 +32,21 @@ resource "google_compute_url_map" "slotsense_https" {
     name            = "slotsense-paths"
     default_service = google_compute_backend_bucket.frontend.id
 
+    # Root path rewrite: GCS treats "/" as a list-bucket operation (allUsers has
+    # storage.objects.list via objectViewer) and returns HTTP 200 with XML rather
+    # than 404 -- so the default_custom_error_response_policy below never engages
+    # for this specific path. Rewriting "/" to "/index.html" before the request
+    # reaches GCS ensures GCS always receives a request for a real named object.
+    path_rule {
+      paths   = ["/"]
+      service = google_compute_backend_bucket.frontend.id
+      route_action {
+        url_rewrite {
+          path_prefix_rewrite = "/index.html"
+        }
+      }
+    }
+
     path_rule {
       paths   = ["/api/*", "/health", "/readyz"]
       service = google_compute_backend_service.api.id
