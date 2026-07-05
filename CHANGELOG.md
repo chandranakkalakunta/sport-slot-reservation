@@ -6,6 +6,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Phase 8b.5 — Cloud Armor WAF, Preview Mode (July 2026)
+
+Adds L7 WAF inspection via two Cloud Armor policies (log-only, non-blocking). Base L3/L4
+DDoS protection already provided by the Global HTTPS LB remains unchanged.
+
+- **`terraform/cloud_armor.tf`** (NEW): Two `google_compute_security_policy` resources —
+  `slotsense-api-armor` (type `CLOUD_ARMOR`) and `slotsense-frontend-edge-armor`
+  (type `CLOUD_ARMOR_EDGE`). Both carry `sqli-v422-stable` (priority 1000) and
+  `xss-v422-stable` (priority 2000) at CRS 4.22 sensitivity level 1, all rules with
+  `preview = true`. Default rule at priority 2147483647 is `allow` — no default-deny.
+- **`terraform/load_balancer_backends.tf`**: `security_policy` attribute added to
+  `google_compute_backend_service.api`; `edge_security_policy` attribute added to
+  `google_compute_backend_bucket.frontend`. No other attributes changed.
+- **`docs/adr/0032-cloud-armor-preview-mode.md`** (NEW): Documents two-policy design,
+  preview-mode rationale, CRS 4.22 selection, DDoS clarification, and explicit deferral
+  of rate limiting and Adaptive Protection.
+- Rate limiting deferred — requires real booking-window traffic baselines.
+- Adaptive Protection deferred — requires Cloud Armor Enterprise subscription decision.
+- **NOT YET APPLIED** — `terraform apply` is a manual coordinator step.
+
 ### Phase 8b.4 — App Domain Config: sportbook → slotsense.chandraailabs.com (backend + frontend, July 2026)
 
 Renames every forward-looking config and test reference from the old `sportbook.chandraailabs.com`
