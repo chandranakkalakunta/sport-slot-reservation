@@ -120,3 +120,4 @@ scripts/phase-*.txt
 # Firebase configuration (build-time injected, capture only)
 infrastructure/firebase-web-config.json
 infrastructure/firebase-*.json
+*.tfplan
