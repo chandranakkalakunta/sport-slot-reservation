@@ -6,6 +6,45 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Phase 8b.2b — CDN Origin Headers + GCS Sync (infra + ci, July 2026)
+
+Two changes closing the loop between the Phase 8b.2 LB backend and live frontend delivery.
+
+**Terraform (`terraform/load_balancer_backends.tf`):**
+- `google_compute_backend_bucket.frontend`: switched CDN `cache_mode` from
+  `CACHE_ALL_STATIC` (the provider default) to `USE_ORIGIN_HEADERS`. In
+  `CACHE_ALL_STATIC` mode Cloud CDN ignores `Cache-Control: no-cache` from GCS object
+  metadata and caches with `defaultTtl=3600s` instead — a stale PWA service worker
+  (`sw.js`) could be served for up to an hour after deploy. `USE_ORIGIN_HEADERS` makes
+  Cloud CDN honor the headers set at upload time: `no-cache` for `index.html`, `sw.js`
+  etc. (revalidated on every request), `max-age=31536000,immutable` for hashed assets.
+- `terraform plan` confirmed: **0 to add, 1 to change, 0 to destroy** (only this bucket's
+  `cdn_policy.cache_mode`). **NOT YET APPLIED** — requires `make tf-apply-dev`.
+
+**CI (`.github/workflows/deploy.yml`):**
+- Added two new steps at the end of the `deploy` job (after existing step 9, the Firebase
+  Hosting deploy) — all existing steps are unmodified:
+  - **Step 10**: `Re-authenticate to Google Cloud (WIF, keyless — GCS sync)` — direct WIF,
+    no SA impersonation. Required because step 8 (Mint Firebase access token) overwrites
+    ADC to `sa-firebase-admin`, which has no GCS write permission. Re-auth restores the
+    direct WIF principal, which already holds `roles/storage.admin` project-wide
+    (`wif_iam.tf:61-65`).
+  - **Step 11**: `Sync frontend dist to GCS (sport-slot-dev-frontend)` — syncs
+    `frontend/dist/` (built in step 9) to `gs://sport-slot-dev-frontend` with per-file
+    `Cache-Control` headers matching `firebase.json`'s existing 7 rules:
+    - **`no-cache`**: `index.html`, `manifest.webmanifest`, `sw.js`, `registerSW.js`,
+      `workbox-*.js`
+    - **`public, max-age=31536000, immutable`**: `assets/*` (content-hashed files; old
+      hashes are intentionally kept in GCS so users with a cached index.html can still
+      fetch them)
+    - **`public, max-age=86400`**: `favicon-32x32.png`, `pwa-192x192.png`,
+      `pwa-512x512.png`, `pwa-maskable-512x512.png` (fixed filenames, not hash-versioned)
+    - **Excluded**: `slotsense-icon-source.png` (raw source artifact, not a deployable
+      asset)
+- No new IAM grants needed — the CI WIF principal's existing project-level
+  `roles/storage.admin` covers `sport-slot-dev-frontend`.
+- CI change takes effect on next merge to main.
+
 ### Phase 8b.2 — LB Backend Infra + HTTP Redirect (infra, July 2026)
 
 Full backend infrastructure for the Global External HTTPS Load Balancer: Cloud Run NEG +
