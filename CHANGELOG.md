@@ -6,6 +6,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Root Path Fix — rewrite / to /index.html before reaching GCS (July 2026)
+
+**Bug:** `https://rvrg.slotsense.chandraailabs.com/` (bare root) returned a raw GCS
+bucket-listing XML response instead of `index.html`. Root cause: GCS treats the empty root
+key as a valid list-bucket operation (`allUsers` has `storage.objects.list` via
+`objectViewer`), returning HTTP 200 with XML — the existing 404→index.html error policy
+never engaged because there was no 404 to intercept.
+
+**Fix:** Added a `path_rule` for `paths = ["/"]` in `terraform/load_balancer_routing.tf`
+that rewrites the path to `/index.html` before the request reaches GCS (`route_action {
+url_rewrite { path_prefix_rewrite = "/index.html" } }`). GCS now always receives a request
+for a real named object. Verified against provider 6.50.0 schema; plan shows 0 add, 1
+change, 0 destroy. NOT YET APPLIED.
+
 ### Phase 8b.6 — Cloud Run ingress restriction + web.app path deprecation (July 2026)
 
 Closes the X-Forwarded-Host spoofing surface (ADR-0012 open VERIFY-ITEM) by restricting
