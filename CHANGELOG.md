@@ -6,6 +6,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Phase 8b.5 correction 3 — remove WAF rules from edge policy (July 2026)
+
+`CLOUD_ARMOR_EDGE` policies do not support preconfigured WAF expressions at all
+(`evaluatePreconfiguredWaf` is only valid on `CLOUD_ARMOR` type — confirmed via API error
+on apply). Removed SQLi (priority 1000) and XSS (priority 2000) rule blocks entirely from
+`google_compute_security_policy.frontend_edge`. Policy now contains only the mandatory
+default allow rule. The `api` (`CLOUD_ARMOR`) policy is unaffected and already applied
+successfully. Custom CEL-based edge rules deferred as deliberate future addition. NOT YET
+APPLIED.
+
 ### Phase 8b.5 correction 2 — remove preview from default rule (July 2026)
 
 GCP rejects `preview = true` on the mandatory default rule (priority 2147483647) with:
