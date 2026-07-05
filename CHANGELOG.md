@@ -6,6 +6,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Phase 8b.6 — Cloud Run ingress restriction + web.app path deprecation (July 2026)
+
+Closes the X-Forwarded-Host spoofing surface (ADR-0012 open VERIFY-ITEM) by restricting
+Cloud Run ingress to `internal-and-cloud-load-balancing`. Firebase Hosting's
+`sport-slot-dev.web.app/api/**` rewrite path becomes non-functional — accepted since this
+is DEV with no real tenant traffic on that path. Cloud Tasks confirmed compatible
+(explicitly in Google's internal-traffic list, same project, uses run.app URL).
+
+- **`backend/src/sport_slot/config.py`** (lines 32–33): `reset_continue_url` and
+  `welcome_login_url` updated from `sport-slot-dev.web.app` to `slotsense.chandraailabs.com`.
+  Public auth routes (token carries user context; URL is purely a SPA landing page).
+- **`scripts/deploy_cloud_run.sh`** (line 66): `--ingress=internal-and-cloud-load-balancing`
+  added explicitly. Required because `gcloud run deploy --ingress` defaults to `all` — omitting
+  it would silently reset the restriction on every CI deploy.
+- **`docs/adr/0033-dev-web-app-path-deprecated.md`** (NEW): Documents Firebase Hosting
+  incompatibility (confirmed), Cloud Tasks compatibility (confirmed), deploy persistence
+  issue, and future production caution.
+- **Coordinator live command** (run manually after PR merges):
+  `gcloud run services update sport-slot-api --region asia-south1 --project sport-slot-dev --ingress=internal-and-cloud-load-balancing`
+
 ### Phase 8b.5 correction 3 — remove WAF rules from edge policy (July 2026)
 
 `CLOUD_ARMOR_EDGE` policies do not support preconfigured WAF expressions at all

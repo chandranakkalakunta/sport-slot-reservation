@@ -29,8 +29,8 @@ class Settings(BaseSettings):
     tasks_invoker_sa: str | None = None
     reset_token_ttl_seconds: int = 3600
     reset_cooldown_seconds: int = 900
-    reset_continue_url: str = "https://sport-slot-dev.web.app/reset"
-    welcome_login_url: str = "https://sport-slot-dev.web.app/signin"
+    reset_continue_url: str = "https://slotsense.chandraailabs.com/reset"
+    welcome_login_url: str = "https://slotsense.chandraailabs.com/signin"
     vertex_project: str = "sport-slot-dev"
     vertex_location: str = "asia-south1"
     agent_model: str = "gemini-2.5-flash"
