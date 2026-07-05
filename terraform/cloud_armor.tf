@@ -38,7 +38,7 @@ resource "google_compute_security_policy" "api" {
     preview  = true
     match {
       expr {
-        expression = "evaluatePreconfiguredExpr('sqli-v422-stable', {'sensitivity': 1})"
+        expression = "evaluatePreconfiguredWaf('sqli-v422-stable', {'sensitivity': 1})"
       }
     }
     description = "SQLi CRS 4.22 sensitivity 1 — preview only"
@@ -51,7 +51,7 @@ resource "google_compute_security_policy" "api" {
     preview  = true
     match {
       expr {
-        expression = "evaluatePreconfiguredExpr('xss-v422-stable', {'sensitivity': 1})"
+        expression = "evaluatePreconfiguredWaf('xss-v422-stable', {'sensitivity': 1})"
       }
     }
     description = "XSS CRS 4.22 sensitivity 1 — preview only"
@@ -86,7 +86,7 @@ resource "google_compute_security_policy" "frontend_edge" {
     preview  = true
     match {
       expr {
-        expression = "evaluatePreconfiguredExpr('sqli-v422-stable', {'sensitivity': 1})"
+        expression = "evaluatePreconfiguredWaf('sqli-v422-stable', {'sensitivity': 1})"
       }
     }
     description = "SQLi CRS 4.22 sensitivity 1 — preview only"
@@ -99,7 +99,7 @@ resource "google_compute_security_policy" "frontend_edge" {
     preview  = true
     match {
       expr {
-        expression = "evaluatePreconfiguredExpr('xss-v422-stable', {'sensitivity': 1})"
+        expression = "evaluatePreconfiguredWaf('xss-v422-stable', {'sensitivity': 1})"
       }
     }
     description = "XSS CRS 4.22 sensitivity 1 — preview only"
