@@ -101,3 +101,50 @@ jobs:
         run: |
           (cd frontend && pnpm build)
           ./scripts/deploy_hosting_rest.sh
+
+      # Step 7 (SA impersonation) overwrote ADC to sa-firebase-admin, which has no
+      # GCS write permission. Re-authenticate as the direct WIF principal (identical
+      # config to the workflow's first auth step) to restore storage.admin access.
+      - name: Re-authenticate to Google Cloud (WIF, keyless — GCS sync)
+        uses: google-github-actions/auth@v3
+        with:
+          workload_identity_provider: ${{ env.WIF_PROVIDER }}
+
+      # Sync frontend/dist/ to GCS with per-file Cache-Control headers matching
+      # firebase.json's existing pattern. dist/ was built in the previous step.
+      # Groups:
+      #   no-cache   — root named files (index.html, SW, manifest, workbox)
+      #   immutable  — content-hashed /assets/** (old hashes kept, not deleted,
+      #                so users with a cached index.html can still fetch them)
+      #   1-day      — PWA icon PNGs (fixed filenames, not hash-versioned)
+      #   excluded   — slotsense-icon-source.png (raw source artifact)
+      - name: Sync frontend dist to GCS (sport-slot-dev-frontend)
+        run: |
+          BUCKET=gs://sport-slot-dev-frontend
+
+          # Group 1: no-cache — named root files (change every deploy)
+          gcloud storage cp \
+            frontend/dist/index.html \
+            frontend/dist/manifest.webmanifest \
+            frontend/dist/sw.js \
+            frontend/dist/registerSW.js \
+            "${BUCKET}/" \
+            --cache-control="no-cache"
+          # workbox filename carries a content hash but matches /workbox-*.js →
+          # no-cache in firebase.json; shell expands the glob at runtime
+          gcloud storage cp frontend/dist/workbox-*.js "${BUCKET}/" \
+            --cache-control="no-cache"
+
+          # Group 2: immutable — content-hashed assets (JS, CSS, fonts)
+          gcloud storage cp --cache-control="public, max-age=31536000, immutable" \
+            frontend/dist/assets/* "${BUCKET}/assets/"
+
+          # Group 3: 1-day cache — PWA icon PNGs (fixed filenames, not hash-versioned)
+          gcloud storage cp \
+            frontend/dist/favicon-32x32.png \
+            frontend/dist/pwa-192x192.png \
+            frontend/dist/pwa-512x512.png \
+            frontend/dist/pwa-maskable-512x512.png \
+            "${BUCKET}/" \
+            --cache-control="public, max-age=86400"
+          # slotsense-icon-source.png deliberately excluded (raw source artifact)

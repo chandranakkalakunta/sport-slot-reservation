@@ -39,6 +39,14 @@ resource "google_compute_backend_bucket" "frontend" {
   project     = var.project_id
   bucket_name = google_storage_bucket.frontend.name
   enable_cdn  = true
+
+  # USE_ORIGIN_HEADERS: Cloud CDN respects Cache-Control values set as GCS
+  # object metadata at upload time. Required so that no-cache files (index.html,
+  # sw.js, etc.) are revalidated on every request rather than cached for
+  # defaultTtl=3600s as CACHE_ALL_STATIC would impose.
+  cdn_policy {
+    cache_mode = "USE_ORIGIN_HEADERS"
+  }
 }
 
 # ── Cloud Run serverless NEG + API backend service ──
