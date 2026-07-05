@@ -183,19 +183,19 @@ Identity Federation
 | 5 | Binary Auth + supply-chain security | ✓ Complete |
 | 6 | CI/CD + WIF + branch protection | ✓ Complete |
 | 7 | Notifications (7.1) + Auth/password reset (7.2) | ◐ Partial (7.3–7.6 deferred) |
-| 8 | Production hardening (CMEK, VPC, MFA, pen test) | — Deferred; next up |
+| 8b | Production networking (LB, wildcard TLS, Cloud Armor, ingress) | ✓ Complete |
 | 9 | AI Booking Agent (SlotSense) | ✓ Complete |
 | 10 | UI redesign + PWA + accessibility audit | ✓ Complete |
 | 11 | TBD — push notifications, voice mode, or other | — Planned |
 
-Phase 8 (production hardening) remains the deferred work item before
-production launch. Phases 9 and 10 were prioritized over Phase 8
-because they demonstrate more technical breadth and are more central
-to the product story. Phase 8 is next.
+Phase 8b (production networking) shipped the GCP load balancer stack
+replacing Firebase Hosting's implicit infrastructure. Phase 8c
+(remaining hardening: CMEK, VPC, pen test) remains deferred.
 
-Phase 9 and Phase 10 retrospectives document the build process,
-lessons learned, and process improvements adopted:
+Phase retrospectives document the build process, lessons learned, and
+process improvements adopted:
 
+- [`docs/retrospectives/phase-8b.md`](docs/retrospectives/phase-8b.md) — production networking: LB, wildcard TLS, Cloud Armor, ingress restriction, 7 issues caught
 - [`docs/retrospectives/phase-9.md`](docs/retrospectives/phase-9.md) — the 16-slice AI agent build and its seven live-testing rounds
 - [`docs/retrospectives/phase-10.md`](docs/retrospectives/phase-10.md) — the UI redesign, the density saga, deploy/cache lessons, a11y audit
 

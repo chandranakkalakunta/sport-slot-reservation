@@ -6,6 +6,44 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Phase 8b — Production Networking: rollup (July 2026)
+
+Phase 8b replaced Firebase Hosting's implicit infrastructure with an explicit,
+Terraform-managed GCP production networking stack. 12 PRs (#80–#91), 5 new Terraform
+files, 3 new ADRs (0031–0033), and 384 Terraform lines net-added. Backend test suite
+remained green (378 tests) throughout.
+
+**What shipped:**
+- Global External HTTPS Load Balancer at `*.slotsense.chandraailabs.com` — API via Cloud
+  Run Serverless NEG, frontend via GCS backend bucket with Cloud CDN
+  (`USE_ORIGIN_HEADERS`)
+- Wildcard TLS via Certificate Manager + DNS authorization (Certificate Manager required;
+  classic managed SSL certs reject wildcards entirely — ADR-0031)
+- HTTP → HTTPS 301 redirect on port 80
+- SPA 404 catch-all via `default_custom_error_response_policy` (replicates Firebase
+  Hosting `source: "**"` rewrite)
+- Root-path rewrite (`"/"` → `"/index.html"`) to prevent GCS bucket-listing XML on bare
+  root requests
+- Cloud Armor WAF in preview/log-only mode: `CLOUD_ARMOR` policy on API backend (SQLi +
+  XSS CRS 4.22 sensitivity 1); `CLOUD_ARMOR_EDGE` policy on frontend bucket (default-allow
+  only — preconfigured WAF expressions unsupported on edge type) — ADR-0032
+- Cloud Run ingress restricted to `internal-and-cloud-load-balancing`; codified in deploy
+  script (`--ingress` defaults to `all` if omitted) — ADR-0033
+- Email deep-links (`reset_continue_url`, `welcome_login_url`) updated from
+  `sport-slot-dev.web.app` to `slotsense.chandraailabs.com`
+
+**7 issues caught and resolved:** wildcard TLS resource type mismatch (PR #81),
+`evaluatePreconfiguredExpr` wrong function name (PR #87), `preview=true` rejected on
+default rule (PR #88), WAF expressions unsupported on CLOUD_ARMOR_EDGE (PR #89),
+`CACHE_ALL_STATIC` silently overriding SPA `Cache-Control` headers (PR #84), Firebase
+Hosting ingress incompatibility caught via pre-implementation investigation (PR #90),
+GCS root-path listing returning XML bypassing the 404 error policy (PR #91).
+
+Full details: [`docs/retrospectives/phase-8b.md`](docs/retrospectives/phase-8b.md),
+[`docs/reports/phase-8b-engineering-report.md`](docs/reports/phase-8b-engineering-report.md)
+
+---
+
 ### Root Path Fix — rewrite / to /index.html before reaching GCS (July 2026)
 
 **Bug:** `https://rvrg.slotsense.chandraailabs.com/` (bare root) returned a raw GCS
