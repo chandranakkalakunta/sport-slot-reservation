@@ -75,3 +75,8 @@ Terraform as data sources but not managed.
   Artifact Registry, Redis, VPC — currently imperative/commented) is
   a separate IaC-hardening effort (Phase 9 or its own phase).
 - Manual `make deploy-*` targets remain as an escape hatch.
+
+## See also
+- Runbook (failure modes, IAM setup, REST API sequence):
+  `docs/runbooks/keyless-firebase-hosting-wif.md`
+- Phase 6 retrospective: `docs/retrospectives/phase-6.md`
