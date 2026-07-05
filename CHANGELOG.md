@@ -6,6 +6,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Phase 8b.5 correction — evaluatePreconfiguredWaf (July 2026)
+
+`evaluatePreconfiguredExpr` does not accept a sensitivity map argument (API error:
+candidates `(string),(string, list(string))`). Corrected to `evaluatePreconfiguredWaf`,
+the proper function for sensitivity-level control. 4 occurrences changed in
+`terraform/cloud_armor.tf` — no other change. NOT YET APPLIED.
+
 ### Phase 8b.5 — Cloud Armor WAF, Preview Mode (July 2026)
 
 Adds L7 WAF inspection via two Cloud Armor policies (log-only, non-blocking). Base L3/L4
