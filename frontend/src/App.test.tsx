@@ -4,7 +4,7 @@ import { MemoryRouter } from "react-router-dom";
 import { beforeEach, expect, test, vi } from "vitest";
 
 vi.mock("./lib/branding", () => ({ loadBrandingForSlug: vi.fn() }));
-vi.mock("./lib/api", () => ({ apiFetch: vi.fn() }));
+vi.mock("./lib/api", () => ({ apiFetch: vi.fn(), setClaimsErrorHandler: vi.fn() }));
 vi.mock("./auth/usePasswordGate", () => ({
   usePasswordGate: vi.fn().mockReturnValue({ mustChange: false, loading: false }),
 }));
@@ -35,10 +35,13 @@ beforeEach(() => {
 });
 
 test("unauthenticated user is redirected to sign-in", async () => {
+  const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   render(
-    <MemoryRouter initialEntries={["/"]}>
-      <App />
-    </MemoryRouter>,
+    <QueryClientProvider client={qc}>
+      <MemoryRouter initialEntries={["/"]}>
+        <App />
+      </MemoryRouter>
+    </QueryClientProvider>,
   );
   // Resolve auth state as logged-out.
   idTokenCallback?.(null);
@@ -48,10 +51,13 @@ test("unauthenticated user is redirected to sign-in", async () => {
 });
 
 test("loading state shows before auth resolves", () => {
+  const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   render(
-    <MemoryRouter initialEntries={["/"]}>
-      <App />
-    </MemoryRouter>,
+    <QueryClientProvider client={qc}>
+      <MemoryRouter initialEntries={["/"]}>
+        <App />
+      </MemoryRouter>
+    </QueryClientProvider>,
   );
   expect(screen.getByText("Loading…")).toBeInTheDocument();
 });

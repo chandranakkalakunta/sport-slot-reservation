@@ -1,5 +1,16 @@
 import { auth } from "./firebase";
 
+// Module-level handler: called by AuthContext to receive notifications when a
+// claims-related 401 is detected, so AuthContext can show the retry UI without
+// a circular dependency (api.ts → AuthContext is avoided; AuthContext → api.ts).
+let _claimsErrorHandler: (() => void) | null = null;
+
+/** Registers (or clears) the callback that fires on an AUTH_INVALID_TOKEN 401
+ *  with "Token missing provisioned claims". Called once by AuthContext on mount. */
+export function setClaimsErrorHandler(fn: (() => void) | null): void {
+  _claimsErrorHandler = fn;
+}
+
 export interface ApiError {
   code: string;
   message: string;
@@ -34,6 +45,16 @@ export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise
   const body = await resp.json().catch(() => ({}));
 
   if (!resp.ok) {
+    // Detect the stale-claims-after-fresh-sign-in case specifically.
+    // "Token verification failed" (genuinely bad/expired token) and
+    // AUTH_MISSING_TOKEN are different failure modes — not signalled here.
+    if (
+      resp.status === 401 &&
+      body.code === "AUTH_INVALID_TOKEN" &&
+      body.message === "Token missing provisioned claims"
+    ) {
+      _claimsErrorHandler?.();
+    }
     throw new ApiClientError({
       code: body.code ?? "UNKNOWN",
       message: body.message ?? resp.statusText,

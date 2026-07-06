@@ -23,6 +23,8 @@ function authState(role: string, hasUser = true) {
     signIn: vi.fn(),
     signInWithGoogle: vi.fn(),
     signOut: vi.fn(),
+    claimsError: false,
+    retryClaimsRefresh: vi.fn(),
   };
 }
 
