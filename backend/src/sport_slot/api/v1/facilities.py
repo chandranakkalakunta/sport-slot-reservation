@@ -1,6 +1,8 @@
+import datetime
 import re
 import uuid
 
+import structlog
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel, field_validator
 
@@ -10,9 +12,13 @@ from sport_slot.auth.context import TenantContext
 from sport_slot.auth.dependency import get_tenant_context
 from sport_slot.auth.roles import require_role
 from sport_slot.dependencies import get_firestore_client
-from sport_slot.repositories.bookings import BookingRepository  # noqa: F401 — test patch compat
+from sport_slot.middleware.request_id import get_request_id
+from sport_slot.repositories.bookings import AuditRepository, BookingRepository  # noqa: F401 — test patch compat
 from sport_slot.repositories.facilities import FacilityRepository
 from sport_slot.services.availability import get_availability
+from sport_slot.services.bookings import cancel_booking
+
+log = structlog.get_logger()
 
 # ── Reader router (any authenticated user) ─────────────────────────────────
 router = APIRouter(prefix="/facilities", tags=["facilities"])
@@ -193,4 +199,42 @@ async def deactivate_facility(
     if not ref.get().exists:
         raise ApiError(404, error_codes.NOT_FOUND, "Facility not found")
     ref.update({"active": False})
-    return {"id": facility_id, "active": False}
+
+    today = datetime.date.today().isoformat()
+    bookings_col = (client.collection("tenants").document(ctx.tenant_id)
+                    .collection("bookings"))
+    query = (
+        bookings_col
+        .where("facility_id", "==", facility_id)
+        .where("status", "==", "confirmed")
+        .where("date", ">=", today)
+    )
+
+    cancelled_count = 0
+    failed_ids: list[str] = []
+    for snap in query.stream():
+        booking_doc = snap.to_dict()
+        bid = booking_doc.get("id", snap.id)
+        try:
+            cancel_booking(ctx, client, bid,
+                           force=True, cancelled_by_override="facility_deactivated")
+            cancelled_count += 1
+        except Exception as exc:  # noqa: BLE001
+            log.warning("facility_deactivation_booking_cancel_failed",
+                        booking_id=bid, facility_id=facility_id, error=str(exc))
+            failed_ids.append(bid)
+
+    if failed_ids:
+        log.warning("facility_deactivation_partial_failure",
+                    facility_id=facility_id, failed_booking_ids=failed_ids)
+
+    AuditRepository(ctx, client).write_event(
+        event_type="facility.deactivated",
+        actor_uid=ctx.uid,
+        actor_role=ctx.role,
+        booking_id="-",
+        request_id=get_request_id(),
+        details={"facility_id": facility_id, "bookings_cancelled": cancelled_count},
+    )
+
+    return {"id": facility_id, "active": False, "bookings_cancelled": cancelled_count}

@@ -160,6 +160,14 @@ class UserProvisioningService:
         fb_auth.update_user(target_uid, disabled=True)
         today = datetime.date.today().isoformat()
         self._cancel_future_bookings(tenant_id, target_uid, today)
+        AuditRepository(ctx, self._client).write_event(
+            event_type="user.deactivated",
+            actor_uid=caller_uid or "",
+            actor_role="tenant_admin",
+            booking_id="-",
+            request_id=request_id,
+            details={"target_uid": target_uid},
+        )
         return {"uid": target_uid, "status": "deactivated"}
 
     def reset_password(self, tenant_id: str, uid: str, request_id: str = "") -> dict:

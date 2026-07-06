@@ -19,6 +19,7 @@ from sport_slot.auth.tasks_auth import verify_tasks_oidc
 from sport_slot.dependencies import get_email_provider
 from sport_slot.notifications.email.provider import EmailProvider, EmailSendError
 from sport_slot.notifications.email.templates import (
+    render_booking_cancelled,
     render_booking_confirmed,
     render_password_reset,
     render_user_welcome,
@@ -28,6 +29,7 @@ from sport_slot.ratelimit import limiter
 router = APIRouter(prefix="/internal/tasks", tags=["internal"])
 
 _RENDERERS = {
+    "booking_cancelled": render_booking_cancelled,
     "booking_confirmed": render_booking_confirmed,
     "user_welcome": render_user_welcome,
     "password_reset": render_password_reset,

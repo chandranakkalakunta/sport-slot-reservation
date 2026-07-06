@@ -6,6 +6,62 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Phase 13.1 — Deactivation Audit + Cancellation Notification (July 2026)
+
+Three related gaps in the deactivation and booking-cancellation area, all fixed together
+because they share the same functional concern (what happens to bookings and audit trails
+when a user or facility is deactivated):
+
+**1. `deactivate_user` now writes a `user.deactivated` audit event (ADR-0011):**
+`UserProvisioningService.deactivate_user` (`services/provisioning.py`) previously called
+`_cancel_future_bookings` and returned without writing any audit event, unlike its siblings
+`create_user` (writes `user_provisioned`) and `reset_password` (writes `user.password_reset`).
+Fix: `AuditRepository.write_event(event_type="user.deactivated", ..., details={"target_uid": ...})`
+is now called after `_cancel_future_bookings` on every successful deactivation.
+
+**2. `cancel_booking` now sends a best-effort `booking_cancelled` notification on every
+cancellation (ADR-0019), plus gains `force` and `cancelled_by_override` params:**
+`cancel_booking` (`services/bookings.py`) previously wrote an audit event but sent no email
+to the booking owner, for any cancellation path. This gap affects all cancellations (resident
+self-cancel, admin cancel, and the facility-deactivation path). New params:
+- `force: bool = False` — when `True`, skips the cancellation-buffer check (which exists to
+  protect residents from self-cancelling too late, not to block system-triggered removals).
+- `cancelled_by_override: str | None = None` — when set, replaces the computed `cancelled_by`
+  value ("self" / "tenant_admin") in both the Firestore update and the audit event details.
+  Also forwarded as `reason` in notification params.
+Normal (non-force) calls behave identically to before except for the new notification.
+
+**3. `deactivate_facility` now cancels affected future bookings, notifies residents, and
+writes a `facility.deactivated` audit event (ADR-0034 §1):**
+`deactivate_facility` (`api/v1/facilities.py`) previously only flipped `active: False`.
+It now: queries all confirmed future bookings for the facility; calls
+`cancel_booking(..., force=True, cancelled_by_override="facility_deactivated")` for each
+(individual failures are logged and counted but do not abort the rest); writes a
+`facility.deactivated` audit event with `{"facility_id": ..., "bookings_cancelled": N}`;
+and returns `bookings_cancelled` in the HTTP response body. Residents receive a
+`booking_cancelled` email with "This facility is no longer available." in the body when
+the reason is `facility_deactivated`.
+
+**New `booking_cancelled` email template** (`notifications/email/templates.py`):
+`render_booking_cancelled` follows the same pattern as `render_booking_confirmed` (HTML-escaped,
+`_HTML_WRAPPER`, `RenderedEmail` return). When `reason == "facility_deactivated"`, the body
+includes "This facility is no longer available." — other reason codes are not shown to residents.
+Registered in `_RENDERERS` in `api/internal/tasks.py`.
+
+**Known gap explicitly NOT fixed here:** `_cancel_future_bookings` (the user-deactivation
+path in `services/provisioning.py`) still cancels bookings by writing directly to Firestore
+rather than calling `cancel_booking`, so it still bypasses the notification and `cancelled_by`
+attribution logic. This gap is logged as a deliberately deferred item for a future sub-phase.
+
+**Tests:** 392 passed (90.65% coverage, gate ≥90%). Individual two-sided (RED/GREEN) tests:
+- `test_deactivate_user_writes_user_deactivated_audit_event` (test_admin_provisioning.py)
+- `test_cancel_booking_force_bypasses_cancellation_buffer` (test_cancel_booking_svc.py)
+- `test_cancel_booking_enqueues_booking_cancelled_notification` (test_cancel_booking_svc.py)
+- `test_cancel_booking_cancelled_by_override_in_update_and_audit` (test_cancel_booking_svc.py)
+- `test_deactivate_facility_cancels_future_bookings_and_writes_audit` (test_tenant_facilities.py)
+No failed booking IDs during deactivate_facility test scenario (query stream returned all
+expected bookings; cancel_booking mocked — no partial-failure path exercised).
+
 ### Phase 13.0 — Deactivate Validation (July 2026)
 
 **Validation scope:** Deactivate button behavior for tenant users and facilities in the

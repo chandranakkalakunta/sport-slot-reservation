@@ -185,11 +185,15 @@ def cancel_booking(
     booking_id: str,
     *,
     source: str = "manual",  # "manual" → "booking.cancelled"; "agent" → "agent.booking_cancelled"
+    force: bool = False,
+    cancelled_by_override: str | None = None,
 ) -> dict:
     """Orchestrate a cancellation: lookup → ownership check → buffer check → update → audit.
 
-    Behavior is identical to the previous router handler. source param adds the
-    ADR-0022 §8 agent audit-differentiation seam (consistent with create_booking).
+    force=True skips the cancellation-buffer check (used by facility-deactivation where
+    the buffer only exists to protect residents, not to block system-triggered removals).
+    cancelled_by_override replaces the computed cancelled_by in both the Firestore update
+    and the audit event details (pass "facility_deactivated" for facility-triggered cancels).
     Returns the post-update booking doc (or {} if the read-back fails).
     """
     repo = BookingRepository(ctx, client)
@@ -208,13 +212,14 @@ def cancel_booking(
     tz = zoneinfo.ZoneInfo(policy.tenant_timezone())
     now_local = datetime.datetime.now(tz).replace(tzinfo=None)
     buffer_hours = int(policy.get("cancellation_buffer_hours"))
-    if not _is_cancellable(booking, now_local, buffer_hours):
+    if not force and not _is_cancellable(booking, now_local, buffer_hours):
         raise ApiError(
             422, error_codes.CANCELLATION_TOO_LATE,
             f"Cancellation closes {buffer_hours}h before the slot",
         )
 
-    cancelled_by = "self" if booking["uid"] == ctx.uid else "tenant_admin"
+    computed_by = "self" if booking["uid"] == ctx.uid else "tenant_admin"
+    cancelled_by = cancelled_by_override if cancelled_by_override is not None else computed_by
     repo.update(booking_id, {
         "status": "cancelled",
         "cancelled_at": datetime.datetime.now(datetime.UTC),
@@ -226,4 +231,33 @@ def cancel_booking(
         event_type, ctx.uid, ctx.role, booking_id,
         get_request_id(), {"cancelled_by": cancelled_by},
     )
+
+    # Best-effort notification (ADR-0019): cancellation is already committed above;
+    # failure here must never surface as a cancellation error. Uses booking["uid"]
+    # (not ctx.uid) so the email goes to the booking owner even in admin/facility-
+    # triggered cancellations where the caller is not the owner.
+    try:
+        profile = UserProfileRepository(ctx, client).get(booking["uid"])
+        tenant_snap = client.collection("tenants").document(ctx.tenant_id).get()
+        tenant = tenant_snap.to_dict() if tenant_snap.exists else None
+        facility_doc = FacilityRepository(ctx, client).get(booking["facility_id"])
+        if profile and profile.get("email") and tenant and facility_doc:
+            enqueue_notification(
+                event_type="booking_cancelled",
+                to=profile["email"],
+                params={
+                    "user_name": profile.get("display_name", ""),
+                    "tenant_name": tenant.get("display_name", ""),
+                    "facility": facility_doc.get("name", ""),
+                    "sport": facility_doc.get("sport", ""),
+                    "date": booking["date"],
+                    "start_time": booking["start"],
+                    "booking_id": booking_id,
+                    "reason": cancelled_by_override,
+                },
+            )
+    except Exception as exc:  # noqa: BLE001 - best-effort; cancellation already committed
+        log.warning("notification_enqueue_failed", event_type="booking_cancelled",
+                    booking_id=booking_id, error=str(exc))
+
     return repo.get(booking_id) or {}

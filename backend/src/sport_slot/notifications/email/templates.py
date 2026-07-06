@@ -80,6 +80,63 @@ def render_booking_confirmed(
     return RenderedEmail(subject=subject, html=html, text=text)
 
 
+def render_booking_cancelled(
+    *,
+    user_name: str,
+    tenant_name: str,
+    facility: str,
+    sport: str,
+    date: str,
+    start_time: str,
+    booking_id: str,
+    reason: str | None = None,
+) -> RenderedEmail:
+    e_user_name = escape(user_name)
+    e_tenant_name = escape(tenant_name)
+    e_facility = escape(facility)
+    e_sport = escape(sport)
+    e_date = escape(date)
+    e_start_time = escape(start_time)
+    e_booking_id = escape(booking_id)
+
+    subject = f"Booking cancelled: {facility} on {date}"
+
+    facility_note_html = ""
+    facility_note_text = ""
+    if reason == "facility_deactivated":
+        facility_note_html = "<p>This facility is no longer available.</p>"
+        facility_note_text = "This facility is no longer available.\n"
+
+    body = f"""\
+<h2 style="margin-top: 0;">Booking cancelled</h2>
+<p>Hi {e_user_name},</p>
+<p>Your booking at <strong>{e_tenant_name}</strong> has been cancelled:</p>
+<table style="width: 100%; border-collapse: collapse; margin: 16px 0;">
+<tr><td style="padding: 4px 0; color: #555;">Facility</td><td>{e_facility}</td></tr>
+<tr><td style="padding: 4px 0; color: #555;">Sport</td><td>{e_sport}</td></tr>
+<tr><td style="padding: 4px 0; color: #555;">Date</td><td>{e_date}</td></tr>
+<tr><td style="padding: 4px 0; color: #555;">Time</td><td>{e_start_time}</td></tr>
+<tr><td style="padding: 4px 0; color: #555;">Booking ID</td><td>{e_booking_id}</td></tr>
+</table>
+{facility_note_html}"""
+    html = _HTML_WRAPPER.format(body=body, tenant_name=e_tenant_name)
+
+    text = (
+        f"Booking cancelled\n\n"
+        f"Hi {user_name},\n\n"
+        f"Your booking at {tenant_name} has been cancelled:\n"
+        f"Facility: {facility}\n"
+        f"Sport: {sport}\n"
+        f"Date: {date}\n"
+        f"Time: {start_time}\n"
+        f"Booking ID: {booking_id}\n"
+        f"{facility_note_text}\n"
+        f"{tenant_name} - SportSlot Reservation\n"
+    )
+
+    return RenderedEmail(subject=subject, html=html, text=text)
+
+
 def render_password_reset(
     *,
     user_name: str,
