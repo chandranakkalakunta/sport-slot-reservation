@@ -1,5 +1,5 @@
 """Phase 13.4 tests: tenant permanent delete (platform-admin only, ADR-0034 §2)."""
-from unittest.mock import MagicMock, call, patch
+from unittest.mock import MagicMock, patch
 
 import firebase_admin.auth as fb_auth
 
