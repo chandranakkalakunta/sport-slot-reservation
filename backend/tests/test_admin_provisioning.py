@@ -387,6 +387,30 @@ async def test_deactivate_user_not_found(make_client):
     assert resp.json()["code"] == "USER_NOT_FOUND"
 
 
+async def test_deactivate_user_writes_user_deactivated_audit_event(make_client):
+    """Two-sided: (RED) without the audit call write_event is never called on deactivation;
+    (GREEN) it is called exactly once with event_type='user.deactivated' and the
+    target_uid in details."""
+    AUDIT_WE = "sport_slot.services.provisioning.AuditRepository.write_event"
+    with patch(VERIFY, return_value=ADMIN_CLAIMS), \
+         patch(UPDATE_FB), \
+         patch(AUDIT_WE) as mock_audit:
+        async with make_client() as client:
+            client._transport.app.dependency_overrides[get_firestore_client] = (
+                lambda: _mock_client(profile_exists=True)
+            )
+            resp = await client.delete(
+                "/api/v1/admin/tenants/t-1/users/u-99",
+                headers={**AUTH, **ADMIN_HOST},
+            )
+    assert resp.status_code == 200
+    assert resp.json()["status"] == "deactivated"
+    mock_audit.assert_called_once()
+    kwargs = mock_audit.call_args.kwargs
+    assert kwargs["event_type"] == "user.deactivated"
+    assert kwargs["details"]["target_uid"] == "u-99"
+
+
 # ── change-password ──────────────────────────────────────────────────────────
 
 HIBP = "sport_slot.auth.password_policy._is_pwned"

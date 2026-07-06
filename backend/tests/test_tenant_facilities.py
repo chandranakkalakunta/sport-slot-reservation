@@ -155,7 +155,137 @@ async def test_deactivate_facility_sets_active_false(make_client):
             resp = await c.delete("/api/v1/tenant/facilities/abc123456789",
                                   headers={**AUTH, **HOST})
     assert resp.status_code == 200
-    assert resp.json() == {"id": "abc123456789", "active": False}
+    body = resp.json()
+    assert body["id"] == "abc123456789"
+    assert body["active"] is False
+    assert body["bookings_cancelled"] == 0
+
+
+def _deactivate_with_bookings_mock(booking_snaps=None):
+    """Mock Firestore client for deactivate_facility tests that need bookings query.
+
+    Separates the facilities and bookings sub-collections so the mock returns the
+    right data from each without conflicts (MagicMock chaining would otherwise
+    return the same object for .collection("facilities") and .collection("bookings")).
+    """
+    client = MagicMock()
+
+    fac_snap = MagicMock()
+    fac_snap.exists = True
+    fac_snap.to_dict.return_value = EXISTING_FAC
+
+    fac_ref = MagicMock()
+    fac_ref.get.return_value = fac_snap
+
+    fac_col = MagicMock()
+    fac_col.document.return_value = fac_ref
+
+    bk_query = MagicMock()
+    bk_query.where.return_value = bk_query
+    bk_query.stream.return_value = booking_snaps or []
+
+    bk_col = MagicMock()
+    bk_col.where.return_value = bk_query
+
+    def _sub_col(name):
+        if name == "facilities":
+            return fac_col
+        if name == "bookings":
+            return bk_col
+        return MagicMock()
+
+    tenant_doc = MagicMock()
+    tenant_doc.collection.side_effect = _sub_col
+
+    tenant_col = MagicMock()
+    tenant_col.document.return_value = tenant_doc
+
+    client.collection.return_value = tenant_col
+    return client
+
+
+def _booking_snap(booking_id, facility_id="abc123456789", uid="u1"):
+    snap = MagicMock()
+    snap.to_dict.return_value = {
+        "id": booking_id,
+        "uid": uid,
+        "facility_id": facility_id,
+        "date": "2026-08-15",
+        "start": "09:00",
+        "status": "confirmed",
+    }
+    snap.id = booking_id
+    return snap
+
+
+async def test_deactivate_facility_cancels_future_bookings_and_writes_audit(make_client):
+    """Two-sided:
+    RED  — without the fix: response has no 'bookings_cancelled' key and
+           AuditRepository.write_event / cancel_booking are never called.
+    GREEN — after the fix: cancel_booking called for each confirmed future booking
+            with force=True + cancelled_by_override='facility_deactivated';
+            audit event written with the correct bookings_cancelled count;
+            response body includes bookings_cancelled.
+    """
+    CANCEL = "sport_slot.api.v1.facilities.cancel_booking"
+    AUDIT = "sport_slot.api.v1.facilities.AuditRepository.write_event"
+
+    snaps = [
+        _booking_snap("abc123456789_2026-08-15_09:00"),
+        _booking_snap("abc123456789_2026-08-15_10:00"),
+    ]
+
+    with patch(VERIFY, return_value=ADMIN), \
+         patch(CANCEL) as mock_cancel, \
+         patch(AUDIT) as mock_audit:
+        async with make_client() as c:
+            c._transport.app.dependency_overrides[get_firestore_client] = (
+                lambda: _deactivate_with_bookings_mock(snaps)
+            )
+            resp = await c.delete("/api/v1/tenant/facilities/abc123456789",
+                                  headers={**AUTH, **HOST})
+
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["active"] is False
+    assert body["id"] == "abc123456789"
+    # GREEN: bookings_cancelled present and equals the number of matching bookings
+    assert body["bookings_cancelled"] == 2
+
+    # cancel_booking called exactly once per matching booking, with force+override
+    assert mock_cancel.call_count == 2
+    for c_call in mock_cancel.call_args_list:
+        assert c_call.kwargs.get("force") is True
+        assert c_call.kwargs.get("cancelled_by_override") == "facility_deactivated"
+
+    # Audit event written with correct facility_id and count
+    mock_audit.assert_called_once()
+    audit_kwargs = mock_audit.call_args.kwargs
+    assert audit_kwargs["event_type"] == "facility.deactivated"
+    assert audit_kwargs["details"]["bookings_cancelled"] == 2
+    assert audit_kwargs["details"]["facility_id"] == "abc123456789"
+
+
+async def test_deactivate_facility_with_no_future_bookings_writes_zero_count(make_client):
+    """Facility with no confirmed future bookings: count=0, audit still written."""
+    CANCEL = "sport_slot.api.v1.facilities.cancel_booking"
+    AUDIT = "sport_slot.api.v1.facilities.AuditRepository.write_event"
+
+    with patch(VERIFY, return_value=ADMIN), \
+         patch(CANCEL) as mock_cancel, \
+         patch(AUDIT) as mock_audit:
+        async with make_client() as c:
+            c._transport.app.dependency_overrides[get_firestore_client] = (
+                lambda: _deactivate_with_bookings_mock([])  # empty stream
+            )
+            resp = await c.delete("/api/v1/tenant/facilities/abc123456789",
+                                  headers={**AUTH, **HOST})
+
+    assert resp.status_code == 200
+    assert resp.json()["bookings_cancelled"] == 0
+    mock_cancel.assert_not_called()
+    mock_audit.assert_called_once()
+    assert mock_audit.call_args.kwargs["details"]["bookings_cancelled"] == 0
 
 
 async def test_resident_cannot_create_facility_tenant_admin_required(make_client):
