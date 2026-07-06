@@ -235,11 +235,11 @@ describe("signIn — forced token refresh", () => {
   });
 
   afterEach(() => {
-    (firebaseLib.auth as Record<string, unknown>).currentUser = null;
+    (firebaseLib.auth as unknown as { currentUser: unknown }).currentUser = null;
   });
 
   it("calls getIdToken(true) after signInWithEmailAndPassword succeeds", async () => {
-    (firebaseLib.auth as Record<string, unknown>).currentUser = { getIdToken: mockGetIdToken };
+    (firebaseLib.auth as unknown as { currentUser: unknown }).currentUser = { getIdToken: mockGetIdToken };
     renderProvider(<AuthFnCapturer />);
     await waitFor(() => expect(_capturedSignIn).not.toBeNull());
 
@@ -251,7 +251,7 @@ describe("signIn — forced token refresh", () => {
   });
 
   it("calls getIdToken(true) after signInWithPopup (Google) succeeds", async () => {
-    (firebaseLib.auth as Record<string, unknown>).currentUser = { getIdToken: mockGetIdToken };
+    (firebaseLib.auth as unknown as { currentUser: unknown }).currentUser = { getIdToken: mockGetIdToken };
     renderProvider(<AuthFnCapturer />);
     await waitFor(() => expect(_capturedSignInWithGoogle).not.toBeNull());
 
@@ -293,7 +293,7 @@ describe("claims-error state and ClaimsErrorFallback", () => {
 
   it("Retry button calls getIdToken(true) and dismisses the fallback", async () => {
     const mockCurrentUser = { getIdToken: mockGetIdToken };
-    (firebaseLib.auth as Record<string, unknown>).currentUser = mockCurrentUser;
+    (firebaseLib.auth as unknown as { currentUser: unknown }).currentUser = mockCurrentUser;
 
     renderProvider(<div data-testid="app-content">App</div>);
     await waitFor(() => expect(_claimsErrorHandlerFromContext).toBeTypeOf("function"));
@@ -311,7 +311,7 @@ describe("claims-error state and ClaimsErrorFallback", () => {
     expect(screen.getByTestId("app-content")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /retry/i })).not.toBeInTheDocument();
 
-    (firebaseLib.auth as Record<string, unknown>).currentUser = null;
+    (firebaseLib.auth as unknown as { currentUser: unknown }).currentUser = null;
     mockGetIdToken.mockClear();
   });
 });

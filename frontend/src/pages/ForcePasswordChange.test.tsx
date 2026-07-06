@@ -24,6 +24,8 @@ beforeEach(() => {
     signIn: vi.fn(),
     signInWithGoogle: vi.fn(),
     signOut: vi.fn(),
+    claimsError: false,
+    retryClaimsRefresh: vi.fn(),
   });
 });
 
@@ -96,6 +98,8 @@ test("no user (loading=false, user=null) -> redirects to /signin", () => {
     signIn: vi.fn(),
     signInWithGoogle: vi.fn(),
     signOut: vi.fn(),
+    claimsError: false,
+    retryClaimsRefresh: vi.fn(),
   });
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   render(
