@@ -6,6 +6,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Phase 13.0 — Deactivate Validation (July 2026)
+
+**Validation scope:** Deactivate button behavior for tenant users and facilities in the
+tenant-admin UI. Reproduction performed via backend unit tests (GCP credentials expired
+during session; test-based two-sided guard used per protocol §3.3).
+
+**User deactivation — bug found and fixed:**
+Root cause: `UserProvisioningService.deactivate_user` (`backend/src/sport_slot/services/provisioning.py`)
+wrote `{"status": "inactive", "deactivated_at": ...}` to Firestore but never set
+`active: False`. The frontend user list filter (`TenantUsers.tsx` line 106) is
+`u.active !== false`. Since the `active` field was absent from the user profile
+(neither at creation nor at deactivation), deactivated users always passed the filter and
+remained visible in the "Active users" list after a successful deactivation and
+query-invalidation re-fetch.
+
+Fix: added `"active": False` to the `repo.update` call in `deactivate_user`. Regression
+test `test_deactivate_tenant_user_sets_active_false` (new, in `test_tenant_config.py`)
+verified RED before fix (update dict lacked `active` key), GREEN after fix. Full backend
+suite: 379 passed (91% coverage). Frontend suite: 261 passed.
+
+**Facility deactivation — works as designed (known gap confirmed):**
+`deactivate_facility` (`backend/src/sport_slot/api/v1/facilities.py`) sets `active: False`
+in Firestore. The frontend filter (`TenantFacilities.tsx` line 143) is `f.active`, a
+truthy check. The facility correctly disappears from the list after deactivation. The
+button works end-to-end for the flag flip.
+
+**Known gap (NOT fixed here, scoped to Phase 13 main sub-phase):** Facility deactivation
+does not cancel future bookings, does not notify residents, and does not write an audit
+event. This matches the intent in CONTEXT and ADR-0034 scope. No change made to this
+behaviour in 13.0.
+
 ### Phase 8b — Production Networking: rollup (July 2026)
 
 Phase 8b replaced Firebase Hosting's implicit infrastructure with an explicit,

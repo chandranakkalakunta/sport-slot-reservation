@@ -154,6 +154,7 @@ class UserProvisioningService:
 
         repo.update(target_uid, {
             "status": "inactive",
+            "active": False,
             "deactivated_at": datetime.datetime.now(datetime.UTC),
         })
         fb_auth.update_user(target_uid, disabled=True)
