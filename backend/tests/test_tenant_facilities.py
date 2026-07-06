@@ -146,19 +146,29 @@ async def test_patch_facility_updates_name(make_client):
     assert resp.json()["name"] == "Court A"
 
 
-async def test_deactivate_facility_sets_active_false(make_client):
+async def test_delete_facility_permanently_removes_document(make_client):
+    """(a) Facility Remove deletes the Firestore doc — not just sets active:False.
+
+    RED: before Phase 13.3 the handler calls ref.update({"active": False}), so
+         body has "active" key and ref.delete() is never called.
+    GREEN: body has status="deleted" and no "active" key; ref.delete() called once.
+    """
+    client = _ref_mock(EXISTING_FAC)
+    fac_ref = (client.collection.return_value.document.return_value
+               .collection.return_value.document.return_value)
     with patch(VERIFY, return_value=ADMIN):
         async with make_client() as c:
-            c._transport.app.dependency_overrides[get_firestore_client] = (
-                lambda: _ref_mock(EXISTING_FAC)
-            )
+            c._transport.app.dependency_overrides[get_firestore_client] = lambda: client
             resp = await c.delete("/api/v1/tenant/facilities/abc123456789",
                                   headers={**AUTH, **HOST})
     assert resp.status_code == 200
     body = resp.json()
     assert body["id"] == "abc123456789"
-    assert body["active"] is False
+    assert body["status"] == "deleted"
+    assert "active" not in body
     assert body["bookings_cancelled"] == 0
+    fac_ref.delete.assert_called_once()
+    fac_ref.update.assert_not_called()
 
 
 def _deactivate_with_bookings_mock(booking_snaps=None):
@@ -218,14 +228,13 @@ def _booking_snap(booking_id, facility_id="abc123456789", uid="u1"):
     return snap
 
 
-async def test_deactivate_facility_cancels_future_bookings_and_writes_audit(make_client):
-    """Two-sided:
-    RED  — without the fix: response has no 'bookings_cancelled' key and
-           AuditRepository.write_event / cancel_booking are never called.
-    GREEN — after the fix: cancel_booking called for each confirmed future booking
-            with force=True + cancelled_by_override='facility_deactivated';
-            audit event written with the correct bookings_cancelled count;
-            response body includes bookings_cancelled.
+async def test_delete_facility_cancels_future_bookings_and_writes_audit(make_client):
+    """(a) Two-sided — RED/GREEN for Phase 13.3 permanent facility delete.
+
+    RED:  cancelled_by_override was 'facility_deactivated', event_type was
+          'facility.deactivated', body had 'active' key.
+    GREEN: cancelled_by_override='facility_deleted', event_type='facility.deleted',
+           body has status='deleted' and no 'active' key; bookings_cancelled correct.
     """
     CANCEL = "sport_slot.api.v1.facilities.cancel_booking"
     AUDIT = "sport_slot.api.v1.facilities.AuditRepository.write_event"
@@ -247,26 +256,26 @@ async def test_deactivate_facility_cancels_future_bookings_and_writes_audit(make
 
     assert resp.status_code == 200
     body = resp.json()
-    assert body["active"] is False
     assert body["id"] == "abc123456789"
-    # GREEN: bookings_cancelled present and equals the number of matching bookings
+    assert body["status"] == "deleted"
+    assert "active" not in body
     assert body["bookings_cancelled"] == 2
 
-    # cancel_booking called exactly once per matching booking, with force+override
+    # cancel_booking called with the new reason string
     assert mock_cancel.call_count == 2
     for c_call in mock_cancel.call_args_list:
         assert c_call.kwargs.get("force") is True
-        assert c_call.kwargs.get("cancelled_by_override") == "facility_deactivated"
+        assert c_call.kwargs.get("cancelled_by_override") == "facility_deleted"
 
-    # Audit event written with correct facility_id and count
+    # Audit event uses new event_type and details
     mock_audit.assert_called_once()
     audit_kwargs = mock_audit.call_args.kwargs
-    assert audit_kwargs["event_type"] == "facility.deactivated"
+    assert audit_kwargs["event_type"] == "facility.deleted"
     assert audit_kwargs["details"]["bookings_cancelled"] == 2
     assert audit_kwargs["details"]["facility_id"] == "abc123456789"
 
 
-async def test_deactivate_facility_with_no_future_bookings_writes_zero_count(make_client):
+async def test_delete_facility_with_no_future_bookings_writes_zero_count(make_client):
     """Facility with no confirmed future bookings: count=0, audit still written."""
     CANCEL = "sport_slot.api.v1.facilities.cancel_booking"
     AUDIT = "sport_slot.api.v1.facilities.AuditRepository.write_event"
@@ -282,7 +291,10 @@ async def test_deactivate_facility_with_no_future_bookings_writes_zero_count(mak
                                   headers={**AUTH, **HOST})
 
     assert resp.status_code == 200
-    assert resp.json()["bookings_cancelled"] == 0
+    body = resp.json()
+    assert body["status"] == "deleted"
+    assert "active" not in body
+    assert body["bookings_cancelled"] == 0
     mock_cancel.assert_not_called()
     mock_audit.assert_called_once()
     assert mock_audit.call_args.kwargs["details"]["bookings_cancelled"] == 0

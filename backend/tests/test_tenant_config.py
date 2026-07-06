@@ -572,3 +572,53 @@ async def test_delete_tenant_user_permanently_404_when_user_not_found(make_clien
     assert resp.json()["code"] == "USER_NOT_FOUND"
     mock_del_fb.assert_not_called()
     mock_audit.assert_not_called()
+
+
+# ── Phase 13.3: delete_user_permanently hardening ────────────────────────────
+
+async def test_delete_user_permanently_auth_user_not_found_completes_cleanup(make_client):
+    """(c-harden) UserNotFoundError from Firebase Auth does NOT abort the deletion.
+
+    RED: before Phase 13.3 fb_auth.UserNotFoundError propagates as a 500, leaving
+         Firestore data (bookings, profile) un-cleaned.
+    GREEN: deletion completes — bookings deleted, audit written, profile deleted —
+           and the route returns 200 with the correct payload.
+    """
+    import firebase_admin.auth as fb_auth_mod
+
+    client, booking_snaps = _delete_user_mock(num_bookings=1)
+    with patch(VERIFY, return_value=ADMIN), \
+         patch(DELETE_FB, side_effect=fb_auth_mod.UserNotFoundError("not found")) as mock_del_fb, \
+         patch(AUDIT_WRITE) as mock_audit:
+        async with make_client() as c:
+            c._transport.app.dependency_overrides[get_firestore_client] = lambda: client
+            resp = await c.delete(
+                "/api/v1/tenant/users/u-99/permanent",
+                headers={**AUTH, **HOST},
+            )
+
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["status"] == "deleted"
+    assert body["bookings_deleted"] == 1
+
+    # The (failing) delete_user call was still attempted once.
+    mock_del_fb.assert_called_once_with("u-99")
+
+    # Firestore cleanup continued: booking doc deleted.
+    for snap in booking_snaps:
+        snap.reference.delete.assert_called_once()
+
+    # Audit event still written.
+    mock_audit.assert_called_once()
+    assert mock_audit.call_args.kwargs["event_type"] == "user.deleted"
+
+    # Profile doc still deleted.
+    profile_delete = (
+        client.collection.return_value
+        .document.return_value
+        .collection.return_value
+        .document.return_value
+        .delete
+    )
+    profile_delete.assert_called_once()

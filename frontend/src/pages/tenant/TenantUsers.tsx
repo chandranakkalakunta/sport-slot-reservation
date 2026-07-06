@@ -7,7 +7,7 @@ import { ConfirmDialog } from "../../components/ConfirmDialog";
 import { CredentialDisplay, type Credential } from "../../components/CredentialDisplay";
 import { Input } from "../../components/ui/input";
 import {
-  useBulkCreateUsers, useCreateTenantUser, useDeactivateTenantUser,
+  useBulkCreateUsers, useCreateTenantUser,
   useDeleteTenantUserPermanently, useResetTenantUserPassword, useTenantUsers,
 } from "../../hooks/tenantAdminHooks";
 import { ApiClientError } from "../../lib/api";
@@ -35,7 +35,6 @@ function fieldErrorMsg(e: ApiClientError): string {
 export default function TenantUsers() {
   const { data, isLoading } = useTenantUsers();
   const createUser = useCreateTenantUser();
-  const deactivate = useDeactivateTenantUser();
   const deletePermanently = useDeleteTenantUserPermanently();
   const resetPw = useResetTenantUserPassword();
   const bulkCreate = useBulkCreateUsers();
@@ -51,9 +50,6 @@ export default function TenantUsers() {
   // Reset-password per-user
   const [resetCred, setResetCred] = useState<Credential | null>(null);
   const [resetError, setResetError] = useState<string | null>(null);
-
-  // Deactivate confirm
-  const [confirmUid, setConfirmUid] = useState<string | null>(null);
 
   // Permanent delete confirm
   const [deleteUid, setDeleteUid] = useState<string | null>(null);
@@ -144,16 +140,6 @@ export default function TenantUsers() {
                     disabled={resetPw.isPending}
                   >
                     Issue temp password
-                  </Button>
-                  {/* De-emphasized trigger per ADR-0028 §5; ConfirmDialog confirms before mutate */}
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="flex-1 sm:flex-none min-h-[40px] text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-                    onClick={() => setConfirmUid(u.uid)}
-                    disabled={deactivate.isPending}
-                  >
-                    Deactivate
                   </Button>
                   {/* Permanent delete — irreversible, requires type-to-confirm (ADR-0034 §2) */}
                   <Button
@@ -287,17 +273,6 @@ export default function TenantUsers() {
           )}
         </section>
       </main>
-
-      {confirmUid && (
-        <ConfirmDialog
-          title="Deactivate user"
-          body={<p>Deactivate this user? They won't be able to log in.</p>}
-          confirmLabel="Deactivate"
-          busy={deactivate.isPending}
-          onConfirm={() => { deactivate.mutate(confirmUid); setConfirmUid(null); }}
-          onCancel={() => setConfirmUid(null)}
-        />
-      )}
 
       {deleteUid && (
         <ConfirmDialog

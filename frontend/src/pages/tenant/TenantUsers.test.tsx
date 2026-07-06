@@ -6,7 +6,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 vi.mock("../../components/AppHeader", () => ({ AppHeader: () => null }));
 
 import {
-  useBulkCreateUsers, useCreateTenantUser, useDeactivateTenantUser,
+  useBulkCreateUsers, useCreateTenantUser,
   useDeleteTenantUserPermanently, useResetTenantUserPassword, useTenantUsers,
 } from "../../hooks/tenantAdminHooks";
 import TenantUsers from "./TenantUsers";
@@ -44,9 +44,6 @@ beforeEach(() => {
   } as unknown as ReturnType<typeof useTenantUsers>);
   vi.mocked(useCreateTenantUser).mockImplementation(
     () => ({ mutateAsync: vi.fn().mockResolvedValue({ uid: "u-2", temp_password: "NewP@ss1" }), isPending: false }) as unknown as ReturnType<typeof useCreateTenantUser>,
-  );
-  vi.mocked(useDeactivateTenantUser).mockImplementation(
-    () => ({ mutate: vi.fn(), isPending: false }) as unknown as ReturnType<typeof useDeactivateTenantUser>,
   );
   vi.mocked(useDeleteTenantUserPermanently).mockImplementation(
     () => ({ mutate: vi.fn(), isPending: false }) as unknown as ReturnType<typeof useDeleteTenantUserPermanently>,
@@ -137,10 +134,11 @@ describe("TenantUsers", () => {
     else (Blob.prototype as { text?: unknown }).text = origText;
   });
 
-  it("renders a Delete button alongside Deactivate for each user", () => {
-    // RED: before Phase 13.2 the Delete button does not exist in TenantUsers.
+  it("(d) renders Delete button but no Deactivate button for each user", () => {
+    // RED (Phase 13.3): before hiding Deactivate, getByRole("button", {name:/deactivate/i}) found one.
+    // GREEN: Deactivate button is absent; Delete button is still present.
     renderPage();
-    expect(screen.getByRole("button", { name: /deactivate/i })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /deactivate/i })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: /delete/i })).toBeInTheDocument();
   });
 
@@ -173,12 +171,10 @@ describe("TenantUsers", () => {
     expect(mutate).toHaveBeenCalledWith("u-1");
   });
 
-  it("Deactivate button still present and unchanged after Phase 13.2", () => {
-    // Regression guard: existing Deactivate button must remain fully functional.
+  it("(d) Deactivate button is not rendered in the Users page (Phase 13.3: hidden from UI)", () => {
+    // Backend route and service method remain intact — only the UI trigger is removed.
     renderPage();
-    const deactivateBtn = screen.getByRole("button", { name: /deactivate/i });
-    expect(deactivateBtn).toBeInTheDocument();
-    expect(deactivateBtn).not.toBeDisabled();
+    expect(screen.queryByRole("button", { name: /deactivate/i })).not.toBeInTheDocument();
   });
 
   it("issue temp password button fires mutation and shows CredentialDisplay", async () => {

@@ -201,7 +201,11 @@ class UserProvisioningService:
             snap.reference.delete()
             bookings_deleted += 1
 
-        fb_auth.delete_user(target_uid)
+        try:
+            fb_auth.delete_user(target_uid)
+        except fb_auth.UserNotFoundError:
+            log.warning("delete_user_permanently_auth_already_absent",
+                        target_uid=target_uid)
 
         AuditRepository(ctx, self._client).write_event(
             event_type="user.deleted",
