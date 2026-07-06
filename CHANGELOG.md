@@ -6,6 +6,55 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Phase 13.3 — Facility Delete + Deactivate Hiding + Delete Hardening (July 2026)
+
+Root cause driving all three changes: the deactivate-only path has no corresponding
+Reactivate screen anywhere in the product. This creates unrecoverable "stuck" entities —
+confirmed this session via a real incident where a previously-deactivated resident's
+Firebase Auth account blocked re-registration of their email address, with no fix available
+except manual Firebase CLI intervention. Until Deactivate+Reactivate is properly designed
+and built (deferred, separate future phase), prefer permanent delete over deactivate-without-
+reactivate project-wide.
+
+**1. Facilities: `DELETE /tenant/facilities/{id}` now permanently deletes the Firestore doc**
+(previously: set `active: False`). The frontend button is already labeled "Remove" — no
+button label change needed. The cancel+notify+audit pipeline is unchanged in substance:
+- `cancel_booking(force=True, cancelled_by_override="facility_deleted")` for each confirmed
+  future booking — reason string renamed from `"facility_deactivated"` to `"facility_deleted"`
+- Audit event_type renamed `facility.deactivated` → `facility.deleted`
+- `ref.delete()` replaces `ref.update({"active": False})` (now runs AFTER cancellations)
+- Response body changed: `{"id", "status": "deleted", "bookings_cancelled": N}` — no `active` key
+
+**2. `render_booking_cancelled` reason-string check updated** (`notifications/email/templates.py`):
+`if reason == "facility_deactivated":` → `if reason == "facility_deleted":`.
+Old string no longer triggers the "This facility is no longer available." notice (verified by
+`test_booking_cancelled_old_deactivated_reason_does_not_show_notice`).
+
+**3. Users page: "Deactivate" button removed from the UI** (`TenantUsers.tsx`).
+Backend `deactivate_user` route, service method, and all existing backend tests are completely
+unchanged and still pass. The `useDeactivateTenantUser` hook definition in `tenantAdminHooks.ts`
+is also unchanged. Only the UI trigger (button + ConfirmDialog + associated state) is removed
+from TenantUsers.tsx, pending a proper Deactivate+Reactivate redesign later.
+
+**4. `delete_user_permanently` now tolerates an already-absent Firebase Auth user**
+(`services/provisioning.py`): previously `fb_auth.delete_user(target_uid)` raising
+`firebase_admin.auth.UserNotFoundError` would abort the whole deletion, leaving Firestore
+data (bookings, profile) un-cleaned. Now: catches only `fb_auth.UserNotFoundError`, logs
+a structured warning (`delete_user_permanently_auth_already_absent`), and continues to the
+audit stub and profile doc deletion. Other exception types from Firebase Auth still abort
+and surface as errors.
+
+**Tests:** 397 passed (90.82% coverage, gate ≥ 90%). Two-sided (RED/GREEN) tests:
+- `(a)` `test_delete_facility_permanently_removes_document` — `ref.delete()` called, no
+  `ref.update()`, response has `status="deleted"` and no `active` key
+- `(a)` `test_delete_facility_cancels_future_bookings_and_writes_audit` — new reason string,
+  new event_type, no `active` in response
+- `(b)` `test_booking_cancelled_facility_deleted_shows_notice` / `..._old_deactivated_reason_does_not_show_notice` — exact rename verified
+- `(c-harden)` `test_delete_user_permanently_auth_user_not_found_completes_cleanup` — 200
+  returned, bookings+profile cleaned up, audit written despite UserNotFoundError
+- `(d)` TenantUsers: Deactivate button absent, Delete button present (both assertions)
+- Existing user-deactivate backend tests: 4 passed unmodified
+
 ### Phase 13.2 — Permanent Delete for Residents/Tenant-Admins (July 2026)
 
 Direct permanent delete for tenant-admin use: irreversible removal of a user's

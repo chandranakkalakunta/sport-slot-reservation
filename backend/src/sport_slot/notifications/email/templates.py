@@ -103,7 +103,7 @@ def render_booking_cancelled(
 
     facility_note_html = ""
     facility_note_text = ""
-    if reason == "facility_deactivated":
+    if reason == "facility_deleted":
         facility_note_html = "<p>This facility is no longer available.</p>"
         facility_note_text = "This facility is no longer available.\n"
 

@@ -80,7 +80,31 @@ def test_booking_cancelled_subject_and_fields():
         assert field in r.text
 
 
-def test_booking_cancelled_facility_deactivated_shows_notice():
+def test_booking_cancelled_facility_deleted_shows_notice():
+    """(b) GREEN: reason='facility_deleted' triggers the 'no longer available' notice.
+
+    RED: template checked for 'facility_deactivated' — passing 'facility_deleted'
+         would not match, so notice would be absent.
+    """
+    r = render_booking_cancelled(
+        user_name="Alice",
+        tenant_name="Demo Society",
+        facility="Court 1",
+        sport="badminton",
+        date="2026-08-15",
+        start_time="09:00",
+        booking_id="bk-789",
+        reason="facility_deleted",
+    )
+    assert "This facility is no longer available." in r.html
+    assert "This facility is no longer available." in r.text
+
+
+def test_booking_cancelled_old_deactivated_reason_does_not_show_notice():
+    """(b) Two-sided: old reason string 'facility_deactivated' no longer triggers notice.
+
+    Verifies that the rename is exact — old string must NOT match.
+    """
     r = render_booking_cancelled(
         user_name="Alice",
         tenant_name="Demo Society",
@@ -91,12 +115,12 @@ def test_booking_cancelled_facility_deactivated_shows_notice():
         booking_id="bk-789",
         reason="facility_deactivated",
     )
-    assert "This facility is no longer available." in r.html
-    assert "This facility is no longer available." in r.text
+    assert "no longer available" not in r.html
+    assert "no longer available" not in r.text
 
 
 def test_booking_cancelled_other_reason_does_not_show_notice():
-    """Raw reason codes other than 'facility_deactivated' are not shown to residents."""
+    """Raw reason codes other than 'facility_deleted' are not shown to residents."""
     r = render_booking_cancelled(
         user_name="Bob",
         tenant_name="Demo Society",

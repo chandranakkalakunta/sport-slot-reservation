@@ -189,7 +189,7 @@ async def update_facility(
 
 
 @tenant_facilities_router.delete("/{facility_id}")
-async def deactivate_facility(
+async def delete_facility(
     facility_id: str,
     ctx: TenantContext = Depends(require_role("tenant_admin")),
     client=Depends(get_firestore_client),
@@ -198,7 +198,6 @@ async def deactivate_facility(
            .collection("facilities").document(facility_id))
     if not ref.get().exists:
         raise ApiError(404, error_codes.NOT_FOUND, "Facility not found")
-    ref.update({"active": False})
 
     today = datetime.date.today().isoformat()
     bookings_col = (client.collection("tenants").document(ctx.tenant_id)
@@ -217,19 +216,19 @@ async def deactivate_facility(
         bid = booking_doc.get("id", snap.id)
         try:
             cancel_booking(ctx, client, bid,
-                           force=True, cancelled_by_override="facility_deactivated")
+                           force=True, cancelled_by_override="facility_deleted")
             cancelled_count += 1
         except Exception as exc:  # noqa: BLE001
-            log.warning("facility_deactivation_booking_cancel_failed",
+            log.warning("facility_deletion_booking_cancel_failed",
                         booking_id=bid, facility_id=facility_id, error=str(exc))
             failed_ids.append(bid)
 
     if failed_ids:
-        log.warning("facility_deactivation_partial_failure",
+        log.warning("facility_deletion_partial_failure",
                     facility_id=facility_id, failed_booking_ids=failed_ids)
 
     AuditRepository(ctx, client).write_event(
-        event_type="facility.deactivated",
+        event_type="facility.deleted",
         actor_uid=ctx.uid,
         actor_role=ctx.role,
         booking_id="-",
@@ -237,4 +236,6 @@ async def deactivate_facility(
         details={"facility_id": facility_id, "bookings_cancelled": cancelled_count},
     )
 
-    return {"id": facility_id, "active": False, "bookings_cancelled": cancelled_count}
+    ref.delete()
+
+    return {"id": facility_id, "status": "deleted", "bookings_cancelled": cancelled_count}
