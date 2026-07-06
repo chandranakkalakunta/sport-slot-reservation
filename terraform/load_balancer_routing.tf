@@ -8,7 +8,7 @@
 #   port 443 → HTTPS → slotsense_https_url_map  (routes traffic to backends)
 #   port 80  → HTTP  → slotsense_http_redirect   (301 HTTPS redirect, no content)
 #
-# URL map host_rule matches ONLY *.slotsense.chandraailabs.com; the
+# URL map host_rule matches ONLY *.slotsense.chandraailabs.com & slotsense.chandraailabs.com; the
 # path_matcher routes /api/*, /health, /readyz to the Cloud Run backend
 # service and everything else to the GCS frontend bucket. The
 # defaultCustomErrorResponsePolicy on the path_matcher intercepts GCS 404s
@@ -24,7 +24,7 @@ resource "google_compute_url_map" "slotsense_https" {
   default_service = google_compute_backend_bucket.frontend.id
 
   host_rule {
-    hosts        = ["*.slotsense.chandraailabs.com"]
+    hosts        = ["*.slotsense.chandraailabs.com", "slotsense.chandraailabs.com"]
     path_matcher = "slotsense-paths"
   }
 
