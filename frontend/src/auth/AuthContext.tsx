@@ -14,8 +14,11 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 
+import { ClaimsErrorFallback } from "../components/ClaimsErrorFallback";
 import { loadBrandingForSlug } from "../lib/branding";
+import { setClaimsErrorHandler } from "../lib/api";
 import { auth } from "../lib/firebase";
 
 const _APEX = "slotsense.chandraailabs.com";
@@ -37,18 +40,29 @@ interface AuthState {
   idToken: string | null;
   claims: Record<string, unknown> | null;
   loading: boolean;
+  claimsError: boolean;
   signIn: (email: string, password: string) => Promise<void>;
   signInWithGoogle: () => Promise<void>;
   signOut: () => Promise<void>;
+  retryClaimsRefresh: () => Promise<void>;
 }
 
 const Ctx = createContext<AuthState | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
+  const queryClient = useQueryClient();
   const [user, setUser] = useState<User | null>(null);
   const [idToken, setIdToken] = useState<string | null>(null);
   const [claims, setClaims] = useState<Record<string, unknown> | null>(null);
   const [loading, setLoading] = useState(true);
+  const [claimsError, setClaimsError] = useState(false);
+
+  useEffect(() => {
+    // Register the claims-error handler so apiFetch can signal this context
+    // when a stale-token 401 (AUTH_INVALID_TOKEN "missing provisioned claims") is detected.
+    setClaimsErrorHandler(() => setClaimsError(true));
+    return () => setClaimsErrorHandler(null);
+  }, []);
 
   useEffect(() => {
     // onIdTokenChanged (not onAuthStateChanged) fires on refresh too,
@@ -92,20 +106,35 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       idToken,
       claims,
       loading,
+      claimsError,
       signIn: async (email, password) => {
         await signInWithEmailAndPassword(auth, email, password);
+        // Force a token refresh so the very next API call carries current
+        // custom claims (tenant_id, tenant_slug, role), not a stale cached token.
+        // Firebase custom claims propagate on next refresh, not immediately.
+        await auth.currentUser?.getIdToken(true);
       },
       signInWithGoogle: async () => {
         await signInWithPopup(auth, new GoogleAuthProvider());
+        await auth.currentUser?.getIdToken(true);
       },
       signOut: async () => {
         await fbSignOut(auth);
       },
+      retryClaimsRefresh: async () => {
+        await auth.currentUser?.getIdToken(true);  // force fresh claims
+        await queryClient.invalidateQueries();      // re-fetch all stale queries
+        setClaimsError(false);                      // dismiss fallback, re-show app
+      },
     }),
-    [user, idToken, claims, loading],
+    [user, idToken, claims, loading, claimsError, queryClient],
   );
 
-  return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
+  return (
+    <Ctx.Provider value={value}>
+      {claimsError ? <ClaimsErrorFallback onRetry={value.retryClaimsRefresh} /> : children}
+    </Ctx.Provider>
+  );
 }
 
 export function useAuth(): AuthState {

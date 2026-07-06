@@ -6,6 +6,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Phase 13.8 — Force Token Refresh + Claims-Error Recovery UI (July 2026)
+
+**Bug confirmed via live reproduction:** A fresh `signInWithEmailAndPassword` call can return a
+valid Firebase ID token that is stale with respect to custom claims (`tenant_id`, `tenant_slug`,
+`role`) — Firebase's documented behavior is that `set_custom_user_claims()` takes effect on the
+NEXT token refresh, not immediately. When the app's first API call (`GET /api/v1/users/me`) fires
+with this stale token, the backend correctly rejects it with 401 `AUTH_INVALID_TOKEN` /
+"Token missing provisioned claims". Previously the app had no error-recovery path: the fetch
+failure was silently caught and the app hung on a blank screen with no retry mechanism.
+
+**Scope boundary (explicit):** This fix addresses ONLY the stale-token-after-fresh-sign-in case.
+It does NOT fix the separate, confirmed-different `Content-Length: 0` CDN/LB blank-screen case
+(tracked in sub-phase 13.6) — that failure produces zero bytes of HTML on the wire, so no
+client-side fix is possible for it (there is no page loaded, no JS running).
+
+**Fix 1 — Force token refresh after sign-in (`AuthContext.tsx`):**
+`signIn` and `signInWithGoogle` now call `await auth.currentUser?.getIdToken(true)` after the
+Firebase auth call succeeds, forcing a token refresh that picks up current custom claims before
+any downstream API call is made. NOT added to `onIdTokenChanged` (wasteful; only the initial
+post-sign-in moment needs forcing).
+
+**Fix 2 — Defense-in-depth: claims-error recovery UI (`AuthContext.tsx` + `api.ts` + new `ClaimsErrorFallback.tsx`):**
+- `api.ts`: `setClaimsErrorHandler` callback mechanism. When `apiFetch` detects specifically
+  `401 + AUTH_INVALID_TOKEN + "Token missing provisioned claims"`, it signals the handler.
+  `AUTH_MISSING_TOKEN` and "Token verification failed" are different failure modes — not wired.
+- `AuthContext.tsx`: registers handler on mount; `claimsError: boolean` state +
+  `retryClaimsRefresh()` in `AuthState`. When `claimsError` is true, renders `ClaimsErrorFallback`
+  instead of children. Retry forces `getIdToken(true)`, invalidates all React Query cache, clears.
+- `ClaimsErrorFallback.tsx` (new): full-page fallback with message and Retry button.
+
+**Tests:** 35 new tests across 3 files. Full suite: 306 tests, 41 files, all passed.
+
 ### Phase 13.7 — Apex Sign-In Redirect + Cross-Tenant Login Correction (July 2026)
 
 **13.7a (infra, already shipped):** DNS A record for the bare apex `slotsense.chandraailabs.com`
