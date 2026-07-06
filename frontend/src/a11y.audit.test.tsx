@@ -55,6 +55,7 @@ vi.mock("./hooks/adminHooks", () => ({
   useTenants: vi.fn(),
   useCreateTenant: vi.fn(),
   useCreateUser: vi.fn(),
+  useDeleteTenantPermanently: vi.fn(),
 }));
 
 vi.mock("./hooks/agentHooks", () => ({
@@ -232,6 +233,9 @@ function setupDefaultMocks() {
   vi.mocked(adminHooks.useCreateUser).mockReturnValue({
     mutateAsync: vi.fn(), isPending: false,
   } as unknown as ReturnType<typeof adminHooks.useCreateUser>);
+  vi.mocked(adminHooks.useDeleteTenantPermanently).mockReturnValue({
+    mutate: vi.fn(), isPending: false,
+  } as unknown as ReturnType<typeof adminHooks.useDeleteTenantPermanently>);
 
   vi.mocked(agentHooks.useAgentSendMessage).mockReturnValue({
     mutate: vi.fn(), isPending: false,

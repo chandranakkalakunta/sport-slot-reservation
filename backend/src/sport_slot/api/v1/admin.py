@@ -14,6 +14,7 @@ from sport_slot.dependencies import get_firestore_client
 from sport_slot.middleware.request_id import get_request_id
 from sport_slot.repositories.base import PlatformRepository
 from sport_slot.services.provisioning import ProvisioningError, UserProvisioningService
+from sport_slot.services.tenants import delete_tenant_permanently
 
 
 def _provisioning_error(e: ProvisioningError) -> ApiError:
@@ -150,6 +151,16 @@ async def admin_reset_password(
         return svc.reset_password(tenant_id, uid, get_request_id())
     except ProvisioningError as e:
         raise _provisioning_error(e)
+
+
+@router.delete("/tenants/{tenant_id}/permanent", status_code=200)
+async def delete_tenant_permanently_route(
+    tenant_id: str,
+    ctx: TenantContext = Depends(require_platform_admin),
+    client=Depends(get_firestore_client),
+):
+    result = delete_tenant_permanently(client, tenant_id=tenant_id, caller_uid=ctx.uid)
+    return result
 
 
 @router.delete("/tenants/{tenant_id}/users/{uid}", status_code=200)

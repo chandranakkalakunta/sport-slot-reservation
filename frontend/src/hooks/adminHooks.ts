@@ -34,6 +34,15 @@ export function useCreateTenant() {
   });
 }
 
+export function useDeleteTenantPermanently() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (tenantId: string) =>
+      apiFetch(`/admin/tenants/${tenantId}/permanent`, { method: "DELETE" }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["admin", "tenants"] }),
+  });
+}
+
 export function useCreateUser(tenantId: string) {
   return useMutation({
     mutationFn: (body: {

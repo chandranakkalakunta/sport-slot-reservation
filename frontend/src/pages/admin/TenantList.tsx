@@ -1,12 +1,16 @@
+import { useState } from "react";
 import { Link } from "react-router-dom";
 
 import { AppHeader } from "../../components/AppHeader";
 import { Button } from "../../components/ui/button";
+import { ConfirmDialog } from "../../components/ConfirmDialog";
 import { ListRow } from "../../components/ListRow";
-import { useTenants } from "../../hooks/adminHooks";
+import { Tenant, useDeleteTenantPermanently, useTenants } from "../../hooks/adminHooks";
 
 export default function TenantList() {
   const { data, isLoading, error } = useTenants();
+  const deleteTenant = useDeleteTenantPermanently();
+  const [deleteTarget, setDeleteTarget] = useState<Tenant | null>(null);
 
   return (
     <>
@@ -34,13 +38,24 @@ export default function TenantList() {
             <ListRow
               key={t.tenant_id}
               action={
-                <Link
-                  to={`/admin/tenants/${t.tenant_id}/users/new`}
-                  className="text-sm text-primary hover:underline"
-                  style={{ textDecoration: "none" }}
-                >
-                  + Add admin/user
-                </Link>
+                <div className="flex items-center gap-2">
+                  <Link
+                    to={`/admin/tenants/${t.tenant_id}/users/new`}
+                    className="text-sm text-primary hover:underline"
+                    style={{ textDecoration: "none" }}
+                  >
+                    + Add admin/user
+                  </Link>
+                  {/* Permanent delete — irreversible, requires exact slug (ADR-0034 §2) */}
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    onClick={() => setDeleteTarget(t)}
+                    disabled={deleteTenant.isPending}
+                  >
+                    Delete
+                  </Button>
+                </div>
               }
             >
               <p className="font-semibold text-foreground truncate">
@@ -53,6 +68,26 @@ export default function TenantList() {
           ))}
         </div>
       </main>
+
+      {deleteTarget && (
+        <ConfirmDialog
+          title="Permanently delete tenant"
+          body={
+            <p>
+              This will permanently delete <strong>{deleteTarget.display_name ?? deleteTarget.slug}</strong>,
+              all its users, facilities, bookings, and audit logs. This cannot be undone.
+            </p>
+          }
+          confirmLabel="Confirm"
+          confirmationPhrase={deleteTarget.slug}
+          busy={deleteTenant.isPending}
+          onConfirm={() => {
+            deleteTenant.mutate(deleteTarget.tenant_id);
+            setDeleteTarget(null);
+          }}
+          onCancel={() => setDeleteTarget(null)}
+        />
+      )}
     </>
   );
 }

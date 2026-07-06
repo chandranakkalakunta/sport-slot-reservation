@@ -6,6 +6,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Phase 13.4 — Tenant-Level Permanent Delete (July 2026)
+
+**HIGHEST-RISK PR in Phase 13 — requires Coordinator line-by-line review before merge.**
+
+Platform-admin-only `DELETE /admin/tenants/{tenant_id}/permanent` route that irreversibly
+destroys an entire tenant and all its data. Guarded by `require_platform_admin`; returns 403
+for any non-platform-admin token.
+
+**Deletion order (correctness-critical):**
+1. Confirm tenant exists (404 if not) and capture slug/display_name BEFORE any destructive step.
+2. Enumerate all user UIDs from `tenants/{id}/users` subcollection — MUST happen before step 3
+   (subcollection is gone after recursive_delete).
+3. `client.recursive_delete(tenant_ref)` — wipes entire Firestore subtree atomically.
+4. Delete each Firebase Auth user; `UserNotFoundError` is tolerated per the Phase 13.3 pattern
+   (already-absent users counted in `auth_users_already_absent`, not treated as errors).
+5. Write no-PII audit stub to new top-level `platform_deletion_log` collection — deliberately
+   OUTSIDE the tenant's subtree so the record survives the recursive delete that destroyed it.
+
+**New files:**
+- `backend/src/sport_slot/repositories/platform_deletion_log.py` — module-level `write_deletion_log()`
+  following `password_reset.py`'s top-level collection pattern
+- `backend/src/sport_slot/services/tenants.py` — `delete_tenant_permanently()` service function
+- `backend/tests/test_tenant_permanent_delete.py` — 4 two-sided tests: (a) 403 for tenant-admin,
+  (b) full cascade with counts, (c) UserNotFoundError tolerance, (d) 404 for missing tenant
+
+**Frontend:**
+- `adminHooks.ts`: `useDeleteTenantPermanently()` hook (mutate by tenant_id, invalidates tenant list)
+- `TenantList.tsx`: Delete button per row — opens `ConfirmDialog` with `confirmationPhrase={t.slug}`
+  so the operator must type the specific tenant's slug before the Confirm button enables
+- 5 Vitest tests (d) covering: button renders, dialog opens with correct phrase, disabled for
+  wrong slug, enabled for exact match, mutate called with correct tenant_id
+
+**Phase 15 invoice carve-out:** documented inline — when Phase 15 ships, this function must skip
+invoice records from the recursive delete per ADR-0034's carve-out.
+
 ### Phase 13.3 — Facility Delete + Deactivate Hiding + Delete Hardening (July 2026)
 
 Root cause driving all three changes: the deactivate-only path has no corresponding
