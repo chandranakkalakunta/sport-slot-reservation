@@ -6,6 +6,49 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Phase 13.2 — Permanent Delete for Residents/Tenant-Admins (July 2026)
+
+Direct permanent delete for tenant-admin use: irreversible removal of a user's
+Firebase Auth account, all booking documents, and profile document (ADR-0034 §2).
+
+**New `DELETE /api/v1/tenant/users/{uid}/permanent` route** (`api/v1/tenant_config.py`):
+Tenant-admin only. Self-deletion is forbidden (returns `403 SELF_DELETION_FORBIDDEN`).
+Deletion order: (1) all booking docs for the user (`bookings.where("uid", "==", target_uid)`),
+(2) Firebase Auth user (`fb_auth.delete_user`), (3) no-PII audit stub
+(`user.deleted` with `{target_uid, bookings_deleted}`, no email/name), (4) profile doc.
+Returns `{"uid", "status": "deleted", "bookings_deleted": N}`.
+Phase 15 invoice carve-out: explicit code comment added; no invoice collection exists yet
+and no speculative deletion logic was added.
+
+**New `SELF_DELETION_FORBIDDEN` error code** (`api/error_codes.py`):
+Added alongside `SELF_DEACTIVATION_FORBIDDEN`. Maps to HTTP 403 from the existing
+`_provisioning_error` helper in `tenant_config.py`.
+
+**`ConfirmDialog` gains optional `confirmationPhrase?: string` prop** (`components/ConfirmDialog.tsx`):
+When set, renders a text input below the body; the confirm button is disabled until the
+user types the phrase exactly. Fully backward-compatible — existing callers that omit the
+prop behave identically to before (no input rendered, button enabled when `busy=false`).
+
+**New Delete button in `TenantUsers.tsx`:**
+Separate from the existing Deactivate button (existing button unchanged). Calls
+`useDeleteTenantUserPermanently()` (`hooks/tenantAdminHooks.ts`). Opens ConfirmDialog with
+`confirmationPhrase="DELETE"`, requiring the user to type "DELETE" before the confirm button
+becomes enabled. Existing deactivate route and button completely unmodified.
+
+**Tests:** 395 passed (90.80% coverage, gate ≥90%). Two-sided (RED/GREEN) tests:
+- Backend (test_tenant_config.py):
+  - `test_delete_tenant_user_permanently_self_delete_returns_403` — 403 + nothing deleted
+  - `test_delete_tenant_user_permanently_deletes_bookings_auth_and_profile` — full deletion chain verified + audit PII check
+  - `test_delete_tenant_user_permanently_404_when_user_not_found` — 404 + no side effects
+- Frontend ConfirmDialog (ConfirmDialog.test.tsx):
+  - `(d)` confirmationPhrase renders textbox, disables until exact match, re-disables on clear
+  - `(e)` backward-compat: no confirmationPhrase → confirm enabled (existing callers unaffected)
+- Frontend TenantUsers (TenantUsers.test.tsx):
+  - Delete button rendered alongside Deactivate
+  - Delete button opens ConfirmDialog with textbox
+  - Confirm fires mutation only after typing DELETE exactly
+  - Deactivate button regression guard (present and enabled)
+
 ### Phase 13.1 — Deactivation Audit + Cancellation Notification (July 2026)
 
 Three related gaps in the deactivation and booking-cancellation area, all fixed together

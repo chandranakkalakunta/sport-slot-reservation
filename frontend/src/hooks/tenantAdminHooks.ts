@@ -110,6 +110,15 @@ export function useDeactivateTenantUser() {
   });
 }
 
+export function useDeleteTenantUserPermanently() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (uid: string) =>
+      apiFetch(`/tenant/users/${uid}/permanent`, { method: "DELETE" }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["tenant", "users"] }),
+  });
+}
+
 export function useResetTenantUserPassword() {
   return useMutation({
     mutationFn: (uid: string) =>

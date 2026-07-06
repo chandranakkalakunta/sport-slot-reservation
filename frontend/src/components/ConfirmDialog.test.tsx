@@ -62,4 +62,45 @@ describe("ConfirmDialog", () => {
     renderDialog({ confirmLabel: undefined });
     expect(screen.getByRole("button", { name: "Confirm" })).toBeInTheDocument();
   });
+
+  // ── Phase 13.2: confirmationPhrase prop ─────────────────────────────────────
+
+  it("(e) backward-compat: confirm button enabled when busy=false and no confirmationPhrase", () => {
+    // Existing callers that omit confirmationPhrase must behave identically to before.
+    renderDialog({ busy: false });
+    expect(screen.getByRole("button", { name: "Delete" })).not.toBeDisabled();
+  });
+
+  it("(d) with confirmationPhrase: renders a text input with phrase in label", () => {
+    // RED: ConfirmDialog does not yet accept confirmationPhrase → input absent.
+    renderDialog({ confirmationPhrase: "DELETE" });
+    expect(screen.getByRole("textbox")).toBeInTheDocument();
+    expect(screen.getByText(/Type DELETE to confirm/i)).toBeInTheDocument();
+  });
+
+  it("(d) with confirmationPhrase: confirm button disabled when input is empty", () => {
+    renderDialog({ confirmationPhrase: "DELETE" });
+    expect(screen.getByRole("button", { name: "Delete" })).toBeDisabled();
+  });
+
+  it("(d) with confirmationPhrase: confirm button disabled when input does not match", async () => {
+    renderDialog({ confirmationPhrase: "DELETE" });
+    await userEvent.type(screen.getByRole("textbox"), "del");
+    expect(screen.getByRole("button", { name: "Delete" })).toBeDisabled();
+  });
+
+  it("(d) with confirmationPhrase: confirm button enabled only on exact match", async () => {
+    renderDialog({ confirmationPhrase: "DELETE" });
+    await userEvent.type(screen.getByRole("textbox"), "DELETE");
+    expect(screen.getByRole("button", { name: "Delete" })).not.toBeDisabled();
+  });
+
+  it("(d) with confirmationPhrase: confirm button re-disabled after clearing typed value", async () => {
+    renderDialog({ confirmationPhrase: "DELETE" });
+    const input = screen.getByRole("textbox");
+    await userEvent.type(input, "DELETE");
+    expect(screen.getByRole("button", { name: "Delete" })).not.toBeDisabled();
+    await userEvent.clear(input);
+    expect(screen.getByRole("button", { name: "Delete" })).toBeDisabled();
+  });
 });

@@ -138,6 +138,19 @@ async def deactivate_tenant_user(
         raise _provisioning_error(e)
 
 
+@router.delete("/tenant/users/{uid}/permanent")
+async def delete_tenant_user_permanently(
+    uid: str,
+    ctx: TenantContext = Depends(require_role("tenant_admin")),
+    client=Depends(get_firestore_client),
+):
+    svc = UserProvisioningService(client, ctx.uid, ctx.role)
+    try:
+        return svc.delete_user_permanently(ctx.tenant_id, uid, get_request_id())
+    except ProvisioningError as e:
+        raise _provisioning_error(e)
+
+
 @router.post("/tenant/users/{uid}/reset-password")
 async def tenant_reset_password(
     uid: str,

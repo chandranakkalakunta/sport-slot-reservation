@@ -170,6 +170,52 @@ class UserProvisioningService:
         )
         return {"uid": target_uid, "status": "deactivated"}
 
+    def delete_user_permanently(
+        self,
+        tenant_id: str,
+        target_uid: str,
+        request_id: str = "-",
+    ) -> dict:
+        caller_uid = self._caller_uid
+        if target_uid == caller_uid:
+            raise ProvisioningError(
+                403, error_codes.SELF_DELETION_FORBIDDEN, "Cannot delete yourself"
+            )
+
+        ctx = _ctx(tenant_id=tenant_id, uid=caller_uid or "", role="tenant_admin")
+        repo = UserProfileRepository(ctx, self._client)
+        profile = repo.get(target_uid)
+        if profile is None:
+            raise ProvisioningError(404, error_codes.USER_NOT_FOUND, f"User {target_uid!r} not found")
+
+        # No invoice collection exists yet (Phase 15). When Phase 15 introduces one,
+        # this deletion must be updated to exclude invoice records per ADR-0034's
+        # carve-out — do not delete invoices when that collection exists.
+        bookings_col = (
+            self._client.collection("tenants")
+            .document(tenant_id)
+            .collection("bookings")
+        )
+        bookings_deleted = 0
+        for snap in bookings_col.where("uid", "==", target_uid).stream():
+            snap.reference.delete()
+            bookings_deleted += 1
+
+        fb_auth.delete_user(target_uid)
+
+        AuditRepository(ctx, self._client).write_event(
+            event_type="user.deleted",
+            actor_uid=caller_uid or "",
+            actor_role="tenant_admin",
+            booking_id="-",
+            request_id=request_id,
+            details={"target_uid": target_uid, "bookings_deleted": bookings_deleted},
+        )
+
+        repo.delete(target_uid)
+
+        return {"uid": target_uid, "status": "deleted", "bookings_deleted": bookings_deleted}
+
     def reset_password(self, tenant_id: str, uid: str, request_id: str = "") -> dict:
         ref = (self._client.collection("tenants").document(tenant_id)
                .collection("users").document(uid))
