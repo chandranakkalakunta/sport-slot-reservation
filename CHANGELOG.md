@@ -6,6 +6,53 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Phase 13.5 — Search, Tenant-Admin Visibility, Mobile Polish & Testing (July 2026)
+
+**Item 1 — Client-side search (TenantUsers.tsx, TenantList.tsx):**
+Added text-filter inputs to both pages. Filter is client-side only — it operates on the
+current loaded page of results, not a server-side query. This limitation is explicitly
+documented in source comments; pagination + full-text search is out of scope for v1.
+
+**Item 2 — Tenant-admin visibility (`PlatformRepository.list_tenants`):**
+`list_tenants` now queries each tenant's `users` subcollection for `role=="tenant_admin"` and
+returns `admin_emails: string[]` per tenant. N+1 pattern accepted at current scale (~3-4
+tenants). The field is optional (`admin_emails?: string[]` in `Tenant` interface) so all
+existing callers remain backward-compatible without changes.
+
+**Item 3 — Facility mobile layout (`TenantFacilities.tsx`):**
+Removed `truncate` from the facility name `<p>` so long names wrap naturally on narrow
+viewports. Changed the action button row from `flex items-center gap-2` to
+`flex flex-wrap items-center gap-2` so buttons wrap instead of overflowing on small screens.
+
+**Item 4 — Build-identifier endpoint:**
+`BUILD_ID` env var injected via `${{ github.sha }}` in `deploy.yml`; passed through
+`--set-env-vars` in `scripts/deploy_cloud_run.sh`. New `/version` route in `health.py`
+exposes `{"build_id": "<sha-or-dev>"}` — kept separate from `/health` (liveness) and
+`/readyz` (readiness) per ADR-0006.
+
+**Item 5 — Shared TempPasswordModal component:**
+Single `TempPasswordModal` component (Dialog + CredentialDisplay) replaces inline
+credential display in `TenantUsers.tsx` (newCred + resetCred) and the full-page `created`
+block in `CreateUser.tsx`. Radix UI Dialog portals to document.body — existing tests that
+check modal content via `document.body` continue to pass unmodified.
+
+**Item 6 — household_id: CONFIRMED WORKING AS DESIGNED. NOT TOUCHED.**
+`household_id` is derived from `flat_number` when omitted and stored correctly in Firestore.
+The ADR-compliant behavior was verified; no code change was made.
+
+**Item 7 — Bulk import test coverage (`test_bulk_create_users.py`):**
+New test file covering the ADMIN bulk endpoint at
+`/api/v1/admin/tenants/{tenant_id}/users/bulk` — previously had ZERO tests.
+6 scenarios: all-rows-succeed, partial failure (reason uses `exc.message` not `exc.code`),
+empty rows (returns `{results: []}`), row missing flat_number (per-row fail, batch continues),
+over-500-rows (422), non-admin caller (403).
+
+**Item 8 — Styled CSV file input (`TenantUsers.tsx`):**
+Native `<input type="file">` moved to visually hidden (`sr-only`); a styled `<Button>` now
+triggers it via `useRef`. The `accept=".csv,text/csv"` attribute and `onChange` handler are
+preserved. The hidden input remains in the DOM so
+`document.querySelector('input[type="file"]')` in tests continues to work.
+
 ### Phase 13.8 — Force Token Refresh + Claims-Error Recovery UI (July 2026)
 
 **Bug confirmed via live reproduction:** A fresh `signInWithEmailAndPassword` call can return a

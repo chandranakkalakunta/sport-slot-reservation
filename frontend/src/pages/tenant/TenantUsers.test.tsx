@@ -83,9 +83,8 @@ describe("TenantUsers", () => {
     renderPage();
 
     await user.selectOptions(screen.getByRole("combobox"), "tenant_admin");
-    const inputs = screen.getAllByRole("textbox");
-    await user.type(inputs[0], "newadmin@demo.com");
-    await user.type(inputs[1], "New Admin");
+    await user.type(screen.getByLabelText(/email/i), "newadmin@demo.com");
+    await user.type(screen.getByLabelText(/display name/i), "New Admin");
 
     await user.click(screen.getByRole("button", { name: /add user/i }));
 
@@ -146,8 +145,8 @@ describe("TenantUsers", () => {
     const user = userEvent.setup();
     renderPage();
     await user.click(screen.getByRole("button", { name: /^delete$/i }));
-    // The ConfirmDialog with confirmationPhrase="DELETE" renders a textbox.
-    expect(screen.getByRole("textbox")).toBeInTheDocument();
+    // The ConfirmDialog with confirmationPhrase="DELETE" renders a textbox with placeholder "DELETE".
+    expect(screen.getByPlaceholderText("DELETE")).toBeInTheDocument();
     expect(screen.getByText(/Type DELETE to confirm/i)).toBeInTheDocument();
   });
 
@@ -164,7 +163,7 @@ describe("TenantUsers", () => {
     const confirmBtn = screen.getByRole("button", { name: /confirm/i });
     expect(confirmBtn).toBeDisabled();
 
-    await user.type(screen.getByRole("textbox"), "DELETE");
+    await user.type(screen.getByPlaceholderText("DELETE"), "DELETE");
     expect(confirmBtn).not.toBeDisabled();
 
     await user.click(confirmBtn);
@@ -190,5 +189,37 @@ describe("TenantUsers", () => {
     await waitFor(() => {
       expect(screen.getByText(/ResetP@ss1/)).toBeInTheDocument();
     });
+  });
+
+  // NOTE: search is client-side only — filters the current page's loaded users.
+  it("search filters users by name", async () => {
+    vi.mocked(useTenantUsers).mockReturnValue({
+      data: {
+        items: [
+          { uid: "u-1", email: "alice@demo.com", display_name: "Alice", role: "resident", flat_number: "A-1", active: true },
+          { uid: "u-2", email: "bob@demo.com", display_name: "Bob Smith", role: "resident", flat_number: "B-2", active: true },
+        ],
+      },
+      isLoading: false,
+    } as unknown as ReturnType<typeof useTenantUsers>);
+    const user = userEvent.setup();
+    renderPage();
+
+    expect(screen.getByText("Alice")).toBeInTheDocument();
+    expect(screen.getByText("Bob Smith")).toBeInTheDocument();
+
+    await user.type(screen.getByLabelText(/search users/i), "alice");
+
+    expect(screen.getByText("Alice")).toBeInTheDocument();
+    expect(screen.queryByText("Bob Smith")).not.toBeInTheDocument();
+  });
+
+  it("search shows empty-state message when no users match", async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.type(screen.getByLabelText(/search users/i), "zzz");
+
+    expect(screen.getByText(/no users match/i)).toBeInTheDocument();
   });
 });
