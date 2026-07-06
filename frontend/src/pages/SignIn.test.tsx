@@ -49,4 +49,35 @@ describe("SignIn", () => {
     renderPage();
     expect(screen.getByRole("button", { name: "Continue with Google" })).toBeInTheDocument();
   });
+
+  // ── Phase 13.7 banner tests ──────────────────────────────────────────────
+
+  it("does NOT show redirect banner when no ?redirected param", () => {
+    render(<MemoryRouter initialEntries={["/signin"]}><SignIn /></MemoryRouter>);
+    expect(
+      screen.queryByText(/redirected to your community/i),
+    ).not.toBeInTheDocument();
+  });
+
+  it("shows redirect banner when ?redirected=1 is present", () => {
+    render(
+      <MemoryRouter initialEntries={["/signin?redirected=1"]}>
+        <SignIn />
+      </MemoryRouter>,
+    );
+    expect(
+      screen.getByText(/redirected to your community/i),
+    ).toBeInTheDocument();
+  });
+
+  it("does NOT show banner for ?redirected=0 or other values", () => {
+    render(
+      <MemoryRouter initialEntries={["/signin?redirected=0"]}>
+        <SignIn />
+      </MemoryRouter>,
+    );
+    expect(
+      screen.queryByText(/redirected to your community/i),
+    ).not.toBeInTheDocument();
+  });
 });

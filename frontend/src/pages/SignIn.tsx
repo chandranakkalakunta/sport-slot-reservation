@@ -1,6 +1,6 @@
 import { type FormEvent, useState } from "react";
 import { Eye, EyeOff } from "lucide-react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 
 import { useAuth } from "../auth/AuthContext";
 import { AuthCard } from "../components/AuthCard";
@@ -10,6 +10,8 @@ import { Input } from "../components/ui/input";
 export default function SignIn() {
   const { signIn, signInWithGoogle } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const redirected = searchParams.get("redirected") === "1";
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPw, setShowPw] = useState(false);
@@ -28,6 +30,11 @@ export default function SignIn() {
 
   return (
     <AuthCard title="SlotSense">
+      {redirected && (
+        <p className="text-sm text-blue-700 bg-blue-50 border border-blue-200 rounded-md px-3 py-2">
+          You've been redirected to your community's sign-in page — please sign in again.
+        </p>
+      )}
       <form onSubmit={handleSubmit} className="space-y-2">
         <div className="space-y-1">
           <label htmlFor="sign-in-email" className="text-sm font-medium text-foreground">

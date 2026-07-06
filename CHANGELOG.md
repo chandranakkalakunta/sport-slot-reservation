@@ -6,6 +6,45 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Phase 13.7 — Apex Sign-In Redirect + Cross-Tenant Login Correction (July 2026)
+
+**13.7a (infra, already shipped):** DNS A record for the bare apex `slotsense.chandraailabs.com`
+added (Namecheap), LB host_rule updated to include it alongside the wildcard, TLS cert already
+covered both hostnames as SANs. `curl -sI https://slotsense.chandraailabs.com/` confirmed 200.
+Backend tenant resolution (`_slug_from_host`, `auth/dependency.py`) already handles the apex
+correctly by design — returns `None` (trust JWT, ADR-0007). No backend change needed or made.
+
+**Bugs closed (both collapse into one fix):**
+1. A user signing in at the bare apex (`slotsense.chandraailabs.com`) landed on `/tenant` with
+   default branding — functionally correct (JWT enforces tenant scoping) but wrong URL, no tenant
+   branding, unshareable.
+2. A user signing in on a DIFFERENT tenant's subdomain (e.g. ddsociety admin signing in on rvrg's
+   domain) succeeded — Firebase Auth validates credentials regardless of origin — with incorrect
+   host context.
+
+**Unified fix — `frontend/src/auth/AuthContext.tsx`:**
+- New exported `slugFromHost(hostname: string): string | null` helper (mirrors the backend's
+  `_slug_from_host` three-way logic): exact apex → `""`, `{x}.apex` → `"{x}"`, everything else
+  (localhost, `*.web.app`, `*.run.app`, unrecognized) → `null` (skip check, preserve local dev).
+- In `onIdTokenChanged`, after `setClaims`: if role is `platform_admin` OR `slugFromHost` returns
+  `null`, skip entirely. Otherwise, if host-derived slug ≠ `claims.tenant_slug`: sign out
+  (`fbSignOut`) then hard-navigate (`window.location.href`) to
+  `https://{tenant_slug}.slotsense.chandraailabs.com/signin?redirected=1`.
+
+**`frontend/src/pages/SignIn.tsx`:** If `?redirected=1` is present in the URL (via
+`useSearchParams`), shows a small informational banner:
+"You've been redirected to your community's sign-in page — please sign in again."
+
+**Known, deliberately unaddressed gap:** A `platform_admin` landing on a tenant subdomain is not
+corrected by this fix (they have no `tenant_slug` to redirect toward). Not reported as a bug;
+separate future concern.
+
+**Tests:** 14 new tests in `AuthContext.test.tsx` — `slugFromHost` unit tests (6 cases) +
+`onIdTokenChanged` scenario tests: apex+tenant_admin redirect, apex+resident redirect, matching
+subdomain no-redirect, wrong-subdomain redirect, platform_admin on apex no-redirect, localhost
+no-redirect (dev-safety), `*.web.app` no-redirect, null user no-error. 3 new tests in
+`SignIn.test.tsx` — banner present/absent/wrong-param-value. Full suite: 293 tests, 39 files.
+
 ### Phase 13.4 — Tenant-Level Permanent Delete (July 2026)
 
 **HIGHEST-RISK PR in Phase 13 — requires Coordinator line-by-line review before merge.**
