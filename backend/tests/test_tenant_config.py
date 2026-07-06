@@ -284,6 +284,33 @@ async def test_deactivate_tenant_user_soft_deletes(make_client):
     assert resp.json()["status"] == "deactivated"
 
 
+async def test_deactivate_tenant_user_sets_active_false(make_client):
+    """Regression guard: deactivate_user must write active=False to Firestore.
+
+    The frontend user list filter is `u.active !== false`. Without active=False
+    in the Firestore update, deactivated users remain visible in the Active users
+    list after the mutation and query-invalidation re-fetch.
+    """
+    client = _prov_client(profile_exists=True)
+    with patch(VERIFY, return_value=ADMIN), patch(UPDATE_FB):
+        async with make_client() as c:
+            c._transport.app.dependency_overrides[get_firestore_client] = lambda: client
+            resp = await c.delete("/api/v1/tenant/users/u-99", headers={**AUTH, **HOST})
+    assert resp.status_code == 200
+    mock_profile_update = (
+        client
+        .collection.return_value   # collection("tenants")
+        .document.return_value     # document(tenant_id)
+        .collection.return_value   # collection("users")
+        .document.return_value     # document(target_uid)
+        .update
+    )
+    update_dict = mock_profile_update.call_args[0][0]
+    assert update_dict.get("active") is False, (
+        f"deactivate_user must set active=False; got update dict: {update_dict}"
+    )
+
+
 async def test_tenant_user_create_resident_blocked_for_resident_caller(make_client):
     with patch(VERIFY, return_value=RESIDENT):
         async with make_client() as c:
