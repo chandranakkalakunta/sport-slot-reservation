@@ -8,7 +8,7 @@ import { CredentialDisplay, type Credential } from "../../components/CredentialD
 import { Input } from "../../components/ui/input";
 import {
   useBulkCreateUsers, useCreateTenantUser, useDeactivateTenantUser,
-  useResetTenantUserPassword, useTenantUsers,
+  useDeleteTenantUserPermanently, useResetTenantUserPassword, useTenantUsers,
 } from "../../hooks/tenantAdminHooks";
 import { ApiClientError } from "../../lib/api";
 import { messageForCode } from "../../lib/messages";
@@ -36,6 +36,7 @@ export default function TenantUsers() {
   const { data, isLoading } = useTenantUsers();
   const createUser = useCreateTenantUser();
   const deactivate = useDeactivateTenantUser();
+  const deletePermanently = useDeleteTenantUserPermanently();
   const resetPw = useResetTenantUserPassword();
   const bulkCreate = useBulkCreateUsers();
 
@@ -53,6 +54,9 @@ export default function TenantUsers() {
 
   // Deactivate confirm
   const [confirmUid, setConfirmUid] = useState<string | null>(null);
+
+  // Permanent delete confirm
+  const [deleteUid, setDeleteUid] = useState<string | null>(null);
 
   // Bulk CSV
   type BulkResult = { row: number; email: string; status: string; temp_password?: string; reason?: string };
@@ -150,6 +154,16 @@ export default function TenantUsers() {
                     disabled={deactivate.isPending}
                   >
                     Deactivate
+                  </Button>
+                  {/* Permanent delete — irreversible, requires type-to-confirm (ADR-0034 §2) */}
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    className="flex-1 sm:flex-none min-h-[40px]"
+                    onClick={() => setDeleteUid(u.uid)}
+                    disabled={deletePermanently.isPending}
+                  >
+                    Delete
                   </Button>
                 </div>
               </div>
@@ -282,6 +296,24 @@ export default function TenantUsers() {
           busy={deactivate.isPending}
           onConfirm={() => { deactivate.mutate(confirmUid); setConfirmUid(null); }}
           onCancel={() => setConfirmUid(null)}
+        />
+      )}
+
+      {deleteUid && (
+        <ConfirmDialog
+          title="Permanently delete user"
+          body={
+            <p>
+              This will permanently delete all of this user&apos;s data —
+              including their booking history — and remove their account.
+              <strong> This action cannot be undone.</strong>
+            </p>
+          }
+          confirmLabel="Confirm"
+          confirmationPhrase="DELETE"
+          busy={deletePermanently.isPending}
+          onConfirm={() => { deletePermanently.mutate(deleteUid); setDeleteUid(null); }}
+          onCancel={() => setDeleteUid(null)}
         />
       )}
     </>

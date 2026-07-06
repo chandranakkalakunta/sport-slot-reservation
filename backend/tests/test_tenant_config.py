@@ -468,4 +468,107 @@ async def test_validation_failed_includes_field_detail(make_client):
     assert isinstance(body["detail"], list)
     assert len(body["detail"]) >= 1
     assert "loc" in body["detail"][0]
-    assert "msg" in body["detail"][0]
+
+
+# ── Phase 13.2: permanent delete ─────────────────────────────────────────────
+
+AUDIT_WRITE = "sport_slot.services.provisioning.AuditRepository.write_event"
+
+
+def _delete_user_mock(profile_exists=True, num_bookings=0):
+    """Extend _prov_client with a bookings stream for permanent-delete tests.
+
+    The bookings sub-collection is accessed via .where().stream() on the same
+    document chain that _prov_client already sets up, so there's no conflict.
+    """
+    client = _prov_client(profile_exists=profile_exists)
+    booking_snaps = []
+    for _ in range(num_bookings):
+        snap = MagicMock()
+        snap.reference = MagicMock()
+        booking_snaps.append(snap)
+    (client.collection.return_value
+     .document.return_value
+     .collection.return_value
+     .where.return_value
+     .stream.return_value) = booking_snaps
+    return client, booking_snaps
+
+
+async def test_delete_tenant_user_permanently_self_delete_returns_403(make_client):
+    """(a) RED side: self-delete attempt → 403 SELF_DELETION_FORBIDDEN, nothing touched."""
+    with patch(VERIFY, return_value=ADMIN), patch(DELETE_FB) as mock_del, \
+         patch(AUDIT_WRITE):
+        async with make_client() as c:
+            client, _ = _delete_user_mock()
+            c._transport.app.dependency_overrides[get_firestore_client] = lambda: client
+            # Caller uid is "a1" (ADMIN); target uid is also "a1".
+            resp = await c.delete(
+                "/api/v1/tenant/users/a1/permanent",
+                headers={**AUTH, **HOST},
+            )
+    assert resp.status_code == 403
+    assert resp.json()["code"] == "SELF_DELETION_FORBIDDEN"
+    mock_del.assert_not_called()
+
+
+async def test_delete_tenant_user_permanently_deletes_bookings_auth_and_profile(make_client):
+    """(b) GREEN: successful delete wipes bookings, Firebase Auth, writes audit, removes profile."""
+    client, booking_snaps = _delete_user_mock(num_bookings=2)
+    with patch(VERIFY, return_value=ADMIN), patch(DELETE_FB) as mock_del_fb, \
+         patch(AUDIT_WRITE) as mock_audit:
+        async with make_client() as c:
+            c._transport.app.dependency_overrides[get_firestore_client] = lambda: client
+            resp = await c.delete(
+                "/api/v1/tenant/users/u-99/permanent",
+                headers={**AUTH, **HOST},
+            )
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["uid"] == "u-99"
+    assert body["status"] == "deleted"
+    assert body["bookings_deleted"] == 2
+
+    # Every booking doc's reference.delete() was called.
+    for snap in booking_snaps:
+        snap.reference.delete.assert_called_once()
+
+    # Firebase Auth user removed.
+    mock_del_fb.assert_called_once_with("u-99")
+
+    # Audit event contains no PII — only uid reference and count.
+    mock_audit.assert_called_once()
+    call_kwargs = mock_audit.call_args.kwargs
+    assert call_kwargs["event_type"] == "user.deleted"
+    details = call_kwargs["details"]
+    assert details["target_uid"] == "u-99"
+    assert details["bookings_deleted"] == 2
+    assert "email" not in details
+    assert "display_name" not in details
+
+    # Profile doc deleted.
+    profile_delete = (
+        client.collection.return_value
+        .document.return_value
+        .collection.return_value
+        .document.return_value
+        .delete
+    )
+    profile_delete.assert_called_once()
+
+
+async def test_delete_tenant_user_permanently_404_when_user_not_found(make_client):
+    """(c) 404 when the target profile document does not exist."""
+    client, _ = _delete_user_mock(profile_exists=False)
+    with patch(VERIFY, return_value=ADMIN), patch(DELETE_FB) as mock_del_fb, \
+         patch(AUDIT_WRITE) as mock_audit:
+        async with make_client() as c:
+            c._transport.app.dependency_overrides[get_firestore_client] = lambda: client
+            resp = await c.delete(
+                "/api/v1/tenant/users/ghost/permanent",
+                headers={**AUTH, **HOST},
+            )
+    assert resp.status_code == 404
+    assert resp.json()["code"] == "USER_NOT_FOUND"
+    mock_del_fb.assert_not_called()
+    mock_audit.assert_not_called()

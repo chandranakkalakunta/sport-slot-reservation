@@ -44,6 +44,7 @@ vi.mock("./hooks/tenantAdminHooks", () => ({
   useTenantUsers: vi.fn(),
   useCreateTenantUser: vi.fn(),
   useDeactivateTenantUser: vi.fn(),
+  useDeleteTenantUserPermanently: vi.fn(),
   useResetTenantUserPassword: vi.fn(),
   useBulkCreateUsers: vi.fn(),
   useUpdatePolicies: vi.fn(),
@@ -206,6 +207,9 @@ function setupDefaultMocks() {
   vi.mocked(tenantHooks.useDeactivateTenantUser).mockReturnValue({
     mutate: vi.fn(), isPending: false,
   } as unknown as ReturnType<typeof tenantHooks.useDeactivateTenantUser>);
+  vi.mocked(tenantHooks.useDeleteTenantUserPermanently).mockReturnValue({
+    mutate: vi.fn(), isPending: false,
+  } as unknown as ReturnType<typeof tenantHooks.useDeleteTenantUserPermanently>);
   vi.mocked(tenantHooks.useResetTenantUserPassword).mockReturnValue({
     mutateAsync: vi.fn(), isPending: false,
   } as unknown as ReturnType<typeof tenantHooks.useResetTenantUserPassword>);

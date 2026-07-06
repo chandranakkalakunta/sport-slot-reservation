@@ -7,7 +7,7 @@ vi.mock("../../components/AppHeader", () => ({ AppHeader: () => null }));
 
 import {
   useBulkCreateUsers, useCreateTenantUser, useDeactivateTenantUser,
-  useResetTenantUserPassword, useTenantUsers,
+  useDeleteTenantUserPermanently, useResetTenantUserPassword, useTenantUsers,
 } from "../../hooks/tenantAdminHooks";
 import TenantUsers from "./TenantUsers";
 
@@ -15,6 +15,7 @@ vi.mock("../../hooks/tenantAdminHooks", () => ({
   useTenantUsers: vi.fn(),
   useCreateTenantUser: vi.fn(),
   useDeactivateTenantUser: vi.fn(),
+  useDeleteTenantUserPermanently: vi.fn(),
   useResetTenantUserPassword: vi.fn(),
   useBulkCreateUsers: vi.fn(),
 }));
@@ -46,6 +47,9 @@ beforeEach(() => {
   );
   vi.mocked(useDeactivateTenantUser).mockImplementation(
     () => ({ mutate: vi.fn(), isPending: false }) as unknown as ReturnType<typeof useDeactivateTenantUser>,
+  );
+  vi.mocked(useDeleteTenantUserPermanently).mockImplementation(
+    () => ({ mutate: vi.fn(), isPending: false }) as unknown as ReturnType<typeof useDeleteTenantUserPermanently>,
   );
   vi.mocked(useResetTenantUserPassword).mockImplementation(
     () => ({ mutateAsync: vi.fn().mockResolvedValue({ uid: "u-1", temp_password: "ResetP@ss1" }), isPending: false }) as unknown as ReturnType<typeof useResetTenantUserPassword>,
@@ -131,6 +135,50 @@ describe("TenantUsers", () => {
     // Restore
     if (origText === undefined) delete (Blob.prototype as { text?: unknown }).text;
     else (Blob.prototype as { text?: unknown }).text = origText;
+  });
+
+  it("renders a Delete button alongside Deactivate for each user", () => {
+    // RED: before Phase 13.2 the Delete button does not exist in TenantUsers.
+    renderPage();
+    expect(screen.getByRole("button", { name: /deactivate/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /delete/i })).toBeInTheDocument();
+  });
+
+  it("Delete button opens ConfirmDialog with a type-to-confirm text input", async () => {
+    const user = userEvent.setup();
+    renderPage();
+    await user.click(screen.getByRole("button", { name: /^delete$/i }));
+    // The ConfirmDialog with confirmationPhrase="DELETE" renders a textbox.
+    expect(screen.getByRole("textbox")).toBeInTheDocument();
+    expect(screen.getByText(/Type DELETE to confirm/i)).toBeInTheDocument();
+  });
+
+  it("Delete confirm fires mutation only after typing DELETE exactly", async () => {
+    const mutate = vi.fn();
+    vi.mocked(useDeleteTenantUserPermanently).mockImplementation(
+      () => ({ mutate, isPending: false }) as unknown as ReturnType<typeof useDeleteTenantUserPermanently>,
+    );
+    const user = userEvent.setup();
+    renderPage();
+    await user.click(screen.getByRole("button", { name: /^delete$/i }));
+
+    // Confirm button must be disabled before correct phrase is typed.
+    const confirmBtn = screen.getByRole("button", { name: /confirm/i });
+    expect(confirmBtn).toBeDisabled();
+
+    await user.type(screen.getByRole("textbox"), "DELETE");
+    expect(confirmBtn).not.toBeDisabled();
+
+    await user.click(confirmBtn);
+    expect(mutate).toHaveBeenCalledWith("u-1");
+  });
+
+  it("Deactivate button still present and unchanged after Phase 13.2", () => {
+    // Regression guard: existing Deactivate button must remain fully functional.
+    renderPage();
+    const deactivateBtn = screen.getByRole("button", { name: /deactivate/i });
+    expect(deactivateBtn).toBeInTheDocument();
+    expect(deactivateBtn).not.toBeDisabled();
   });
 
   it("issue temp password button fires mutation and shows CredentialDisplay", async () => {
