@@ -92,8 +92,8 @@ describe("TenantList", () => {
     const user = userEvent.setup();
     renderPage();
     await user.click(screen.getByRole("button", { name: /delete/i }));
-    // The ConfirmDialog renders a textbox for the confirmationPhrase.
-    expect(screen.getByRole("textbox")).toBeInTheDocument();
+    // ConfirmDialog uses placeholder={confirmationPhrase}, slug="oakwood".
+    expect(screen.getByPlaceholderText("oakwood")).toBeInTheDocument();
     // The phrase label shows the actual tenant slug, not a generic literal.
     expect(screen.getByText(/Type oakwood to confirm/i)).toBeInTheDocument();
   });
@@ -104,7 +104,7 @@ describe("TenantList", () => {
     await user.click(screen.getByRole("button", { name: /delete/i }));
     const confirmBtn = screen.getByRole("button", { name: /confirm/i });
     // Non-empty but wrong slug must not enable the button.
-    await user.type(screen.getByRole("textbox"), "different-tenant");
+    await user.type(screen.getByPlaceholderText("oakwood"), "different-tenant");
     expect(confirmBtn).toBeDisabled();
   });
 
@@ -112,7 +112,7 @@ describe("TenantList", () => {
     const user = userEvent.setup();
     renderPage();
     await user.click(screen.getByRole("button", { name: /delete/i }));
-    await user.type(screen.getByRole("textbox"), "oakwood");
+    await user.type(screen.getByPlaceholderText("oakwood"), "oakwood");
     expect(screen.getByRole("button", { name: /confirm/i })).not.toBeDisabled();
   });
 
@@ -124,8 +124,56 @@ describe("TenantList", () => {
     const user = userEvent.setup();
     renderPage();
     await user.click(screen.getByRole("button", { name: /delete/i }));
-    await user.type(screen.getByRole("textbox"), "oakwood");
+    await user.type(screen.getByPlaceholderText("oakwood"), "oakwood");
     await user.click(screen.getByRole("button", { name: /confirm/i }));
     expect(mutate).toHaveBeenCalledWith("t-1");
+  });
+
+  // NOTE: search is client-side only — filters the current page's loaded tenants.
+  it("search filters tenants by name", async () => {
+    vi.mocked(useTenants).mockReturnValue({
+      data: {
+        items: [
+          { tenant_id: "t-1", slug: "oakwood", display_name: "Oakwood Residency", name: "Oakwood", active: true },
+          { tenant_id: "t-2", slug: "maplegrove", display_name: "Maple Grove", name: "Maple", active: true },
+        ],
+      },
+      isLoading: false,
+      error: null,
+    } as unknown as ReturnType<typeof useTenants>);
+    const user = userEvent.setup();
+    renderPage();
+
+    expect(screen.getByText("Oakwood Residency")).toBeInTheDocument();
+    expect(screen.getByText("Maple Grove")).toBeInTheDocument();
+
+    await user.type(screen.getByLabelText(/search tenants/i), "oak");
+
+    expect(screen.getByText("Oakwood Residency")).toBeInTheDocument();
+    expect(screen.queryByText("Maple Grove")).not.toBeInTheDocument();
+  });
+
+  it("search shows empty-state message when no tenants match", async () => {
+    const user = userEvent.setup();
+    renderPage();
+    await user.type(screen.getByLabelText(/search tenants/i), "zzz");
+    expect(screen.getByText(/no tenants match/i)).toBeInTheDocument();
+  });
+
+  it("displays admin_emails when present", () => {
+    vi.mocked(useTenants).mockReturnValue({
+      data: {
+        items: [{ ...TENANT, admin_emails: ["admin@demo.com", "ops@demo.com"] }],
+      },
+      isLoading: false,
+      error: null,
+    } as unknown as ReturnType<typeof useTenants>);
+    renderPage();
+    expect(screen.getByText(/admin@demo\.com, ops@demo\.com/)).toBeInTheDocument();
+  });
+
+  it("does not render admin emails section when admin_emails is empty or absent", () => {
+    renderPage(); // TENANT has no admin_emails
+    expect(screen.queryByText(/Admins:/)).not.toBeInTheDocument();
   });
 });

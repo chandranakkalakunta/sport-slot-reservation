@@ -9,6 +9,7 @@ export interface Tenant {
   name?: string;
   active?: boolean;
   created_at?: string;
+  admin_emails?: string[];
 }
 
 export interface CreatedUser {

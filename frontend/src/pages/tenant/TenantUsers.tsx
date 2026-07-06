@@ -1,11 +1,12 @@
-import { type ChangeEvent, type FormEvent, useState } from "react";
+import { type ChangeEvent, type FormEvent, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 
 import { AppHeader } from "../../components/AppHeader";
 import { Button } from "../../components/ui/button";
 import { ConfirmDialog } from "../../components/ConfirmDialog";
-import { CredentialDisplay, type Credential } from "../../components/CredentialDisplay";
+import { type Credential } from "../../components/CredentialDisplay";
 import { Input } from "../../components/ui/input";
+import { TempPasswordModal } from "../../components/TempPasswordModal";
 import {
   useBulkCreateUsers, useCreateTenantUser,
   useDeleteTenantUserPermanently, useResetTenantUserPassword, useTenantUsers,
@@ -39,6 +40,9 @@ export default function TenantUsers() {
   const resetPw = useResetTenantUserPassword();
   const bulkCreate = useBulkCreateUsers();
 
+  // Search
+  const [search, setSearch] = useState("");
+
   // Add-user form
   const [email, setEmail] = useState("");
   const [displayName, setDisplayName] = useState("");
@@ -55,6 +59,8 @@ export default function TenantUsers() {
   const [deleteUid, setDeleteUid] = useState<string | null>(null);
 
   // Bulk CSV
+  const csvInputRef = useRef<HTMLInputElement>(null);
+  const [csvFileName, setCsvFileName] = useState<string | null>(null);
   type BulkResult = { row: number; email: string; status: string; temp_password?: string; reason?: string };
   const [bulkReport, setBulkReport] = useState<{
     total: number; created: number; failed: number; results: BulkResult[];
@@ -90,10 +96,11 @@ export default function TenantUsers() {
   async function handleCSV(e: ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
+    setCsvFileName(file.name);
     setBulkReport(null); setBulkError(null);
     const text = await file.text();
     const rows = parseCSV(text);
-    if (rows.length === 0) { setBulkError("No data rows found in CSV."); return; }
+    if (rows.length === 0) { setBulkError("No data rows found in CSV."); setCsvFileName(null); return; }
     try {
       const report = await bulkCreate.mutateAsync(rows);
       setBulkReport(report);
@@ -101,9 +108,21 @@ export default function TenantUsers() {
       setBulkError(err instanceof ApiClientError ? messageForCode(err.code) : "Bulk import failed.");
     }
     e.target.value = "";
+    setCsvFileName(null);
   }
 
   const active = data?.items.filter((u) => u.active !== false) ?? [];
+
+  const filtered = active.filter((u) => {
+    if (!search) return true;
+    const q = search.toLowerCase();
+    return (
+      u.display_name.toLowerCase().includes(q) ||
+      u.email.toLowerCase().includes(q) ||
+      (u.flat_number ?? "").toLowerCase().includes(q)
+    );
+  });
+
   const bulkCreated = bulkReport?.results.filter((r) => r.status === "created") ?? [];
   const bulkFailed = bulkReport?.results.filter((r) => r.status !== "created") ?? [];
 
@@ -118,15 +137,30 @@ export default function TenantUsers() {
         <section className="space-y-3">
           <h2 className="text-lg font-semibold text-foreground">Active users</h2>
           {isLoading && <p className="text-sm text-muted-foreground">Loading…</p>}
+
+          {/* Search — client-side filter of the current page only */}
+          {!isLoading && active.length > 0 && (
+            <Input
+              placeholder="Search by name, email or flat…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="max-w-sm"
+              aria-label="Search users"
+            />
+          )}
+
           {active.length === 0 && !isLoading && (
             <p className="text-sm text-muted-foreground">No users yet.</p>
           )}
+          {active.length > 0 && filtered.length === 0 && (
+            <p className="text-sm text-muted-foreground">No users match "{search}".</p>
+          )}
           <div className="space-y-2">
-            {active.map((u) => (
+            {filtered.map((u) => (
               /* Two-button row: info on top, buttons stacked below on mobile; inline on sm+ */
               <div key={u.uid} className="rounded-lg border bg-card p-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
                 <div className="min-w-0">
-                  <p className="font-semibold text-foreground truncate">{u.display_name}</p>
+                  <p className="font-semibold text-foreground">{u.display_name}</p>
                   <p className="text-sm text-muted-foreground mt-0.5">
                     {u.email} · {u.role}{u.flat_number ? ` · ${u.flat_number}` : ""}
                   </p>
@@ -156,21 +190,11 @@ export default function TenantUsers() {
             ))}
           </div>
           {resetError && <p className="text-sm text-destructive">{resetError}</p>}
-          {resetCred && (
-            <div className="mt-3">
-              <CredentialDisplay creds={[resetCred]} title="Temp password issued" />
-            </div>
-          )}
         </section>
 
         {/* Add user form */}
         <section className="space-y-4">
           <h2 className="text-lg font-semibold text-foreground">Add user</h2>
-          {newCred && (
-            <div className="mb-4">
-              <CredentialDisplay creds={[newCred]} title="User created" />
-            </div>
-          )}
           <form onSubmit={submitAdd} className="max-w-md space-y-3">
             <div className="space-y-1">
               <label htmlFor="user-email" className="text-sm font-medium text-foreground">
@@ -236,29 +260,36 @@ export default function TenantUsers() {
           <p className="text-sm text-muted-foreground">
             CSV headers: email, display_name, flat_number, role, household_id
           </p>
-          <input
-            type="file"
-            accept=".csv,text/csv"
-            onChange={handleCSV}
-            disabled={bulkCreate.isPending}
-            aria-label="Upload CSV for bulk user import"
-            className="text-sm text-foreground"
-          />
-          {bulkCreate.isPending && <p className="text-sm text-muted-foreground">Importing…</p>}
+          <div className="flex items-center gap-3">
+            {/* Native input visually hidden; triggered via button below for consistent styling */}
+            <input
+              ref={csvInputRef}
+              type="file"
+              accept=".csv,text/csv"
+              onChange={handleCSV}
+              disabled={bulkCreate.isPending}
+              aria-label="Upload CSV for bulk user import"
+              className="sr-only"
+            />
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => csvInputRef.current?.click()}
+              disabled={bulkCreate.isPending}
+            >
+              {bulkCreate.isPending ? "Importing…" : "Choose CSV file…"}
+            </Button>
+            {csvFileName && (
+              <span className="text-sm text-muted-foreground truncate max-w-[200px]">{csvFileName}</span>
+            )}
+          </div>
           {bulkError && <p className="text-sm text-destructive">{bulkError}</p>}
           {bulkReport && (
             <div className="space-y-3">
               <p className="text-sm text-foreground tabular-nums">
                 Total: {bulkReport.total} · Created: {bulkReport.created} · Failed: {bulkReport.failed}
               </p>
-              {bulkCreated.length > 0 && (
-                <CredentialDisplay
-                  title={`${bulkCreated.length} user(s) created`}
-                  creds={bulkCreated
-                    .filter((r): r is BulkResult & { temp_password: string } => !!r.temp_password)
-                    .map((r) => ({ email: r.email, temp_password: r.temp_password }))}
-                />
-              )}
               {bulkFailed.length > 0 && (
                 <div className="space-y-1">
                   <p className="text-sm font-medium text-foreground">Failed rows:</p>
@@ -273,6 +304,29 @@ export default function TenantUsers() {
           )}
         </section>
       </main>
+
+      {/* Temp-password modals — shown immediately after credential issuance */}
+      <TempPasswordModal
+        creds={resetCred ? [resetCred] : null}
+        title="Temp password issued"
+        onClose={() => setResetCred(null)}
+      />
+      <TempPasswordModal
+        creds={newCred ? [newCred] : null}
+        title="User created"
+        onClose={() => setNewCred(null)}
+      />
+
+      {/* Bulk-created credentials shown separately via CredentialDisplay below report */}
+      {bulkReport && bulkCreated.length > 0 && (
+        <TempPasswordModal
+          creds={bulkCreated
+            .filter((r): r is BulkResult & { temp_password: string } => !!r.temp_password)
+            .map((r) => ({ email: r.email, temp_password: r.temp_password }))}
+          title={`${bulkCreated.length} user(s) created`}
+          onClose={() => setBulkReport(null)}
+        />
+      )}
 
       {deleteUid && (
         <ConfirmDialog

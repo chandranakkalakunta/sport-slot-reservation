@@ -1,3 +1,5 @@
+import os
+
 from fastapi import APIRouter
 from google.cloud import firestore
 
@@ -16,6 +18,15 @@ async def health():
     (/healthz is reserved by GCP's frontend on Cloud Run — never reachable externally)
     """
     return {"status": "ok"}
+
+
+@router.get("/version")
+@limiter.exempt
+async def version():
+    """Build identifier injected at deploy time via BUILD_ID env var.
+    Falls back to 'dev' when running locally without the env var set.
+    """
+    return {"build_id": os.environ.get("BUILD_ID", "dev")}
 
 
 def _firestore_ping() -> None:

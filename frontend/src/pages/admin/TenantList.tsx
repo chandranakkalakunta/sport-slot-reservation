@@ -4,6 +4,7 @@ import { Link } from "react-router-dom";
 import { AppHeader } from "../../components/AppHeader";
 import { Button } from "../../components/ui/button";
 import { ConfirmDialog } from "../../components/ConfirmDialog";
+import { Input } from "../../components/ui/input";
 import { ListRow } from "../../components/ListRow";
 import { Tenant, useDeleteTenantPermanently, useTenants } from "../../hooks/adminHooks";
 
@@ -11,6 +12,15 @@ export default function TenantList() {
   const { data, isLoading, error } = useTenants();
   const deleteTenant = useDeleteTenantPermanently();
   const [deleteTarget, setDeleteTarget] = useState<Tenant | null>(null);
+  const [search, setSearch] = useState("");
+
+  const allTenants = data?.items ?? [];
+  const filtered = allTenants.filter((t) => {
+    if (!search) return true;
+    const q = search.toLowerCase();
+    const name = (t.display_name ?? t.name ?? t.slug).toLowerCase();
+    return name.includes(q) || t.slug.toLowerCase().includes(q);
+  });
 
   return (
     <>
@@ -29,12 +39,26 @@ export default function TenantList() {
 
         {isLoading && <p className="text-sm text-muted-foreground">Loading tenants…</p>}
         {error && <p className="text-sm text-destructive">Couldn't load tenants.</p>}
-        {!isLoading && !error && data && data.items.length === 0 && (
+        {!isLoading && !error && allTenants.length === 0 && (
           <p className="text-sm text-muted-foreground">No tenants yet.</p>
         )}
 
+        {/* Search — client-side filter of the current page only */}
+        {!isLoading && !error && allTenants.length > 0 && (
+          <Input
+            placeholder="Search by name or slug…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="max-w-sm"
+            aria-label="Search tenants"
+          />
+        )}
+        {allTenants.length > 0 && filtered.length === 0 && (
+          <p className="text-sm text-muted-foreground">No tenants match "{search}".</p>
+        )}
+
         <div className="space-y-2">
-          {data?.items.map((t) => (
+          {filtered.map((t) => (
             <ListRow
               key={t.tenant_id}
               action={
@@ -58,11 +82,14 @@ export default function TenantList() {
                 </div>
               }
             >
-              <p className="font-semibold text-foreground truncate">
+              <p className="font-semibold text-foreground">
                 {t.display_name ?? t.name ?? t.slug}
               </p>
               <p className="text-sm text-muted-foreground tabular-nums mt-0.5">
                 slug: {t.slug} · {t.active === false ? "inactive" : "active"}
+                {t.admin_emails && t.admin_emails.length > 0 && (
+                  <> · Admins: {t.admin_emails.join(", ")}</>
+                )}
               </p>
             </ListRow>
           ))}

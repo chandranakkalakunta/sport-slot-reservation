@@ -158,7 +158,7 @@ export default function TenantFacilities() {
             <ListRow
               key={f.id}
               action={
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                   <Button
                     variant="outline"
                     size="sm"
@@ -185,7 +185,7 @@ export default function TenantFacilities() {
                 </div>
               }
             >
-              <p className="font-semibold text-foreground truncate">{f.name}</p>
+              <p className="font-semibold text-foreground">{f.name}</p>
               <p className="text-sm text-muted-foreground tabular-nums mt-0.5">
                 {catalogMap.get(f.facility_type_id) ?? f.sport} · {f.slot_duration_minutes}min slots
                 {f.description ? ` · ${f.description}` : ""}

@@ -112,6 +112,21 @@ class PlatformRepository:
         snaps = list(query.stream())
         has_more = len(snaps) > limit
         snaps = snaps[:limit]
-        items = [snap.to_dict() for snap in snaps]
+        items = []
+        for snap in snaps:
+            data = snap.to_dict() or {}
+            # N+1 acceptable at current scale (~3-4 tenants); fetch tenant-admin emails.
+            admin_snaps = list(
+                self._client.collection("tenants")
+                .document(snap.id)
+                .collection("users")
+                .where("role", "==", "tenant_admin")
+                .stream()
+            )
+            data["admin_emails"] = [
+                s.to_dict().get("email", "") for s in admin_snaps
+                if s.to_dict().get("email")
+            ]
+            items.append(data)
         next_cursor = _encode_cursor(snaps[-1].id) if has_more and snaps else None
         return items, next_cursor
