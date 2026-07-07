@@ -1,6 +1,6 @@
 # ADR-0034: Facility Lifecycle, Direct Entity Deletion & DPDP-Compliant Erasure
 
-Status: Proposed | Date: 2026-07-05 (revised 2026-07-06) | Author: Chandra Nakkalakunta (Coordinator) + Strategist
+Status: Accepted | Date: 2026-07-05 (revised 2026-07-06; accepted 2026-07-07) | Author: Chandra Nakkalakunta (Coordinator) + Strategist
 
 **Supersedes/extends:** ADR-0017 (Deletion, Retention & User/Tenant Lifecycle).
 ADR-0017 remains accepted and unmodified per protocol §7.1; this ADR adds
@@ -34,22 +34,40 @@ Three gaps identified across two sessions:
 
 ## Decisions
 
-### 1. Facility lifecycle: three-stage pattern, adapted (unchanged from 2026-07-05)
+### 1. Facility lifecycle: DELETE-ONLY (superseded 2026-07-07, sub-phase 13.3)
 
-Facilities adopt the ACTIVE → INACTIVE → PURGED shape with two
-adaptations: no self-deactivation clause (always an explicit admin
-action), and ACTIVE→INACTIVE cancels confirmed future bookings +
-notifies affected residents (reusing ADR-0019's notification
-architecture), with an explicit requirement that the AI agent and My
-Bookings page reflect the new state identically (avoiding a repeat of
-the Phase 10 surface-divergence failure, protocol §5.14). PURGED-stage
-retention window for facilities remains Phase 14 scope.
+**This section is superseded by the 13.3 decision below — the original
+3-stage design was never fully built and was replaced before
+completion.** Facilities do NOT get a Deactivate/INACTIVE state or a
+PURGED stage. Coordinator decision, driven by a real incident during
+13.3: a deactivate-without-reactivate model creates unrecoverable stuck
+entities — a deactivated resident's Firebase Auth account blocked
+re-registration of their own email indefinitely, with no UI recovery
+path, because no Reactivate screen was ever built. Since facilities
+have the same gap (no reactivate UI, none planned), a soft "inactive"
+state would only accumulate orphaned documents with no way back.
 
-**Known current gap, confirmed by investigation (2026-07-06):**
-`deactivate_facility` today only sets `active: False` — it does not
-cancel bookings, notify residents, or write an audit event. This
-ADR's design is not yet implemented; building it is Phase 13's main
-remaining sub-phase.
+Facility "Remove" (the single action available, no separate Deactivate)
+now performs, in order: cancel all confirmed future bookings for the
+facility, notify affected residents (reusing ADR-0019's notification
+architecture — this also fixed a separate, larger bug found during
+13.1, where `cancel_booking` sent no notification for ANY cancellation,
+not just this one), write a `facility.deleted` audit event, then
+`ref.delete()` — permanent Firestore deletion, not a flag flip. The
+explicit requirement that the AI agent and My Bookings page reflect a
+facility's removal identically (avoiding a repeat of the Phase 10
+surface-divergence failure, protocol §5.14) still applies, unchanged
+from the original design.
+
+**Original 2026-07-05 design (for historical record only, NOT current
+behavior):** facilities were originally going to adopt the same
+ACTIVE → INACTIVE → PURGED shape as ADR-0017, with a PURGED-stage
+retention window deferred to Phase 14. This was superseded before that
+retention-window decision was ever needed.
+
+**Status of implementation:** fully built and verified live (13.1 for
+cancel+notify+audit, 13.3 for the delete-only correction). Confirmed
+against real production Firestore state, not merge-status alone.
 
 ### 2. Direct deletion: a real, independent, on-demand action (NEW, 2026-07-06)
 
