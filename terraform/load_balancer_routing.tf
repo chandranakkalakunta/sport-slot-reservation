@@ -48,7 +48,7 @@ resource "google_compute_url_map" "slotsense_https" {
     }
 
     path_rule {
-      paths   = ["/api/*", "/health", "/readyz"]
+      paths   = ["/api/*", "/health", "/readyz", "/version"]
       service = google_compute_backend_service.api.id
     }
 
