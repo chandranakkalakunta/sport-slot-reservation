@@ -162,6 +162,7 @@ export default function TenantFacilities() {
                   <Button
                     variant="outline"
                     size="sm"
+                    className="flex-1 sm:flex-none"
                     onClick={() => openEdit(f)}
                   >
                     Edit
@@ -169,6 +170,7 @@ export default function TenantFacilities() {
                   <Button
                     variant="outline"
                     size="sm"
+                    className="flex-1 sm:flex-none"
                     onClick={() => openClone(f)}
                   >
                     Clone
@@ -177,7 +179,7 @@ export default function TenantFacilities() {
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                    className="flex-1 sm:flex-none text-muted-foreground hover:text-destructive hover:bg-destructive/10"
                     onClick={() => setConfirmFacilityId(f.id)}
                   >
                     Remove

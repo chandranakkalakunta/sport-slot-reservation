@@ -61,6 +61,7 @@ export default function MyBookings() {
                   <Button
                     variant="destructive"
                     size="sm"
+                    className="flex-1 sm:flex-none"
                     onClick={() => { setDialogError(null); setTarget(b); }}
                   >
                     Cancel

@@ -62,7 +62,7 @@ export default function TenantList() {
             <ListRow
               key={t.tenant_id}
               action={
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                   <Link
                     to={`/admin/tenants/${t.tenant_id}/users/new`}
                     className="text-sm text-primary hover:underline"
@@ -74,6 +74,7 @@ export default function TenantList() {
                   <Button
                     variant="destructive"
                     size="sm"
+                    className="flex-1 sm:flex-none"
                     onClick={() => setDeleteTarget(t)}
                     disabled={deleteTenant.isPending}
                   >
