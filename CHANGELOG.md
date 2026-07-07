@@ -6,6 +6,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### fix: Booking Policies form now loads actual saved values (July 2026)
+
+**Bug:** `TenantPolicies.tsx` initialized its four form fields with hardcoded literals
+(`useState(14)`, `useState("06:00")`, `useState(1)`, `useState(2)`) and had no fetch-on-mount
+at all — no `useQuery`, no `useEffect`. The `PATCH /tenant/policies` route worked correctly
+(confirmed via direct Firestore inspection: `booking_horizon_days: 2`, `cancellation_buffer_hours: 1`,
+`max_slots_per_user_per_sport_per_day: 1` were genuinely persisted), but there was no
+`GET /tenant/policies` route in the backend to read them back, and no call in the frontend to
+fetch them even if the route had existed. The form always displayed its defaults regardless of
+what the tenant had saved.
+
+**Fix:**
+- Added `GET /tenant/policies` to `tenant_config.py` (same `require_role("tenant_admin")` guard
+  as the PATCH route; reads the tenant's `policies` dict from Firestore, returning `{}` when no
+  policies subdocument exists — matching the convention used by the PATCH route itself).
+- Added `usePolicies()` query hook and `Policies` interface to `tenantAdminHooks.ts`.
+- Updated `useUpdatePolicies()` to invalidate the `["tenant", "policies"]` query key on success,
+  so the form reflects the saved state immediately after a PATCH.
+- `TenantPolicies.tsx` now fetches current values on mount and populates form state via
+  `useEffect`, mirroring `TenantBranding.tsx`'s existing working pattern exactly.
+
+**Tests:**
+- New regression test asserts that the form shows fetched values (`horizon=2, max=1`) rather than
+  the hardcoded defaults (`horizon=14, max=2`) — the exact scenario that was broken.
+- New test confirms empty server response (`{}`) keeps form defaults (correct fallback behavior).
+- 3 new backend tests cover `GET /tenant/policies`: saved values returned correctly, empty dict
+  when no policies saved, residents forbidden (403).
+
 ### Phase 13.5 — Search, Tenant-Admin Visibility, Mobile Polish & Testing (July 2026)
 
 **Item 1 — Client-side search (TenantUsers.tsx, TenantList.tsx):**

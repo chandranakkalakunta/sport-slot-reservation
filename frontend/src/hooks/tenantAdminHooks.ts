@@ -71,10 +71,26 @@ export function useUpdateBranding() {
   });
 }
 
+export interface Policies {
+  booking_horizon_days?: number;
+  booking_window_open_time?: string;
+  cancellation_buffer_hours?: number;
+  max_slots_per_user_per_sport_per_day?: number;
+}
+
+export function usePolicies() {
+  return useQuery({
+    queryKey: ["tenant", "policies"],
+    queryFn: () => apiFetch<{ policies: Policies }>("/tenant/policies"),
+  });
+}
+
 export function useUpdatePolicies() {
+  const qc = useQueryClient();
   return useMutation({
     mutationFn: (body: Record<string, unknown>) =>
       apiFetch("/tenant/policies", { method: "PATCH", body: JSON.stringify(body) }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["tenant", "policies"] }),
   });
 }
 
