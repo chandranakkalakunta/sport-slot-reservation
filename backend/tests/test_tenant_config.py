@@ -197,6 +197,55 @@ async def test_policies_bad_time_format_422(make_client):
     assert resp.json()["code"] == "VALIDATION_FAILED"
 
 
+async def test_get_policies_returns_saved_values(make_client):
+    """GET /tenant/policies returns what is stored — this was the missing route."""
+    stored = {
+        "booking_horizon_days": 2,
+        "booking_window_open_time": "08:00",
+        "cancellation_buffer_hours": 1,
+        "max_slots_per_user_per_sport_per_day": 1,
+    }
+    with patch(VERIFY, return_value=ADMIN):
+        async with make_client() as c:
+            c._transport.app.dependency_overrides[get_firestore_client] = (
+                lambda: _tenant_client(policies=stored)
+            )
+            resp = await c.get("/api/v1/tenant/policies", headers={**AUTH, **HOST})
+
+    assert resp.status_code == 200
+    p = resp.json()["policies"]
+    assert p["booking_horizon_days"] == 2
+    assert p["cancellation_buffer_hours"] == 1
+    assert p["max_slots_per_user_per_sport_per_day"] == 1
+    assert p["booking_window_open_time"] == "08:00"
+
+
+async def test_get_policies_empty_when_no_policies_saved(make_client):
+    """GET /tenant/policies returns {} when the tenant has no policies subdocument."""
+    with patch(VERIFY, return_value=ADMIN):
+        async with make_client() as c:
+            c._transport.app.dependency_overrides[get_firestore_client] = (
+                lambda: _tenant_client()  # no policies arg → empty dict
+            )
+            resp = await c.get("/api/v1/tenant/policies", headers={**AUTH, **HOST})
+
+    assert resp.status_code == 200
+    assert resp.json()["policies"] == {}
+
+
+async def test_get_policies_resident_forbidden(make_client):
+    """GET /tenant/policies is tenant_admin-only; residents are rejected."""
+    with patch(VERIFY, return_value=RESIDENT):
+        async with make_client() as c:
+            c._transport.app.dependency_overrides[get_firestore_client] = (
+                lambda: _tenant_client()
+            )
+            resp = await c.get("/api/v1/tenant/policies", headers={**AUTH, **HOST})
+
+    assert resp.status_code == 403
+    assert resp.json()["code"] == "FORBIDDEN_ROLE"
+
+
 # ── Tenant users ──────────────────────────────────────────────────────────────
 
 async def test_create_resident_with_flat_number_201(make_client):

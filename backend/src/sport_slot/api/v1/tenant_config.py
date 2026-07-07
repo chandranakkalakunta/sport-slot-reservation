@@ -65,6 +65,16 @@ class PoliciesPatch(BaseModel):
     max_slots_per_user_per_sport_per_day: int | None = None
 
 
+@router.get("/tenant/policies")
+async def get_policies(
+    ctx: TenantContext = Depends(require_role("tenant_admin")),
+    client=Depends(get_firestore_client),
+):
+    ref = client.collection("tenants").document(ctx.tenant_id)
+    policies = (ref.get().to_dict() or {}).get("policies", {})
+    return {"policies": policies}
+
+
 @router.patch("/tenant/policies")
 async def update_policies(
     body: PoliciesPatch,

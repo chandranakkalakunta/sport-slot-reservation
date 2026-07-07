@@ -1,10 +1,10 @@
-import { type FormEvent, useState } from "react";
+import { type FormEvent, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 
 import { AppHeader } from "../../components/AppHeader";
 import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
-import { useUpdatePolicies } from "../../hooks/tenantAdminHooks";
+import { usePolicies, useUpdatePolicies } from "../../hooks/tenantAdminHooks";
 import { ApiClientError } from "../../lib/api";
 import { messageForCode } from "../../lib/messages";
 
@@ -17,6 +17,17 @@ export default function TenantPolicies() {
   const [maxSlots, setMaxSlots] = useState(2);
   const [error, setError] = useState<string | null>(null);
   const [ok, setOk] = useState(false);
+
+  // Pre-fill form from current policies on mount (mirrors TenantBranding's useQuery + useEffect pattern).
+  const { data: policiesData } = usePolicies();
+  useEffect(() => {
+    if (!policiesData) return;
+    const p = policiesData.policies;
+    if (p.booking_horizon_days !== undefined) setHorizonDays(p.booking_horizon_days);
+    if (p.booking_window_open_time !== undefined) setOpenTime(p.booking_window_open_time);
+    if (p.cancellation_buffer_hours !== undefined) setBufferHours(p.cancellation_buffer_hours);
+    if (p.max_slots_per_user_per_sport_per_day !== undefined) setMaxSlots(p.max_slots_per_user_per_sport_per_day);
+  }, [policiesData]);
 
   async function submit(e: FormEvent) {
     e.preventDefault();
