@@ -6,6 +6,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### feat: Daily Booking Overview for tenant-admins (July 2026)
+
+**What:** New admin-only page (`/tenant/overview`) showing every facility for a chosen tenant on
+a chosen date, alphabetically sorted, with all confirmed and cancelled bookings for that date —
+each booking annotated with the resident's display name and email. Date picker allows any date,
+including the past, for dispute resolution ("who was here yesterday"). A facility-type filter
+narrows which facilities render. Grid view (facilities × time-slot columns, horizontal scroll)
+is the default at viewport ≥640px; List view (one section per facility) is default below that;
+a manual toggle overrides either default at any width. Cancelled bookings render with a distinct
+muted/strikethrough treatment rather than being hidden, so admins can see cancellation activity.
+Every booked/cancelled slot exposes the resident's name and email via a tooltip triggered by
+both mouse hover and keyboard focus (`aria-describedby` wired for screen readers) — this is
+genuinely new, admin-only data; the resident-facing `FacilityAvailability` page deliberately
+never exposes other residents' identities, so this view could not reuse its data path.
+
+**Backend:** `GET /api/v1/tenant/overview/daily?date=YYYY-MM-DD` (`daily_overview.py`,
+`require_role("tenant_admin")`). New `BookingRepository.list_for_date()` queries all bookings
+(confirmed and cancelled) for the tenant on a date via a single equality filter — no composite
+index needed. For each unique resident uid appearing that day, one profile lookup is made
+(N+1) to attach `display_name`/`email` — the same documented trade-off already accepted in
+`repositories/base.py`'s `list_tenants()` (`admin_emails`), appropriate at current tenant scale
+rather than building batch-fetch infrastructure for it. Facility ordering is sorted
+alphabetically by name, scoped to this endpoint only — the existing facilities list elsewhere
+in the app is intentionally left unordered pending a separate decision.
+
+**Frontend:** `TenantDailyOverview.tsx` + `useDailyOverview` hook (`tenantAdminHooks.ts`),
+linked from the tenant dashboard. Client-side alphabetical sort mirrors the backend guarantee.
+
+**Out of scope (explicitly rejected):** multi-day range/aggregate view; any change to the
+resident-facing availability page or its data logic; any change to booking creation/cancellation
+logic (this is a read-only view).
+
 ### fix(frontend): ListRow stacks on mobile instead of squeezing content into a fixed-width remainder (July 2026)
 
 **Root cause:** PR #101 removed `truncate` from the facility name, which stopped text from being

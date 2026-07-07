@@ -22,6 +22,18 @@ class BookingRepository(TenantRepository):
         )
         return {snap.to_dict().get("start") for snap in query.stream()}
 
+    def list_for_date(self, date: str) -> list[dict]:
+        """All bookings (confirmed AND cancelled) for a given date across all
+        facilities in this tenant.  Single equality filter on `date` — uses
+        Firestore's automatic single-field index; no composite index required.
+
+        # N+1 profile lookups are done by the caller (one per unique resident
+        # uid on the day) — acceptable at current tenant scale, matching the
+        # pattern documented in repositories/base.py list_tenants().
+        """
+        query = self._collection.where("date", "==", date)
+        return [snap.to_dict() for snap in query.stream()]
+
     def list_for_uid(
         self, uid: str, limit: int = 20, cursor: str | None = None,
         from_date: str | None = None,

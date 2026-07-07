@@ -143,6 +143,38 @@ export function useResetTenantUserPassword() {
   });
 }
 
+// ── Daily Booking Overview ───────────────────────────────────────────────────
+
+export interface OverviewBooking {
+  booking_id: string;
+  start: string;
+  end: string;
+  status: "confirmed" | "cancelled";
+  resident_name: string | null;
+  resident_email: string | null;
+}
+
+export interface OverviewFacility {
+  facility_id: string;
+  name: string;
+  facility_type_id: string;
+  sport: string;
+  bookings: OverviewBooking[];
+}
+
+export interface DailyOverview {
+  date: string;
+  facilities: OverviewFacility[];
+}
+
+export function useDailyOverview(date: string) {
+  return useQuery({
+    queryKey: ["tenant", "overview", "daily", date],
+    queryFn: () => apiFetch<DailyOverview>(`/tenant/overview/daily?date=${date}`),
+    enabled: Boolean(date),
+  });
+}
+
 export function useBulkCreateUsers() {
   const qc = useQueryClient();
   return useMutation({
