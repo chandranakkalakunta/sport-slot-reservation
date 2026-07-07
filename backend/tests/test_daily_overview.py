@@ -12,12 +12,19 @@ AUTH = {"authorization": "Bearer fake"}
 HOST = {"host": "demo.slotsense.chandraailabs.com"}
 VERIFY = "sport_slot.auth.dependency.fb_auth.verify_id_token"
 
+# 2026-07-07 is a Tuesday — weekly_schedule keys below are chosen accordingly.
+# slot_duration_minutes + weekly_schedule are required by compute_slots (used
+# to build each facility's `slots` capacity list); every facility fixture
+# needs them now, not just ones under test for slots specifically.
 FAC_ALPHA = {"id": "fac-alpha", "name": "Alpha Court", "facility_type_id": "badminton",
-             "sport": "badminton"}
+             "sport": "badminton", "slot_duration_minutes": 60,
+             "weekly_schedule": {"tuesday": [{"start": "09:00", "end": "12:00"}]}}
 FAC_ZULU = {"id": "fac-zulu", "name": "Zulu Court", "facility_type_id": "tennis",
-            "sport": "tennis"}
+            "sport": "tennis", "slot_duration_minutes": 60,
+            "weekly_schedule": {"tuesday": [{"start": "08:00", "end": "09:00"}]}}
 FAC_BETA = {"id": "fac-beta", "name": "Beta Court", "facility_type_id": "badminton",
-            "sport": "badminton"}
+            "sport": "badminton", "slot_duration_minutes": 60,
+            "weekly_schedule": {"tuesday": [{"start": "14:00", "end": "15:00"}]}}
 
 BOOKING_CONFIRMED = {
     "id": "fac-alpha_2026-07-07_09:00",
@@ -276,3 +283,91 @@ async def test_daily_overview_bookings_sorted_by_start_within_facility(make_clie
             )
     starts = [b["start"] for b in resp.json()["facilities"][0]["bookings"]]
     assert starts == sorted(starts), f"Expected time-sorted bookings, got {starts}"
+
+
+# ── Grid capacity: `slots` (full geometry, not just booked times) ──────────
+
+async def test_daily_overview_slots_all_available_when_no_bookings(make_client):
+    """A facility with no bookings still returns its FULL slot geometry,
+    every entry marked "available" — not an empty/absent list.
+
+    FAC_ALPHA's weekly_schedule (09:00-12:00, 60min slots) yields 3 valid
+    starts: 09:00, 10:00, 11:00.
+    """
+    client = _overview_mock(facilities=[FAC_ALPHA], bookings=[], profiles={})
+    with patch(VERIFY, return_value=ADMIN):
+        async with make_client() as c:
+            c._transport.app.dependency_overrides[get_firestore_client] = lambda: client
+            resp = await c.get(
+                "/api/v1/tenant/overview/daily?date=2026-07-07",
+                headers={**AUTH, **HOST},
+            )
+    slots = resp.json()["facilities"][0]["slots"]
+    assert [s["start"] for s in slots] == ["09:00", "10:00", "11:00"]
+    assert all(s["status"] == "available" for s in slots), slots
+    assert all(s["resident_name"] is None and s["resident_email"] is None for s in slots)
+
+
+async def test_daily_overview_slots_cross_reference_confirmed_and_cancelled(make_client):
+    """(a) Two-sided: slot status is derived from the facility's OWN bookings,
+    not compute_slots' plain booked-or-not set — confirmed and cancelled must
+    be distinguishable, and untouched slots remain "available".
+
+    RED:  if slots merely copied compute_slots' booked/not-booked verdict,
+          the cancelled slot would show as "available" (compute_slots has no
+          concept of cancellation) instead of "cancelled".
+    GREEN: 09:00 -> confirmed (Alice), 10:00 -> cancelled (Bob),
+           11:00 -> available (untouched).
+    """
+    client = _overview_mock(
+        facilities=[FAC_ALPHA],
+        bookings=[BOOKING_CONFIRMED, BOOKING_CANCELLED],
+        profiles={"u-alice": PROFILE_ALICE, "u-bob": PROFILE_BOB},
+    )
+    with patch(VERIFY, return_value=ADMIN):
+        async with make_client() as c:
+            c._transport.app.dependency_overrides[get_firestore_client] = lambda: client
+            resp = await c.get(
+                "/api/v1/tenant/overview/daily?date=2026-07-07",
+                headers={**AUTH, **HOST},
+            )
+    slots = {s["start"]: s for s in resp.json()["facilities"][0]["slots"]}
+    assert slots["09:00"]["status"] == "confirmed"
+    assert slots["09:00"]["resident_name"] == "Alice"
+    assert slots["10:00"]["status"] == "cancelled"
+    assert slots["10:00"]["resident_name"] == "Bob"
+    assert slots["11:00"]["status"] == "available"
+    assert slots["11:00"]["resident_name"] is None
+
+
+async def test_daily_overview_slots_present_per_facility_independently(make_client):
+    """Each facility's `slots` reflects ONLY its own weekly_schedule — a
+    facility open 08:00-09:00 does not inherit another facility's 09:00-12:00
+    range."""
+    client = _overview_mock(
+        facilities=[FAC_ALPHA, FAC_ZULU], bookings=[], profiles={},
+    )
+    with patch(VERIFY, return_value=ADMIN):
+        async with make_client() as c:
+            c._transport.app.dependency_overrides[get_firestore_client] = lambda: client
+            resp = await c.get(
+                "/api/v1/tenant/overview/daily?date=2026-07-07",
+                headers={**AUTH, **HOST},
+            )
+    facs = {f["name"]: f for f in resp.json()["facilities"]}
+    assert [s["start"] for s in facs["Alpha Court"]["slots"]] == ["09:00", "10:00", "11:00"]
+    assert [s["start"] for s in facs["Zulu Court"]["slots"]] == ["08:00"]
+
+
+async def test_daily_overview_invalid_date_returns_422(make_client):
+    """Malformed date strings are rejected before compute_slots ever sees them."""
+    client = _overview_mock(facilities=[], bookings=[], profiles={})
+    with patch(VERIFY, return_value=ADMIN):
+        async with make_client() as c:
+            c._transport.app.dependency_overrides[get_firestore_client] = lambda: client
+            resp = await c.get(
+                "/api/v1/tenant/overview/daily?date=not-a-date",
+                headers={**AUTH, **HOST},
+            )
+    assert resp.status_code == 422
+    assert resp.json()["code"] == "INVALID_DATE"

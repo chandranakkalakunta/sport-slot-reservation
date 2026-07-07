@@ -14,6 +14,11 @@ vi.mock("../../hooks/tenantAdminHooks", () => ({
   useDailyOverview: vi.fn(),
 }));
 
+// `slots` is the FULL capacity geometry Grid reads from (backend cross-
+// references its own bookings against compute_slots' geometry); `bookings`
+// is the booking-events-only list List reads from — kept in sync here so
+// fixtures mirror what the real API returns, but the two are independent
+// fields on the wire.
 const FACILITY_ALPHA: OverviewFacility = {
   facility_id: "fac-alpha",
   name: "Alpha Court",
@@ -22,6 +27,15 @@ const FACILITY_ALPHA: OverviewFacility = {
   bookings: [
     {
       booking_id: "fac-alpha_2026-07-07_09:00",
+      start: "09:00",
+      end: "10:00",
+      status: "confirmed",
+      resident_name: "Alice",
+      resident_email: "alice@demo.com",
+    },
+  ],
+  slots: [
+    {
       start: "09:00",
       end: "10:00",
       status: "confirmed",
@@ -46,6 +60,15 @@ const FACILITY_ZULU: OverviewFacility = {
       resident_email: "bob@demo.com",
     },
   ],
+  slots: [
+    {
+      start: "11:00",
+      end: "12:00",
+      status: "cancelled",
+      resident_name: "Bob",
+      resident_email: "bob@demo.com",
+    },
+  ],
 };
 
 const FACILITY_NO_BOOKINGS: OverviewFacility = {
@@ -54,6 +77,20 @@ const FACILITY_NO_BOOKINGS: OverviewFacility = {
   facility_type_id: "badminton",
   sport: "badminton",
   bookings: [],
+  slots: [],
+};
+
+// Entirely open facility — no bookings anywhere, but a full slot range.
+const FACILITY_ALL_AVAILABLE: OverviewFacility = {
+  facility_id: "fac-open",
+  name: "Open Court",
+  facility_type_id: "badminton",
+  sport: "badminton",
+  bookings: [],
+  slots: [
+    { start: "07:00", end: "08:00", status: "available", resident_name: null, resident_email: null },
+    { start: "08:00", end: "09:00", status: "available", resident_name: null, resident_email: null },
+  ],
 };
 
 function mockData(facilities = [FACILITY_ALPHA]) {
@@ -134,9 +171,8 @@ describe("TenantDailyOverview", () => {
   it("(a) cancelled booking appears in Grid view — not hidden", () => {
     const facWithCancelled: OverviewFacility = {
       ...FACILITY_ALPHA,
-      bookings: [
+      slots: [
         {
-          booking_id: "fac-alpha_2026-07-07_09:00",
           start: "09:00",
           end: "10:00",
           status: "cancelled",
@@ -165,9 +201,8 @@ describe("TenantDailyOverview", () => {
   it("cancelled slot cell has line-through class (Grid view)", () => {
     const facWithCancelled: OverviewFacility = {
       ...FACILITY_ALPHA,
-      bookings: [
+      slots: [
         {
-          booking_id: "fac-alpha_2026-07-07_09:00",
           start: "09:00",
           end: "10:00",
           status: "cancelled",
@@ -362,5 +397,82 @@ describe("TenantDailyOverview", () => {
     mockData([FACILITY_NO_BOOKINGS]);
     renderPage();
     expect(screen.getByText(/No bookings on this date/i)).toBeInTheDocument();
+  });
+
+  // ── Grid capacity: open/available slots (correction to PR #107) ───────────
+
+  it("a facility with entirely open slots shows them all as available, not blank/dash cells", () => {
+    mockData([FACILITY_ALL_AVAILABLE]);
+    renderPage();
+    // Available cells render plainly (no aria-describedby — nothing to show).
+    const cell7 = screen.getByText("07:00", { selector: "span" });
+    const cell8 = screen.getByText("08:00", { selector: "span" });
+    expect(cell7).not.toHaveAttribute("aria-describedby");
+    expect(cell8).not.toHaveAttribute("aria-describedby");
+    // Not the "—" placeholder used when a facility has no slot at that time.
+    expect(screen.queryByText("—")).not.toBeInTheDocument();
+  });
+
+  it("available slot cell is not interactive — no tabIndex, no tooltip on hover/focus", () => {
+    mockData([FACILITY_ALL_AVAILABLE]);
+    renderPage();
+    const cell = screen.getByText("07:00", { selector: "span" });
+    expect(cell).not.toHaveAttribute("tabindex");
+    fireEvent.mouseEnter(cell);
+    fireEvent.focus(cell);
+    expect(screen.queryByRole("tooltip")).not.toBeInTheDocument();
+  });
+
+  it("Grid's time-axis is the union of every facility's full slot range, not just booked times", () => {
+    // FACILITY_ALPHA only has a booking at 09:00; FACILITY_ALL_AVAILABLE has
+    // open (unbooked) slots at 07:00 and 08:00. All three columns must appear.
+    mockData([FACILITY_ALL_AVAILABLE, FACILITY_ALPHA]);
+    renderPage();
+    const headers = screen.getAllByRole("columnheader").map((h) => h.textContent);
+    expect(headers).toEqual(expect.arrayContaining(["07:00", "08:00", "09:00"]));
+  });
+
+  it("a facility shows '—' for a time another facility has but it does not", () => {
+    mockData([FACILITY_ALL_AVAILABLE, FACILITY_ALPHA]);
+    renderPage();
+    // FACILITY_ALPHA has no slot at 07:00/08:00 (only FACILITY_ALL_AVAILABLE
+    // does); FACILITY_ALL_AVAILABLE has no slot at 09:00 (only ALPHA does) —
+    // three dash cells total across the two rows.
+    expect(screen.getAllByText("—").length).toBe(3);
+  });
+
+  it("legend includes Available alongside Confirmed and Cancelled", () => {
+    mockData();
+    renderPage();
+    expect(screen.getByText("Available")).toBeInTheDocument();
+    expect(screen.getByText("Confirmed")).toBeInTheDocument();
+    expect(screen.getByText("Cancelled")).toBeInTheDocument();
+  });
+
+  // ── List view unaffected by the Grid capacity correction ───────────────────
+  // Re-run of List's pre-existing behavior with zero changes to ListView/
+  // ListBookingRow — confirms the Grid-only correction did not leak scope.
+
+  it("List view still shows only booking rows, not open slots, for an all-available facility", () => {
+    // Pair with FACILITY_ALPHA (which has a booking) so List renders its
+    // per-facility path rather than the page-level "no bookings anywhere" copy.
+    mockData([FACILITY_ALL_AVAILABLE, FACILITY_ALPHA]);
+    renderPage();
+    fireEvent.click(screen.getByRole("button", { name: /list/i }));
+    // FACILITY_ALL_AVAILABLE has zero bookings — its section must show
+    // "No bookings.", not enumerate the 07:00/08:00 open slots as rows.
+    expect(screen.getByText("No bookings.")).toBeInTheDocument();
+    expect(screen.queryByText("07:00")).not.toBeInTheDocument();
+    expect(screen.queryByText("08:00")).not.toBeInTheDocument();
+  });
+
+  it("List view cancelled-booking rendering is unchanged", () => {
+    mockData([FACILITY_ZULU]);
+    renderPage();
+    fireEvent.click(screen.getByRole("button", { name: /list/i }));
+    expect(screen.getByText(/11:00.+12:00/)).toBeInTheDocument();
+    // "Cancelled" also appears in the always-visible Legend, so there are two
+    // matches here — assert the booking-row badge specifically exists.
+    expect(screen.getAllByText("Cancelled").length).toBeGreaterThanOrEqual(2);
   });
 });

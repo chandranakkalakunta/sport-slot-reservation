@@ -154,12 +154,21 @@ export interface OverviewBooking {
   resident_email: string | null;
 }
 
+export interface OverviewSlot {
+  start: string;
+  end: string;
+  status: "available" | "confirmed" | "cancelled";
+  resident_name: string | null;
+  resident_email: string | null;
+}
+
 export interface OverviewFacility {
   facility_id: string;
   name: string;
   facility_type_id: string;
   sport: string;
   bookings: OverviewBooking[];
+  slots: OverviewSlot[];
 }
 
 export interface DailyOverview {

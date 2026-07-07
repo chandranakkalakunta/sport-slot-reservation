@@ -21,6 +21,15 @@ both mouse hover and keyboard focus (`aria-describedby` wired for screen readers
 genuinely new, admin-only data; the resident-facing `FacilityAvailability` page deliberately
 never exposes other residents' identities, so this view could not reuse its data path.
 
+Grid also shows full slot **capacity**, not just booked times: every valid slot for the date —
+available, confirmed, or cancelled — renders as its own column, so admins can see open capacity
+alongside activity, not just activity in isolation (this was the design mockup's intent; the
+first pass only rendered columns for times something happened to be booked). Available slots
+render as a distinct, non-interactive cell (no tooltip — nothing to show). List view is
+deliberately unchanged and still enumerates bookings only, not open slots — per-slot enumeration
+there would work against its purpose as the leaner, mobile-friendly view (a facility with 10 open
+slots and 1 booking would otherwise produce 10 near-empty rows on a small screen).
+
 **Backend:** `GET /api/v1/tenant/overview/daily?date=YYYY-MM-DD` (`daily_overview.py`,
 `require_role("tenant_admin")`). New `BookingRepository.list_for_date()` queries all bookings
 (confirmed and cancelled) for the tenant on a date via a single equality filter — no composite
@@ -31,8 +40,21 @@ rather than building batch-fetch infrastructure for it. Facility ordering is sor
 alphabetically by name, scoped to this endpoint only — the existing facilities list elsewhere
 in the app is intentionally left unordered pending a separate decision.
 
+Each facility entry also carries a `slots` list: its full valid slot-start geometry for the date,
+computed by reusing `services/availability.py`'s `compute_slots` (the same `weekly_schedule` +
+`slot_duration_minutes` expansion the resident-facing availability endpoint uses) rather than
+re-walking the same ranges independently. `compute_slots`' own resident-booking-eligibility
+verdict (`bookable`/`reason`, `PAST`/`BEYOND_HORIZON`/`WINDOW_NOT_OPEN`) is discarded — it doesn't
+apply to an admin browsing any date, including arbitrary history — and only its start/end
+geometry is kept. Each slot's real status (`available`/`confirmed`/`cancelled`) is then determined
+by cross-referencing that facility's own bookings for the date, which distinguishes confirmed from
+cancelled, something `compute_slots`' plain booked-or-not set cannot. `bookings` (booking events
+only) is unchanged and still what List reads from.
+
 **Frontend:** `TenantDailyOverview.tsx` + `useDailyOverview` hook (`tenantAdminHooks.ts`),
 linked from the tenant dashboard. Client-side alphabetical sort mirrors the backend guarantee.
+Grid's time-axis is the union of every facility's full `slots` range for the date, not just times
+where something is booked somewhere.
 
 **Out of scope (explicitly rejected):** multi-day range/aggregate view; any change to the
 resident-facing availability page or its data logic; any change to booking creation/cancellation

@@ -5,6 +5,7 @@ import { AppHeader } from "../../components/AppHeader";
 import {
   type OverviewBooking,
   type OverviewFacility,
+  type OverviewSlot,
   useDailyOverview,
 } from "../../hooks/tenantAdminHooks";
 
@@ -42,14 +43,15 @@ function ResidentTooltip({ id, name, email }: TooltipProps) {
 // ── Slot cell (used in Grid view) ─────────────────────────────────────────────
 
 interface SlotCellProps {
-  booking: OverviewBooking;
+  slot: OverviewSlot;
+  cellId: string;
 }
 
-function SlotCell({ booking }: SlotCellProps) {
+function SlotCell({ slot, cellId }: SlotCellProps) {
   const [visible, setVisible] = useState(false);
-  const tooltipId = `tooltip-${booking.booking_id}`;
+  const tooltipId = `tooltip-${cellId}`;
 
-  const cancelled = booking.status === "cancelled";
+  const cancelled = slot.status === "cancelled";
   const cellClass = cancelled
     ? "relative inline-flex items-center justify-center rounded px-1.5 py-0.5 text-xs font-medium bg-muted text-muted-foreground line-through cursor-default"
     : "relative inline-flex items-center justify-center rounded px-1.5 py-0.5 text-xs font-medium bg-primary/15 text-primary cursor-default";
@@ -64,14 +66,23 @@ function SlotCell({ booking }: SlotCellProps) {
       onFocus={() => setVisible(true)}
       onBlur={() => setVisible(false)}
     >
-      {booking.start}
+      {slot.start}
       {visible && (
         <ResidentTooltip
           id={tooltipId}
-          name={booking.resident_name}
-          email={booking.resident_email}
+          name={slot.resident_name}
+          email={slot.resident_email}
         />
       )}
+    </span>
+  );
+}
+
+// Open/available slot — no resident info, so no tooltip or focus wiring.
+function AvailableCell({ start }: { start: string }) {
+  return (
+    <span className="inline-flex items-center justify-center rounded px-1.5 py-0.5 text-xs font-medium bg-success/15 text-success">
+      {start}
     </span>
   );
 }
@@ -125,9 +136,10 @@ interface GridViewProps {
 }
 
 function GridView({ facilities }: GridViewProps) {
-  // Collect all unique start times across all facilities, sorted.
+  // Collect all unique start times across all facilities' FULL slot geometry
+  // (not just booked times) — this is what gives the Grid its capacity view.
   const allStarts = Array.from(
-    new Set(facilities.flatMap((f) => f.bookings.map((b) => b.start))),
+    new Set(facilities.flatMap((f) => f.slots.map((s) => s.start))),
   ).sort();
 
   if (allStarts.length === 0) {
@@ -156,25 +168,30 @@ function GridView({ facilities }: GridViewProps) {
         </thead>
         <tbody>
           {facilities.map((fac) => {
-            const byStart: Record<string, OverviewBooking> = {};
-            for (const b of fac.bookings) byStart[b.start] = b;
+            const byStart: Record<string, OverviewSlot> = {};
+            for (const s of fac.slots) byStart[s.start] = s;
             return (
               <tr key={fac.facility_id} className="even:bg-muted/30">
                 <td className="sticky left-0 z-10 bg-inherit px-3 py-2 font-medium text-foreground whitespace-nowrap border-b border-border/50">
                   {fac.name}
                 </td>
-                {allStarts.map((t) => (
-                  <td
-                    key={t}
-                    className="px-2 py-2 text-center border-b border-border/50"
-                  >
-                    {byStart[t] ? (
-                      <SlotCell booking={byStart[t]} />
-                    ) : (
-                      <span className="text-muted-foreground text-xs">—</span>
-                    )}
-                  </td>
-                ))}
+                {allStarts.map((t) => {
+                  const slot = byStart[t];
+                  return (
+                    <td
+                      key={t}
+                      className="px-2 py-2 text-center border-b border-border/50"
+                    >
+                      {!slot ? (
+                        <span className="text-muted-foreground text-xs">—</span>
+                      ) : slot.status === "available" ? (
+                        <AvailableCell start={slot.start} />
+                      ) : (
+                        <SlotCell slot={slot} cellId={`${fac.facility_id}-${slot.start}`} />
+                      )}
+                    </td>
+                  );
+                })}
               </tr>
             );
           })}
@@ -357,6 +374,10 @@ export default function TenantDailyOverview() {
 
         {/* Legend */}
         <div className="flex items-center gap-4 text-xs text-muted-foreground">
+          <span className="flex items-center gap-1.5">
+            <span className="inline-block h-3 w-3 rounded bg-success/15 border border-success/30" />
+            Available
+          </span>
           <span className="flex items-center gap-1.5">
             <span className="inline-block h-3 w-3 rounded bg-primary/15 border border-primary/30" />
             Confirmed
