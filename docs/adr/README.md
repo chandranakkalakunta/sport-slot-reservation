@@ -60,6 +60,63 @@ establishing the architectural foundation.
 | [0015](0015-facility-catalog-model.md) | Facility Catalog Model | Accepted | Global platform catalog at /facility_catalog/{type_id} seeded with standard sports; per-tenant facility instances gain facility_type_id; catalog CRUD deferred; creation constraint enforces type selection |
 | [0016](0016-user-provisioning.md) | Bulk & Manual User Provisioning | Accepted | Single UserProvisioningService.create_user() for all paths; CSV schema with partial-success import; household_id derived from flat_number; frontend parses CSV (backend stays file-agnostic); 500-row cap |
 | [0017](0017-deletion-retention-lifecycle.md) | Deletion, Retention & Lifecycle | Accepted | Three-stage tenant lifecycle ACTIVE→INACTIVE→PURGED; user soft-delete with Firebase Auth disable + cancel future bookings; self-deactivation forbidden; audit trail preserved through INACTIVE period |
+## Phase 6 — Keyless CI/CD
+
+| ADR | Title | Status | Summary |
+|-----|-------|--------|---------|
+| [0018](0018-cicd-security-model.md) | CI/CD Security Model — Keyless Deploys via Direct WIF | Accepted | No static service-account keys anywhere; Workload Identity Federation with direct principalSet IAM bindings; deploy pipeline authenticates via WIF, not JSON credentials |
+
+## Phase 7 — Notifications & Self-Service Password Reset
+
+| ADR | Title | Status | Summary |
+|-----|-------|--------|---------|
+| [0019](0019-notification-architecture.md) | Notification & Email Architecture | Accepted | Resend + Cloud Tasks async dispatch; code-owned email templates; best-effort delivery that never blocks the mutation that triggered it |
+| [0020](0020-password-reset-and-policy.md) | Self-Service Password Reset & Password Policy | Accepted (amended 2026-06-21) | Token-based self-service reset flow; password strength policy; integrates with ADR-0019's notification pipeline |
+
+## Phase 9 — AI Booking Agent
+
+| ADR | Title | Status | Summary |
+|-----|-------|--------|---------|
+| [0021](0021-ai-booking-agent-architecture.md) | AI Booking Agent — Architecture | Accepted (2026-07-07 — confirmed live in production) | Vertex AI Gemini 1.5 Pro function calling; 5 tools; two-turn interaction pattern; tenant-scoped throughout |
+| [0022](0022-ai-booking-agent-guardrails.md) | AI Booking Agent — Guardrails & Safety | Accepted (2026-07-07 — confirmed live in production) | Fail-closed safety architecture for an agent that mutates real booking state |
+| [0023](0023-propose-confirm-execute-gate.md) | Propose-Confirm-Execute Gate for the AI Booking Agent | Accepted | The agent never directly mutates state; every action requires a Redis-backed pending proposal the user explicitly confirms |
+| [0024](0024-output-guard-hallucination-detection.md) | Output Guard for LLM Hallucination Detection | Accepted | Second Vertex call validates every entity reference in a natural-language reply actually exists for the current tenant; fails closed |
+| [0025](0025-pending-action-store.md) | Pending Action Store (Redis-backed, single-use, secondary pointer) | Accepted (extended slice 6.5c) | 5-minute TTL pending-action mechanism underlying the propose-confirm-execute gate |
+| [0026](0026-deterministic-python-guards.md) | Deterministic Python Guards over LLM Judgment | Accepted | Temporal reasoning, quota counting, and disambiguation matching handled by deterministic code, not LLM judgment |
+| [0027](0027-stateful-cancel-disambiguation.md) | Stateful Cancel Disambiguation via Pending Action Store | Accepted | Extends the pending-action store with a cancel-specific action type and conservative date/time substring matching |
+
+## Phase 10 — UI Redesign + PWA Mobile Validation
+
+| ADR | Title | Status | Summary |
+|-----|-------|--------|---------|
+| [0028](0028-frontend-design-system-and-theming.md) | Frontend Design System and Theming | Accepted (2026-07-07 — confirmed live in production) | Tailwind v4 + shadcn/ui + Radix adoption; extends ADR-0012/0013's original frontend architecture |
+| [0029](0029-pwa-co-branding-hierarchy.md) | PWA Co-Branding Hierarchy | Accepted | Formalized visual hierarchy for platform branding alongside per-tenant branding |
+
+## Booking-Model v2 (unnumbered phase)
+
+| ADR | Title | Status | Summary |
+|-----|-------|--------|---------|
+| [0030](0030-booking-model-v2-weekly-schedule.md) | Booking-Model v2 — Weekly Multi-Range Facility Schedule | Accepted | Multi-range per-day-of-week facility schedules, replacing a single fixed daily open/close range |
+
+## Phase 8 — Production Networking
+
+*Note: this phase shipped after Phase 9 and 10 (a deliberate roadmap
+choice — see the Phase 9 retrospective), which is why its ADR numbers
+are higher than Phase 9/10's despite the "Phase 8" name. Sections above
+are ordered by ADR number, per this document's own numerical reading
+order.*
+
+| ADR | Title | Status | Summary |
+|-----|-------|--------|---------|
+| [0031](0031-load-balancer-wildcard-subdomains.md) | Global External HTTPS Load Balancer + Wildcard Subdomain Routing | Accepted | Real wildcard subdomain routing via Certificate Manager + DNS authorization, deferred since ADR-0012 |
+| [0032](0032-cloud-armor-preview-mode.md) | Cloud Armor WAF, Preview Mode | Accepted | Edge + API WAF policies in log-only preview mode; enforcement deferred pending real traffic data |
+| [0033](0033-dev-web-app-path-deprecated.md) | Deprecate sport-slot-dev.web.app API Path; Restrict Cloud Run Ingress | Accepted | Cloud Run ingress restricted to internal-and-LB traffic; accepted DEV-only tradeoff on the legacy Firebase Hosting path |
+
+## Phase 13 — Entity Lifecycle Management
+
+| ADR | Title | Status | Summary |
+|-----|-------|--------|---------|
+| [0034](0034-facility-lifecycle-and-dpdp-erasure.md) | Facility Lifecycle, Direct Entity Deletion & DPDP-Compliant Erasure | Accepted | Extends ADR-0017: facility Delete-only lifecycle (no Deactivate/PURGED stage), and a direct, independent Delete action for residents/tenant-admins/tenants, superseding ADR-0017's never-implemented 90-day PURGE script for the on-demand case |
 
 ## Reading Order
 

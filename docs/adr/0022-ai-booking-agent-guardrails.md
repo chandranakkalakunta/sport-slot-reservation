@@ -1,6 +1,6 @@
 # ADR-0022: AI Booking Agent — Guardrails & Safety
 
-- **Status:** Proposed
+- **Status:** Accepted
 - **Date:** 2026-06-21
 - **Deciders:** Coordinator (Chandra), Strategist
 - **Phase:** 9 (AI Booking Agent)

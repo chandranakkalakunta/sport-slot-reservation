@@ -1,6 +1,6 @@
 # ADR-0028: Frontend Design System and Theming
 
-- **Status:** Proposed (2026-06-28) — pending Coordinator acceptance; flip to Accepted on merge
+- **Status:** Accepted (2026-07-07 — confirmed live in production, Phase 10 shipped)
 - **Phase:** 10 (UI Redesign + PWA Mobile Validation), sub-phase 10.1
 - **Supersedes:** none. **Extends:** ADR-0012 (Frontend architecture), ADR-0013 (Frontend libraries)
 - **Deciders:** Coordinator (Chandra), Strategist (Claude Opus 4.8)
