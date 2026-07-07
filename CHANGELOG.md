@@ -6,6 +6,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### fix(frontend): ListRow stacks on mobile instead of squeezing content into a fixed-width remainder (July 2026)
+
+**Root cause:** PR #101 removed `truncate` from the facility name, which stopped text from being
+cut off but exposed a deeper problem: `ListRow`'s outer wrapper was `flex items-center
+justify-between gap-3` — always a single row, always squeezing the content `flex-1` area into
+whatever width remained after the `shrink-0` action area. With 3 buttons (Edit / Clone / Remove)
+on a narrow phone, the remaining text area was too narrow, causing names like "Table Tennis Court
+- 1" to wrap one word per line.
+
+**Fix:** `ListRow` now stacks content above actions on mobile (matching `TenantUsers.tsx`'s
+already-correct inline pattern) and goes side-by-side only at the `sm:` breakpoint. The action
+area loses its non-responsive `shrink-0` — it keeps `sm:shrink-0` so it stays fixed-width on
+wider screens. Action buttons in all three consumer pages gain `flex-1 sm:flex-none` so they share
+equal width on mobile and return to natural width at `sm+`.
+
+**Scope:** Fixed at the shared-component level (`ListRow.tsx`) so all three consumers benefit, not
+just TenantFacilities: `TenantFacilities.tsx`, `TenantList.tsx` (admin), and `MyBookings.tsx`.
+
 ### fix: Booking Policies form now loads actual saved values (July 2026)
 
 **Bug:** `TenantPolicies.tsx` initialized its four form fields with hardcoded literals
