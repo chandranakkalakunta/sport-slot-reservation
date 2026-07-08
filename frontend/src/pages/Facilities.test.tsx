@@ -3,7 +3,9 @@ import { render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("../components/AppHeader", () => ({ AppHeader: () => null }));
+vi.mock("../components/AppHeader", () => ({
+  AppHeader: ({ children }: { children?: React.ReactNode }) => <>{children}</>,
+}));
 
 // No importOriginal — avoids loading real bookingHooks → api.ts → firebase.ts
 // (which throws auth/invalid-api-key in CI where no Firebase env vars exist).
@@ -203,5 +205,17 @@ describe("Facilities", () => {
 
     wrap(<Facilities />);
     expect(screen.getByText(/Closed today/)).toBeInTheDocument();
+  });
+
+  it("renders the shared resident nav (Facilities + My bookings) in the header", () => {
+    vi.spyOn(hooks, "useFacilities").mockReturnValue({
+      data: { items: [], next_cursor: null },
+      isLoading: false,
+      error: null,
+    } as unknown as ReturnType<typeof hooks.useFacilities>);
+
+    wrap(<Facilities />);
+    expect(screen.getByRole("link", { name: "Facilities" })).toHaveAttribute("href", "/");
+    expect(screen.getByRole("link", { name: "My bookings" })).toHaveAttribute("href", "/bookings");
   });
 });
