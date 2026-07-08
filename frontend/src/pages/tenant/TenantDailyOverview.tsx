@@ -308,7 +308,7 @@ export default function TenantDailyOverview() {
               type="date"
               value={date}
               onChange={(e) => setDate(e.target.value)}
-              className="w-full min-w-[160px] sm:w-auto rounded-md border border-input bg-background px-3 py-1.5 text-sm tabular-nums text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+              className="min-w-[160px] w-auto rounded-md border border-input bg-background px-3 py-1.5 text-sm tabular-nums text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
             />
           </div>
 
