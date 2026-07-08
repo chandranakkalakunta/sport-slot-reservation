@@ -9,6 +9,7 @@ from sport_slot.api.v1.agent import router as agent_router
 from sport_slot.api.v1.auth import router as auth_router
 from sport_slot.api.v1.bookings import router as bookings_router
 from sport_slot.api.v1.branding import router as branding_router
+from sport_slot.api.v1.daily_overview import router as daily_overview_router
 from sport_slot.api.v1.facility_catalog import router as catalog_router
 from sport_slot.api.v1.facilities import router as facilities_router
 from sport_slot.api.v1.facilities import tenant_facilities_router
@@ -55,6 +56,7 @@ def create_app() -> FastAPI:
     v1.include_router(admin_router)
     v1.include_router(auth_router)
     v1.include_router(agent_router)
+    v1.include_router(daily_overview_router)
     app.include_router(v1)
     return app
 

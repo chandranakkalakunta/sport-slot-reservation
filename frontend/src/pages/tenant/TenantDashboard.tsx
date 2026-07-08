@@ -23,6 +23,11 @@ const NAV = [
     title: "Residents & admins",
     desc: "Add, import, manage users",
   },
+  {
+    to: "/tenant/overview",
+    title: "Daily Overview",
+    desc: "See all bookings across facilities for any date",
+  },
 ];
 
 export default function TenantDashboard() {

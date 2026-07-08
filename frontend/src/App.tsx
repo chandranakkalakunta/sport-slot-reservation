@@ -19,6 +19,7 @@ import CreateTenant from "./pages/admin/CreateTenant";
 import CreateUser from "./pages/admin/CreateUser";
 import TenantList from "./pages/admin/TenantList";
 import TenantBranding from "./pages/tenant/TenantBranding";
+import TenantDailyOverview from "./pages/tenant/TenantDailyOverview";
 import TenantDashboard from "./pages/tenant/TenantDashboard";
 import TenantFacilities from "./pages/tenant/TenantFacilities";
 import TenantPolicies from "./pages/tenant/TenantPolicies";
@@ -62,6 +63,7 @@ export default function App() {
           <Route path="/tenant/branding" element={<TenantAdminRoute><TenantBranding /></TenantAdminRoute>} />
           <Route path="/tenant/policies" element={<TenantAdminRoute><TenantPolicies /></TenantAdminRoute>} />
           <Route path="/tenant/users" element={<TenantAdminRoute><TenantUsers /></TenantAdminRoute>} />
+          <Route path="/tenant/overview" element={<TenantAdminRoute><TenantDailyOverview /></TenantAdminRoute>} />
         </Route>
       </Routes>
     </AuthProvider>
