@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -111,6 +111,16 @@ function getSlotCell(timeText: string): HTMLElement {
   const cell = matches.find((el) => el.getAttribute("aria-describedby"));
   if (!cell) throw new Error(`No slot cell found with text "${timeText}" and aria-describedby`);
   return cell;
+}
+
+/** In List view the whole row box (not just the time text) is the tooltip
+ *  trigger — find it via the row's aria-describedby, which lives on the
+ *  outer div, not the inner time-text span. */
+function getListRow(timeTextPattern: RegExp): HTMLElement {
+  const timeSpan = screen.getByText(timeTextPattern);
+  const row = timeSpan.closest("[aria-describedby]");
+  if (!row) throw new Error(`No row with aria-describedby found containing "${timeTextPattern}"`);
+  return row as HTMLElement;
 }
 
 describe("TenantDailyOverview", () => {
@@ -276,9 +286,9 @@ describe("TenantDailyOverview", () => {
     mockData();
     renderPage();
     fireEvent.click(screen.getByRole("button", { name: /list/i }));
-    // In list view the time span (09:00–10:00) is the focusable element.
-    const timeSpan = screen.getByText(/09:00.+10:00/);
-    fireEvent.focus(timeSpan);
+    // The whole row box (not just the time text) is the focusable trigger.
+    const row = getListRow(/09:00.+10:00/);
+    fireEvent.focus(row);
     expect(screen.getByRole("tooltip")).toBeInTheDocument();
     expect(screen.getByRole("tooltip")).toHaveTextContent("Alice");
   });
@@ -287,9 +297,36 @@ describe("TenantDailyOverview", () => {
     mockData();
     renderPage();
     fireEvent.click(screen.getByRole("button", { name: /list/i }));
-    const timeSpan = screen.getByText(/09:00.+10:00/);
-    fireEvent.mouseEnter(timeSpan);
+    const row = getListRow(/09:00.+10:00/);
+    fireEvent.mouseEnter(row);
     expect(screen.getByRole("tooltip")).toBeInTheDocument();
+  });
+
+  // ── List view: full row box is the trigger, not just the time text ────────
+  // Regression guard for the bug fixed here: styling lived on the outer div,
+  // but event handlers were only on the inner time-text span, so hovering the
+  // "Confirmed"/"Cancelled" label or empty space in the row did nothing.
+
+  it("tooltip appears on hover of the Confirmed/Cancelled label — NOT just the time text (List view)", () => {
+    mockData();
+    renderPage();
+    fireEvent.click(screen.getByRole("button", { name: /list/i }));
+    const row = getListRow(/09:00.+10:00/);
+    const statusLabel = within(row).getByText("Confirmed");
+    fireEvent.mouseEnter(statusLabel);
+    expect(screen.getByRole("tooltip")).toBeInTheDocument();
+    expect(screen.getByRole("tooltip")).toHaveTextContent("Alice");
+  });
+
+  it("tooltip appears on focus of the Confirmed/Cancelled label — NOT just the time text (List view)", () => {
+    mockData();
+    renderPage();
+    fireEvent.click(screen.getByRole("button", { name: /list/i }));
+    const row = getListRow(/09:00.+10:00/);
+    const statusLabel = within(row).getByText("Confirmed");
+    fireEvent.focus(statusLabel);
+    expect(screen.getByRole("tooltip")).toBeInTheDocument();
+    expect(screen.getByRole("tooltip")).toHaveTextContent("Alice");
   });
 
   // ── slot has aria-describedby ──────────────────────────────────────────────
