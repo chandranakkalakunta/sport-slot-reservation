@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 
 import { AppHeader } from "../components/AppHeader";
 import { InstallPrompt } from "../components/InstallPrompt";
-import { Button } from "../components/ui/button";
+import { ResidentNav } from "../components/ResidentNav";
 import { useFacilities, useFacilityCatalog } from "../hooks/bookingHooks";
 import { DAY_ORDER } from "../types/facilitySchedule";
 import type { WeeklySchedule } from "../types/facilitySchedule";
@@ -28,9 +28,7 @@ export default function Facilities() {
   return (
     <>
       <AppHeader>
-        <Button asChild variant="outline" size="sm">
-          <Link to="/bookings" style={{ textDecoration: "none" }}>My bookings</Link>
-        </Button>
+        <ResidentNav />
       </AppHeader>
 
       <main className="mx-auto max-w-6xl px-4 py-6 space-y-6">

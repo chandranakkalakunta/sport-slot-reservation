@@ -1,10 +1,10 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
 
 import { AppHeader } from "../components/AppHeader";
 import { Button } from "../components/ui/button";
 import { ConfirmDialog } from "../components/ConfirmDialog";
 import { ListRow } from "../components/ListRow";
+import { ResidentNav } from "../components/ResidentNav";
 import {
   type Booking, useCancelBooking, useFacilities, useMyBookings,
 } from "../hooks/bookingHooks";
@@ -43,9 +43,10 @@ export default function MyBookings() {
 
   return (
     <>
-      <AppHeader />
+      <AppHeader>
+        <ResidentNav />
+      </AppHeader>
       <main className="mx-auto max-w-6xl px-4 py-6 space-y-4">
-        <Link to="/" className="block text-sm font-medium text-link underline underline-offset-2 hover:text-link/70">← Facilities</Link>
         <h1 className="text-2xl font-semibold text-foreground">My bookings</h1>
         {feedback && <p className="text-sm text-success">{feedback}</p>}
         {isLoading && <p className="text-sm text-muted-foreground">Loading…</p>}

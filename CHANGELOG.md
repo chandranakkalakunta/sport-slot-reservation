@@ -6,6 +6,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### feat: shared resident nav — Facilities + My Bookings always visible on all resident pages (July 2026)
+
+**What:** `Facilities.tsx`, `Assistant.tsx`, and `MyBookings.tsx` each built their own header nav
+independently and inconsistently: `Facilities.tsx` had a proper shadcn `Button asChild` link to My
+bookings but no way back to itself (moot) or to Assistant; `Assistant.tsx` used a raw inline-styled
+`<Link>` (not the design system) to Facilities, with no link to My bookings; `MyBookings.tsx` had
+no header nav at all — only a manual page-body "← Facilities" text link, which is why a resident
+had to hunt for the way back. New shared `ResidentNav` component (`components/ResidentNav.tsx`)
+renders both "Facilities" (`/`) and "My bookings" (`/bookings`) links, styled consistently with
+the shadcn `Button asChild` pattern (the version Facilities.tsx already had right). All three
+pages now pass `<ResidentNav />` as `AppHeader`'s children instead of building their own; no page
+keeps independent nav-building code. `MyBookings.tsx`'s redundant manual back-link is removed —
+the header now covers it.
+
+**Scope:** Resident-facing pages only (Facilities, Assistant, MyBookings). Tenant-admin pages
+(`TenantDashboard`, `TenantUsers`, `TenantFacilities`, etc.) use a different, intentional
+Admin-Dashboard-hub navigation pattern and were not touched. `FacilityAvailability.tsx` has a
+similar gap (no `AppHeader` at all, just a manual back-link) but was confirmed out of scope for
+this change — flagged for a separate follow-up.
+
 ### fix: Daily Booking Overview — full-width layout, mobile date input, sticky-column overlay, tooltip trigger area (July 2026)
 
 **Bugs (all found during live Coordinator testing after the initial merge, confirmed via source

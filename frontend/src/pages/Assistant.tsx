@@ -1,10 +1,10 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
 
 import { AppHeader } from "../components/AppHeader";
 import { MessageInput } from "../components/assistant/MessageInput";
 import { MessageThread } from "../components/assistant/MessageThread";
 import { SuggestedPrompts } from "../components/assistant/SuggestedPrompts";
+import { ResidentNav } from "../components/ResidentNav";
 import {
   type AgentMessage,
   errorMessageFor,
@@ -93,11 +93,7 @@ export default function Assistant() {
   return (
     <div style={{ display: "flex", flexDirection: "column", position: "fixed", top: 0, right: 0, bottom: 0, left: 0, paddingBottom: 72 }}>
       <AppHeader>
-        <Link to="/" style={{
-          padding: "6px 12px", borderRadius: "var(--radius)",
-          border: "1px solid var(--color-primary)", color: "var(--color-primary)",
-          textDecoration: "none", fontSize: 14,
-        }}>Facilities</Link>
+        <ResidentNav />
       </AppHeader>
       <main style={{
         flex: 1,

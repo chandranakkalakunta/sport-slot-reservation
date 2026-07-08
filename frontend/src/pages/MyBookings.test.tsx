@@ -4,7 +4,9 @@ import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
 
-vi.mock("../components/AppHeader", () => ({ AppHeader: () => null }));
+vi.mock("../components/AppHeader", () => ({
+  AppHeader: ({ children }: { children?: React.ReactNode }) => <>{children}</>,
+}));
 
 vi.mock("../hooks/bookingHooks", () => ({
   useMyBookings: vi.fn(),
@@ -93,6 +95,21 @@ it("renders all items from backend without client-side date filtering", () => {
   // Both dates from the backend response must appear (no client-side cutoff).
   expect(screen.getByText(/2026-06-30/)).toBeInTheDocument();
   expect(screen.getByText(/2027-01-15/)).toBeInTheDocument();
+});
+
+it("renders the shared resident nav (Facilities + My bookings) in the header, replacing the old manual back-link", () => {
+  vi.mocked(hooks.useMyBookings).mockReturnValue({
+    data: { items: [] }, isLoading: false,
+  } as unknown as ReturnType<typeof hooks.useMyBookings>);
+  vi.mocked(hooks.useFacilities).mockReturnValue(FAC_STUB);
+  vi.mocked(hooks.useCancelBooking).mockReturnValue(CANCEL_STUB);
+
+  wrap(<MyBookings />);
+
+  expect(screen.getByRole("link", { name: "Facilities" })).toHaveAttribute("href", "/");
+  expect(screen.getByRole("link", { name: "My bookings" })).toHaveAttribute("href", "/bookings");
+  // The old page-body "← Facilities" text link is gone now that the header covers it.
+  expect(screen.queryByText("← Facilities")).not.toBeInTheDocument();
 });
 
 it("shows No upcoming bookings when backend returns empty list", () => {
