@@ -371,3 +371,70 @@ async def test_daily_overview_invalid_date_returns_422(make_client):
             )
     assert resp.status_code == 422
     assert resp.json()["code"] == "INVALID_DATE"
+async def test_daily_overview_same_start_time_confirmed_wins_over_cancelled(make_client):
+    """(e) Two-sided: a confirmed booking must never be shadowed by a cancelled
+    one at the same facility+date+start time.
+
+    Real scenario: a resident cancels a slot, someone else immediately books
+    the same now-open slot. Both bookings share facility_id/date/start. The
+    Grid's capacity view must show the ACTIVE booking, never the cancelled one
+    — showing "cancelled/available" here would hide the fact that the slot is
+    actually occupied right now.
+
+    RED:  before the fix, `booking_by_start` is built by iterating bookings
+          sorted by start time only — ties resolve in whatever order the
+          (mocked) Firestore stream happens to return them, which is
+          insertion order here. Cancelled is inserted AFTER confirmed below,
+          so it would win the dict overwrite and the slot would incorrectly
+          show status "cancelled".
+    GREEN: bookings are sorted by (start, status == "confirmed") before the
+           dict is built, so confirmed always overwrites cancelled at a tied
+           start time regardless of stream order.
+    """
+    same_start_cancelled = {
+        "id": "fac-alpha_2026-07-07_09:00_old",
+        "uid": "u-bob",
+        "facility_id": "fac-alpha",
+        "date": "2026-07-07",
+        "start": "09:00",
+        "end": "10:00",
+        "status": "cancelled",
+        "household_id": "h-2",
+        "cancelled_at": "2026-07-07T08:30:00Z",
+    }
+    same_start_confirmed = {
+        "id": "fac-alpha_2026-07-07_09:00_new",
+        "uid": "u-alice",
+        "facility_id": "fac-alpha",
+        "date": "2026-07-07",
+        "start": "09:00",
+        "end": "10:00",
+        "status": "confirmed",
+        "household_id": "h-1",
+        "cancelled_at": None,
+    }
+    # Deliberately insert cancelled AFTER confirmed in the mocked stream, so a
+    # naive "last one wins" dict build would pick cancelled — proving the fix
+    # sorts by status, not stream/insertion order.
+    client = _overview_mock(
+        facilities=[FAC_ALPHA],
+        bookings=[same_start_confirmed, same_start_cancelled],
+        profiles={"u-alice": PROFILE_ALICE, "u-bob": PROFILE_BOB},
+    )
+    with patch(VERIFY, return_value=ADMIN):
+        async with make_client() as c:
+            c._transport.app.dependency_overrides[get_firestore_client] = lambda: client
+            resp = await c.get(
+                "/api/v1/tenant/overview/daily?date=2026-07-07",
+                headers={**AUTH, **HOST},
+            )
+    assert resp.status_code == 200
+    alpha = next(f for f in resp.json()["facilities"] if f["facility_id"] == "fac-alpha")
+    slot_0900 = next(s for s in alpha["slots"] if s["start"] == "09:00")
+    assert slot_0900["status"] == "confirmed", (
+        f"Expected the confirmed booking to win the same-start-time tie, "
+        f"got status={slot_0900['status']!r} — a cancelled booking is "
+        f"shadowing an active one."
+    )
+    assert slot_0900["resident_name"] == "Alice"
+    assert slot_0900["resident_email"] == "alice@demo.com"

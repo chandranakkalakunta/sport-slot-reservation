@@ -88,7 +88,7 @@ async def daily_booking_overview(
         fid = fac.get("id", "")
         fac_bookings = sorted(
             bookings_by_facility.get(fid, []),
-            key=lambda b: b.get("start", ""),
+            key=lambda b: (b.get("start", ""), b.get("status") == "confirmed"),
         )
         enriched = []
         booking_by_start: dict[str, dict] = {}
