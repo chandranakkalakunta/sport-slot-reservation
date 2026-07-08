@@ -103,28 +103,26 @@ function ListBookingRow({ booking }: ListRowProps) {
       className={`relative flex items-center justify-between gap-3 rounded-md px-3 py-2 text-sm ${
         cancelled ? "bg-muted text-muted-foreground" : "bg-card text-foreground border border-border"
       }`}
+      tabIndex={0}
+      aria-describedby={tooltipId}
+      onMouseEnter={() => setVisible(true)}
+      onMouseLeave={() => setVisible(false)}
+      onFocus={() => setVisible(true)}
+      onBlur={() => setVisible(false)}
     >
-      <span
-        className={cancelled ? "line-through tabular-nums" : "tabular-nums font-medium"}
-        tabIndex={0}
-        aria-describedby={tooltipId}
-        onMouseEnter={() => setVisible(true)}
-        onMouseLeave={() => setVisible(false)}
-        onFocus={() => setVisible(true)}
-        onBlur={() => setVisible(false)}
-      >
+      <span className={cancelled ? "line-through tabular-nums" : "tabular-nums font-medium"}>
         {booking.start}–{booking.end}
-        {visible && (
-          <ResidentTooltip
-            id={tooltipId}
-            name={booking.resident_name}
-            email={booking.resident_email}
-          />
-        )}
       </span>
       <span className="text-xs text-muted-foreground shrink-0">
         {cancelled ? "Cancelled" : "Confirmed"}
       </span>
+      {visible && (
+        <ResidentTooltip
+          id={tooltipId}
+          name={booking.resident_name}
+          email={booking.resident_email}
+        />
+      )}
     </div>
   );
 }
@@ -172,7 +170,7 @@ function GridView({ facilities }: GridViewProps) {
             for (const s of fac.slots) byStart[s.start] = s;
             return (
               <tr key={fac.facility_id} className="even:bg-muted/30">
-                <td className="sticky left-0 z-10 bg-inherit px-3 py-2 font-medium text-foreground whitespace-nowrap border-b border-border/50">
+                <td className="sticky left-0 z-10 bg-background px-3 py-2 font-medium text-foreground whitespace-nowrap border-b border-border/50">
                   {fac.name}
                 </td>
                 {allStarts.map((t) => {
@@ -284,7 +282,7 @@ export default function TenantDailyOverview() {
   return (
     <>
       <AppHeader />
-      <main className="mx-auto max-w-5xl px-4 py-6 space-y-5">
+      <main className="mx-auto max-w-7xl px-4 py-6 space-y-5">
         <Link
           to="/tenant"
           className="block text-sm font-medium text-link underline underline-offset-2 hover:text-link/70"
@@ -296,7 +294,7 @@ export default function TenantDailyOverview() {
         </h1>
 
         {/* Controls */}
-        <div className="flex flex-wrap items-center gap-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:gap-4">
           {/* Date picker */}
           <div className="flex items-center gap-2">
             <label
@@ -341,7 +339,7 @@ export default function TenantDailyOverview() {
 
           {/* View toggle */}
           <div
-            className="ml-auto flex rounded-md border border-border overflow-hidden"
+            className="sm:ml-auto flex rounded-md border border-border overflow-hidden"
             role="group"
             aria-label="View mode"
           >

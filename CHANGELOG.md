@@ -6,6 +6,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### fix: Daily Booking Overview — full-width layout, mobile date input, sticky-column overlay, tooltip trigger area (July 2026)
+
+**Bugs (all found during live Coordinator testing after the initial merge, confirmed via source
+inspection, not assumed):**
+
+1. **Full-width layout:** the page wrapper used `max-w-5xl`, inherited from other tenant-admin
+   pages built for narrow forms — capping a wide data grid at that width wasted significant
+   screen space on desktop/tablet (confirmed via live screenshot). Widened to `max-w-7xl`,
+   consistent with the app's existing `max-w-*xl` scale (the widest other pages already use is
+   `max-w-6xl`) rather than an arbitrary pixel value or `max-w-none`.
+2. **Mobile date input truncation:** the controls row (Date / Type filter / Grid-List toggle) was
+   `flex flex-wrap items-center gap-4` — all three groups competed for space on narrow viewports,
+   squeezing the native date input (confirmed via live screenshot showing truncated
+   "08/07/2C"). Fixed with the same mobile-stacking pattern already proven for `ListRow` earlier
+   this phase: `flex-col` (stacked, full width) below 640px, `sm:flex-row` inline at 640px+.
+3. **Sticky column visual overlay on horizontal scroll:** the sticky facility-name `<td>` used
+   `bg-inherit` while the header's sticky `<th>` correctly used an explicit `bg-background`.
+   `bg-inherit` resolves to the row's own semi-transparent `even:bg-muted/30` striping color,
+   which is NOT fully opaque — confirmed via live screenshot showing facility names visually
+   doubled with scrolled time-cell content bleeding through underneath during horizontal scroll.
+   Fixed by matching the header's `bg-background` (fully opaque) on the sticky body cell too.
+4. **Tooltip trigger area smaller than the visible box (List view only — Grid view's `SlotCell`
+   was verified to already have styling and event handlers on the same element, so it needed no
+   change):** `ListBookingRow` had its background/highlight styling on the outer `<div>` but the
+   hover/focus/tooltip event handlers, `tabIndex`, and `aria-describedby` only on the inner
+   time-text `<span>` — so hovering the "Confirmed"/"Cancelled" label or empty space in the row
+   did nothing (confirmed via live screenshot: only the exact time digits triggered the tooltip).
+   Fixed by moving the trigger wiring to the outer `<div>` so the entire visible box is
+   interactive. `ResidentTooltip`'s `absolute`/`bottom-full`/`left-1/2` positioning already
+   resolved against that same outer `<div>` (the nearest `position: relative` ancestor) before
+   this fix too, so no positioning changes were needed — verified by RED/GREEN test.
+
+**Scope:** `TenantDailyOverview.tsx` and its test file only. No other tenant-admin page's
+`max-w-5xl` was touched; Grid view's `SlotCell` was left unchanged (verified correct); booking
+date range/min-max logic was not touched (explicitly out of scope).
+
 ### feat: Daily Booking Overview for tenant-admins (July 2026)
 
 **What:** New admin-only page (`/tenant/overview`) showing every facility for a chosen tenant on
