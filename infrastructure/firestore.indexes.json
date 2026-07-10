@@ -16,6 +16,14 @@
         {"fieldPath": "status", "order": "ASCENDING"},
         {"fieldPath": "date", "order": "ASCENDING"}
       ]
+    },
+    {
+      "collectionGroup": "invoices",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {"fieldPath": "household_id", "order": "ASCENDING"},
+        {"fieldPath": "period", "order": "DESCENDING"}
+      ]
     }
   ],
   "fieldOverrides": []

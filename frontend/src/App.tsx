@@ -13,6 +13,7 @@ import FacilityAvailability from "./pages/FacilityAvailability";
 import ForgotPassword from "./pages/ForgotPassword";
 import ForcePasswordChange from "./pages/ForcePasswordChange";
 import MyBookings from "./pages/MyBookings";
+import MyInvoices from "./pages/MyInvoices";
 import ResetPassword from "./pages/ResetPassword";
 import SignIn from "./pages/SignIn";
 import CreateTenant from "./pages/admin/CreateTenant";
@@ -51,6 +52,8 @@ export default function App() {
             element={<ProtectedRoute><FacilityAvailability /></ProtectedRoute>} />
           <Route path="/bookings"
             element={<ProtectedRoute><MyBookings /></ProtectedRoute>} />
+          <Route path="/invoices"
+            element={<ProtectedRoute><MyInvoices /></ProtectedRoute>} />
           <Route path="/account"
             element={<ProtectedRoute><Account /></ProtectedRoute>} />
           <Route path="/assistant"
