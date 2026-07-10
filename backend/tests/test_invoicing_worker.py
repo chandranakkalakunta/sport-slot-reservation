@@ -3,7 +3,9 @@
 Mirrors test_tasks_worker.py's structure exactly, checking the new
 sa-scheduler-invoker identity instead of sa-tasks-invoker.
 """
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
+
+from sport_slot.dependencies import get_firestore_client
 
 WORKER_URL = "https://sport-slot-api-abc123-el.a.run.app"
 INVOKER_SA = "sa-scheduler-invoker@sport-slot-dev.iam.gserviceaccount.com"
@@ -79,6 +81,7 @@ async def test_generate_calls_service_and_returns_summary_for_valid_caller(make_
     with patch(VERIFY, return_value=VALID_CLAIMS), \
          patch(GENERATE, return_value=canned_summary) as mock_generate:
         async with make_client(SCHEDULER_ENV) as client:
+            client._transport.app.dependency_overrides[get_firestore_client] = lambda: MagicMock()
             resp = await client.post(
                 "/internal/invoicing/generate",
                 headers={"Authorization": "Bearer token"},
