@@ -28,6 +28,11 @@ const NAV = [
     title: "Daily Overview",
     desc: "See all bookings across facilities for any date",
   },
+  {
+    to: "/tenant/invoices",
+    title: "Invoices",
+    desc: "Look up any resident's latest invoice by flat number",
+  },
 ];
 
 export default function TenantDashboard() {

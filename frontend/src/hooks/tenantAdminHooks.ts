@@ -187,6 +187,21 @@ export function useDailyOverview(date: string) {
   });
 }
 
+export interface LatestInvoice {
+  invoice_id: string;
+  household_id: string;
+  flat_number: string | null;
+  period: string;
+  total_paise: number;
+}
+
+export function useTenantLatestInvoices() {
+  return useQuery({
+    queryKey: ["tenant", "invoices", "latest"],
+    queryFn: () => apiFetch<{ items: LatestInvoice[] }>("/invoices/tenant/latest"),
+  });
+}
+
 export function useBulkCreateUsers() {
   const qc = useQueryClient();
   return useMutation({

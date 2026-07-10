@@ -42,3 +42,26 @@ class InvoiceRepository(TenantRepository):
             .limit(limit)
         )
         return [snap.to_dict() for snap in query.stream()]
+
+    def list_latest_per_household(self) -> list[dict]:
+        """Latest (max period) invoice per household, across the WHOLE
+        tenant (Phase 15.4b, tenant-admin lookup) — households with no
+        invoices simply don't appear.
+
+        One query, then grouped/maxed in Python: `period` is a
+        lexicographically-sortable "YYYY-MM" string, so a plain string
+        comparison is correct with no date parsing needed. Needs zero
+        profile lookups — flat_number/resident_name are already
+        denormalized onto every invoice document at generation time
+        (Phase 15.3 correction).
+        """
+        latest: dict[str, dict] = {}
+        for snap in self._collection.stream():
+            doc = snap.to_dict()
+            household_id = doc.get("household_id")
+            if not household_id:
+                continue
+            current = latest.get(household_id)
+            if current is None or doc.get("period", "") > current.get("period", ""):
+                latest[household_id] = doc
+        return sorted(latest.values(), key=lambda d: d.get("flat_number") or "")
