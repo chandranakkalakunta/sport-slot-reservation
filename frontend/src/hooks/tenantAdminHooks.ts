@@ -8,6 +8,7 @@ export interface TenantFacility {
   id: string; facility_type_id: string; sport: string; name: string;
   weekly_schedule: WeeklySchedule; slot_duration_minutes: number;
   description?: string | null; active: boolean;
+  price_paise?: number | null;
 }
 
 export function useFacilityCatalog() {
@@ -42,6 +43,7 @@ export interface UpdateFacilityPayload {
   description?: string | null;
   slot_duration_minutes?: number;
   weekly_schedule?: WeeklySchedule;
+  price_paise?: number | null;
 }
 
 export function useUpdateFacility() {

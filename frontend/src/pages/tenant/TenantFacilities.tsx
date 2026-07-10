@@ -29,6 +29,17 @@ import { ApiClientError } from "../../lib/api";
 import { messageForCode } from "../../lib/messages";
 import type { WeeklySchedule } from "../../types/facilitySchedule";
 
+function rupeesToPaise(value: string): number | undefined {
+  if (value.trim() === "") return undefined;
+  const n = Number(value);
+  if (Number.isNaN(n)) return undefined;
+  return Math.round(n * 100);
+}
+
+function paiseToRupees(pricePaise?: number | null): string {
+  return pricePaise != null ? (pricePaise / 100).toFixed(2) : "";
+}
+
 export default function TenantFacilities() {
   const { data: catalog } = useFacilityCatalog();
   const { data: facilities, isLoading } = useTenantFacilities();
@@ -41,6 +52,7 @@ export default function TenantFacilities() {
   const [name, setName] = useState("");
   const [duration, setDuration] = useState(60);
   const [description, setDescription] = useState("");
+  const [price, setPrice] = useState("");
   const [schedule, setSchedule] = useState<WeeklySchedule>(defaultCreateSchedule);
   const [error, setError] = useState<string | null>(null);
   const [ok, setOk] = useState<string | null>(null);
@@ -52,6 +64,7 @@ export default function TenantFacilities() {
   const [editName, setEditName] = useState("");
   const [editDuration, setEditDuration] = useState(60);
   const [editDescription, setEditDescription] = useState("");
+  const [editPrice, setEditPrice] = useState("");
   const [editSchedule, setEditSchedule] = useState<WeeklySchedule>(emptyWeeklySchedule);
   const [editError, setEditError] = useState<string | null>(null);
   const [editOk, setEditOk] = useState<string | null>(null);
@@ -66,6 +79,7 @@ export default function TenantFacilities() {
     setEditName(f.name);
     setEditDuration(f.slot_duration_minutes);
     setEditDescription(f.description ?? "");
+    setEditPrice(paiseToRupees(f.price_paise));
     setEditSchedule(f.weekly_schedule);
     setEditError(null);
     setEditOk(null);
@@ -78,6 +92,7 @@ export default function TenantFacilities() {
     setEditName("");
     setEditDuration(f.slot_duration_minutes);
     setEditDescription("");
+    setEditPrice(paiseToRupees(f.price_paise));
     setEditSchedule(f.weekly_schedule);
     setEditError(null);
     setEditOk(null);
@@ -98,10 +113,11 @@ export default function TenantFacilities() {
         name,
         slot_duration_minutes: Number(duration),
         description: description || null,
+        price_paise: rupeesToPaise(price),
         weekly_schedule: schedule,
       });
       setOk(`Created ${name}.`);
-      setName(""); setDescription(""); setSchedule(defaultCreateSchedule());
+      setName(""); setDescription(""); setPrice(""); setSchedule(defaultCreateSchedule());
     } catch (e) {
       setError(e instanceof ApiClientError ? messageForCode(e.code) : "Failed to create facility.");
     }
@@ -118,6 +134,7 @@ export default function TenantFacilities() {
           name: editName,
           slot_duration_minutes: Number(editDuration),
           description: editDescription || null,
+          price_paise: rupeesToPaise(editPrice),
           weekly_schedule: editSchedule,
         });
         setEditOk(`Cloned facility created.`);
@@ -129,6 +146,7 @@ export default function TenantFacilities() {
           name: editName,
           slot_duration_minutes: Number(editDuration),
           description: editDescription || null,
+          price_paise: rupeesToPaise(editPrice),
           weekly_schedule: editSchedule,
         });
         setEditOk(`Updated ${editName}.`);
@@ -190,6 +208,8 @@ export default function TenantFacilities() {
               <p className="font-semibold text-foreground">{f.name}</p>
               <p className="text-sm text-muted-foreground tabular-nums mt-0.5">
                 {catalogMap.get(f.facility_type_id) ?? f.sport} · {f.slot_duration_minutes}min slots
+                {" · "}
+                {f.price_paise != null ? `₹${(f.price_paise / 100).toFixed(2)}` : "No price set"}
                 {f.description ? ` · ${f.description}` : ""}
               </p>
             </ListRow>
@@ -248,6 +268,18 @@ export default function TenantFacilities() {
                 id="facility-desc"
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
+              />
+            </div>
+            <div className="space-y-1">
+              <label htmlFor="facility-price" className="text-sm font-medium text-foreground">
+                Price per booking (₹, optional)
+              </label>
+              <Input
+                id="facility-price"
+                type="number"
+                step="0.01"
+                value={price}
+                onChange={(e) => setPrice(e.target.value)}
               />
             </div>
             <div className="space-y-1">
@@ -321,6 +353,18 @@ export default function TenantFacilities() {
                   id="edit-facility-desc"
                   value={editDescription}
                   onChange={(e) => setEditDescription(e.target.value)}
+                />
+              </div>
+              <div className="space-y-1">
+                <label htmlFor="edit-facility-price" className="text-sm font-medium text-foreground">
+                  Price per booking (₹, optional)
+                </label>
+                <Input
+                  id="edit-facility-price"
+                  type="number"
+                  step="0.01"
+                  value={editPrice}
+                  onChange={(e) => setEditPrice(e.target.value)}
                 />
               </div>
               <div className="space-y-1">
