@@ -22,5 +22,6 @@ describe("TenantDashboard", () => {
     expect(screen.getByRole("link", { name: /Branding/ })).toHaveAttribute("href", "/tenant/branding");
     expect(screen.getByRole("link", { name: /Policies/ })).toHaveAttribute("href", "/tenant/policies");
     expect(screen.getByRole("link", { name: /Residents/ })).toHaveAttribute("href", "/tenant/users");
+    expect(screen.getByRole("link", { name: /Invoices/ })).toHaveAttribute("href", "/tenant/invoices");
   });
 });

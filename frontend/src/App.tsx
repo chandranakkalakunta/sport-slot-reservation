@@ -23,6 +23,7 @@ import TenantBranding from "./pages/tenant/TenantBranding";
 import TenantDailyOverview from "./pages/tenant/TenantDailyOverview";
 import TenantDashboard from "./pages/tenant/TenantDashboard";
 import TenantFacilities from "./pages/tenant/TenantFacilities";
+import TenantInvoices from "./pages/tenant/TenantInvoices";
 import TenantPolicies from "./pages/tenant/TenantPolicies";
 import TenantUsers from "./pages/tenant/TenantUsers";
 
@@ -67,6 +68,7 @@ export default function App() {
           <Route path="/tenant/policies" element={<TenantAdminRoute><TenantPolicies /></TenantAdminRoute>} />
           <Route path="/tenant/users" element={<TenantAdminRoute><TenantUsers /></TenantAdminRoute>} />
           <Route path="/tenant/overview" element={<TenantAdminRoute><TenantDailyOverview /></TenantAdminRoute>} />
+          <Route path="/tenant/invoices" element={<TenantAdminRoute><TenantInvoices /></TenantAdminRoute>} />
         </Route>
       </Routes>
     </AuthProvider>
