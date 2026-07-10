@@ -99,6 +99,92 @@ describe("TenantFacilities", () => {
     expect(screen.getAllByText(/Badminton/).length).toBeGreaterThan(0);
   });
 
+  // ── New: price_paise (Phase 15.1) ───────────────────────────────────────────
+
+  it("facility list shows 'No price set' for a facility with no price_paise, not ₹0.00", () => {
+    renderPage();
+    expect(screen.getByText(/No price set/i)).toBeInTheDocument();
+    expect(screen.queryByText(/₹0\.00/)).not.toBeInTheDocument();
+  });
+
+  it("facility list shows the formatted rupee price when price_paise is set", () => {
+    vi.mocked(useTenantFacilities).mockReturnValue({
+      data: { items: [{ ...ACTIVE_FACILITY, price_paise: 5050 }] },
+      isLoading: false,
+    } as unknown as ReturnType<typeof useTenantFacilities>);
+    renderPage();
+    expect(screen.getByText(/₹50\.50/)).toBeInTheDocument();
+  });
+
+  it("create form converts entered rupees to integer paise (50.50 -> 5050) on submit", async () => {
+    const mutateAsync = vi.fn().mockResolvedValue(ACTIVE_FACILITY);
+    vi.mocked(useCreateFacility).mockImplementation(
+      () => ({ mutateAsync, isPending: false }) as unknown as ReturnType<typeof useCreateFacility>,
+    );
+    const user = userEvent.setup();
+    renderPage();
+
+    const selects = screen.getAllByRole("combobox");
+    await user.selectOptions(selects[0], "badminton");
+    const inputs = screen.getAllByRole("textbox");
+    await user.type(inputs[0], "South Court");
+    await user.type(screen.getByLabelText(/price per booking/i), "50.50");
+
+    await user.click(screen.getByRole("button", { name: /add facility/i }));
+
+    await waitFor(() => {
+      expect(mutateAsync).toHaveBeenCalledWith(
+        expect.objectContaining({ price_paise: 5050 }),
+      );
+    });
+  });
+
+  it("create form omits price_paise (undefined) when the price field is left empty", async () => {
+    const mutateAsync = vi.fn().mockResolvedValue(ACTIVE_FACILITY);
+    vi.mocked(useCreateFacility).mockImplementation(
+      () => ({ mutateAsync, isPending: false }) as unknown as ReturnType<typeof useCreateFacility>,
+    );
+    const user = userEvent.setup();
+    renderPage();
+
+    const selects = screen.getAllByRole("combobox");
+    await user.selectOptions(selects[0], "badminton");
+    const inputs = screen.getAllByRole("textbox");
+    await user.type(inputs[0], "South Court");
+
+    await user.click(screen.getByRole("button", { name: /add facility/i }));
+
+    await waitFor(() => {
+      expect(mutateAsync).toHaveBeenCalledWith(
+        expect.objectContaining({ price_paise: undefined }),
+      );
+    });
+  });
+
+  it("edit dialog pre-populates price in rupees from the facility's price_paise", async () => {
+    vi.mocked(useTenantFacilities).mockReturnValue({
+      data: { items: [{ ...ACTIVE_FACILITY, price_paise: 5050 }] },
+      isLoading: false,
+    } as unknown as ReturnType<typeof useTenantFacilities>);
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(screen.getByRole("button", { name: /^edit$/i }));
+
+    const dialog = screen.getByRole("dialog", { name: /edit facility/i });
+    expect(within(dialog).getByLabelText(/price per booking/i)).toHaveValue(50.5);
+  });
+
+  it("edit dialog shows an empty price field for a facility with no price_paise", async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(screen.getByRole("button", { name: /^edit$/i }));
+
+    const dialog = screen.getByRole("dialog", { name: /edit facility/i });
+    expect(within(dialog).getByLabelText(/price per booking/i)).toHaveValue(null);
+  });
+
   it("create form initializes with the default schedule (06-10 + 16-21 on all 7 days)", async () => {
     renderPage();
     // The weekly editor shows all 7 days; each day should show the default ranges summary

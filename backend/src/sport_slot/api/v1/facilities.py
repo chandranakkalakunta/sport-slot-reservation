@@ -109,6 +109,7 @@ class FacilityCreate(BaseModel):
     weekly_schedule: dict[str, list[TimeRange]]
     slot_duration_minutes: int
     description: str | None = None
+    price_paise: int | None = None
 
     @field_validator("weekly_schedule")
     @classmethod
@@ -121,6 +122,7 @@ class FacilityUpdate(BaseModel):
     weekly_schedule: dict[str, list[TimeRange]] | None = None
     slot_duration_minutes: int | None = None
     description: str | None = None
+    price_paise: int | None = None
 
     @field_validator("weekly_schedule")
     @classmethod
@@ -156,6 +158,7 @@ async def create_facility(
         },
         "slot_duration_minutes": body.slot_duration_minutes,
         "description": body.description,
+        "price_paise": body.price_paise,
         "active": True,
     }
     (client.collection("tenants").document(ctx.tenant_id)

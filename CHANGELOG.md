@@ -6,6 +6,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### feat: Phase 15.1 — per-facility pricing configuration (July 2026)
+
+**What:** Facilities gain an optional `price_paise` field (`FacilityCreate`, `FacilityUpdate`,
+and the stored Firestore document in `facilities.py`) — always an integer number of paise, never
+a float rupee value, per the project's fintech-standard money-storage convention. The field is
+nullable and defaults to `None`; it is never defaulted to `0`, which would be indistinguishable
+from "free." Existing facilities created before this change are unaffected — `price_paise` is
+simply absent/null on them, with no backfill or migration.
+
+The tenant-admin-facing "Add a facility" form and the edit-facility dialog (`TenantFacilities.tsx`)
+both gain a "Price per booking (₹, optional)" input. The admin types the price in rupees; the
+frontend converts to integer paise (`Math.round(rupees * 100)`) before calling the create/update
+mutation, and leaves the field un-set (not `0`) when left empty. The facility list displays the
+price formatted in rupees (`₹50.50`) when set, or a distinct "No price set" indicator when not —
+never a misleading `₹0.00` for an unpriced facility.
+
+**Scope:** Facility pricing configuration only. Billing-cycle policy, invoice generation, and any
+resident-facing display of price are out of scope for this sub-phase (tracked separately as
+Phase 15.2/15.3).
+
 ### feat: shared resident nav — Facilities + My Bookings always visible on all resident pages (July 2026)
 
 **What:** `Facilities.tsx`, `Assistant.tsx`, and `MyBookings.tsx` each built their own header nav

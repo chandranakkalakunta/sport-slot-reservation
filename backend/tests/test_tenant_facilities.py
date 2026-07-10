@@ -107,6 +107,38 @@ async def test_create_facility_valid_type_201_sport_copied(make_client):
     assert len(body["id"]) == 12
 
 
+async def test_create_facility_without_price_stores_no_price_paise(make_client):
+    """Backward compatibility: omitting price_paise stores it as None (not 0)."""
+    client = _create_mock()
+    with patch(VERIFY, return_value=ADMIN):
+        async with make_client() as c:
+            c._transport.app.dependency_overrides[get_firestore_client] = lambda: client
+            resp = await c.post("/api/v1/tenant/facilities",
+                                json=NEW_FAC_BODY, headers={**AUTH, **HOST})
+    assert resp.status_code == 201
+    body = resp.json()
+    assert body["price_paise"] is None
+    written_doc = (client.collection.return_value.document.return_value
+                   .collection.return_value.document.return_value.set.call_args.args[0])
+    assert written_doc["price_paise"] is None
+
+
+async def test_create_facility_with_price_stores_integer_paise(make_client):
+    client = _create_mock()
+    with patch(VERIFY, return_value=ADMIN):
+        async with make_client() as c:
+            c._transport.app.dependency_overrides[get_firestore_client] = lambda: client
+            body_with_price = {**NEW_FAC_BODY, "price_paise": 5050}
+            resp = await c.post("/api/v1/tenant/facilities",
+                                json=body_with_price, headers={**AUTH, **HOST})
+    assert resp.status_code == 201
+    body = resp.json()
+    assert body["price_paise"] == 5050
+    written_doc = (client.collection.return_value.document.return_value
+                   .collection.return_value.document.return_value.set.call_args.args[0])
+    assert written_doc["price_paise"] == 5050
+
+
 async def test_create_facility_unknown_type_422(make_client):
     with patch(VERIFY, return_value=ADMIN):
         async with make_client() as c:
@@ -144,6 +176,20 @@ async def test_patch_facility_updates_name(make_client):
                                  headers={**AUTH, **HOST})
     assert resp.status_code == 200
     assert resp.json()["name"] == "Court A"
+
+
+async def test_patch_facility_updates_price_paise(make_client):
+    updated = {**EXISTING_FAC, "price_paise": 5050}
+    with patch(VERIFY, return_value=ADMIN):
+        async with make_client() as c:
+            c._transport.app.dependency_overrides[get_firestore_client] = (
+                lambda: _ref_mock(EXISTING_FAC, updated)
+            )
+            resp = await c.patch("/api/v1/tenant/facilities/abc123",
+                                 json={"price_paise": 5050},
+                                 headers={**AUTH, **HOST})
+    assert resp.status_code == 200
+    assert resp.json()["price_paise"] == 5050
 
 
 async def test_delete_facility_permanently_removes_document(make_client):
