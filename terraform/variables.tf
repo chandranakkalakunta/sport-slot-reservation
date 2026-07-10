@@ -54,16 +54,20 @@ variable "environment" {
 }
 
 variable "github_repository" {
+  # NOTE: terraform.tfvars (gitignored) overrides this default. If you
+  # change this value, also check/update terraform.tfvars — the default
+  # here is NOT necessarily what's actually applied. (Learned the hard
+  # way during the repo rename — see CHANGELOG.)
   description = "GitHub repo for Workload Identity Federation"
   type        = string
-  default     = "chandranakkalakunta/sport-slot-reservation"
+  default     = "chandranakkalakunta/slot-sense"
 }
 
 variable "default_labels" {
   description = "Labels applied to all resources for cost tracking and management"
   type        = map(string)
   default = {
-    project    = "sport-slot-reservation"
+    project    = "slot-sense"
     managed_by = "terraform"
     owner      = "chandra-ai-labs"
   }
