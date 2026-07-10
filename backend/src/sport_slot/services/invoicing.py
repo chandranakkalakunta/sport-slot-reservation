@@ -18,6 +18,19 @@ Booking documents already carry household_id directly (set at booking
 creation, services/bookings.py) — no user-profile lookup/join is needed
 to group bookings by household.
 
+CORRECTION (Phase 15.3 fix, denormalization): each line item and invoice
+document previously had no human-readable resident/flat identity — only
+household_id, an internal code not guaranteed derivable from flat_number
+(the bulk-import path allows an explicit household_id override). Resolved
+HERE, once per unique resident per tenant generation pass (never at
+display time — the entire point is that every future read is a single
+complete document fetch, with no lookup regardless of tenant size), via
+a local uid -> profile cache. Each line item gains resident_uid/
+resident_name (a missing/deleted profile falls back to "Unknown resident",
+never a crash); each invoice gains flat_number, sourced from the first
+resident encountered for that household — acceptable since flat_number is
+expected to be consistent within a household.
+
 Tenant listing uses direct client.collection() calls rather than a
 TenantContext-bound repository (mirrors services/tenants.py's pattern for
 operations that span all tenants rather than belonging to one tenant's
@@ -34,6 +47,7 @@ import structlog
 from sport_slot.auth.context import TenantContext
 from sport_slot.repositories.bookings import BookingRepository
 from sport_slot.repositories.invoices import InvoiceRepository
+from sport_slot.repositories.user_profiles import UserProfileRepository
 
 log = structlog.get_logger()
 
@@ -53,6 +67,14 @@ def _previous_month_range(today: datetime.date) -> tuple[str, str, str]:
 def _list_active_tenants(client) -> list[dict]:
     query = client.collection("tenants").where("status", "==", "active")
     return [snap.to_dict() for snap in query.stream()]
+
+
+def _resolve_profile(profile_repo: UserProfileRepository, cache: dict, uid: str) -> dict | None:
+    """Fetch uid's profile, caching so a resident with multiple bookings in
+    the period costs exactly one Firestore read, not one per booking."""
+    if uid not in cache:
+        cache[uid] = profile_repo.get(uid)
+    return cache[uid]
 
 
 def _priced_facilities(client, tenant_id: str) -> dict[str, dict]:
@@ -119,6 +141,13 @@ def _generate_for_tenant(
     priced = _priced_facilities(client, tenant_id)
     bookings = BookingRepository(ctx, client).list_confirmed_in_range(period_start, period_end)
 
+    profile_repo = UserProfileRepository(ctx, client)
+    profile_cache: dict[str, dict | None] = {}
+    # flat_number source of record per household: the first resident
+    # encountered while iterating bookings — one representative value is
+    # sufficient since flat_number is expected to be consistent per household.
+    household_flat: dict[str, str | None] = {}
+
     by_household: dict[str, list[dict]] = {}
     for booking in bookings:
         fac = priced.get(booking.get("facility_id", ""))
@@ -127,12 +156,19 @@ def _generate_for_tenant(
         household_id = booking.get("household_id")
         if not household_id:
             continue
+        uid = booking.get("uid")
+        profile = _resolve_profile(profile_repo, profile_cache, uid) if uid else None
+        resident_name = (profile or {}).get("display_name") or "Unknown resident"
+        if household_id not in household_flat:
+            household_flat[household_id] = (profile or {}).get("flat_number")
         by_household.setdefault(household_id, []).append({
             "booking_id": booking.get("id"),
             "facility_id": booking.get("facility_id"),
             "facility_name": fac["name"],
             "date": booking.get("date"),
             "price_paise": fac["price_paise"],
+            "resident_uid": uid,
+            "resident_name": resident_name,
         })
 
     invoice_repo = InvoiceRepository(ctx, client)
@@ -150,6 +186,7 @@ def _generate_for_tenant(
                 "invoice_id": invoice_id,
                 "tenant_id": tenant_id,
                 "household_id": household_id,
+                "flat_number": household_flat.get(household_id),
                 "period": period_label,
                 "period_start": period_start,
                 "period_end": period_end,

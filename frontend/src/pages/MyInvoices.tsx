@@ -46,7 +46,10 @@ export default function MyInvoices() {
                     key={`${invoice.invoice_id}-${idx}`}
                     className="text-sm text-muted-foreground flex justify-between gap-2"
                   >
-                    <span className="truncate">{item.facility_name} · {item.date}</span>
+                    <span className="truncate">
+                      {item.facility_name} · {item.date}
+                      {item.resident_name && <> · {item.resident_name}</>}
+                    </span>
                     <span className="tabular-nums shrink-0">{toRupees(item.price_paise)}</span>
                   </li>
                 ))}

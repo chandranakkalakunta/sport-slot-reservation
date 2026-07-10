@@ -55,13 +55,47 @@ class _FakeInvoicesCollection:
         return _FakeInvoiceDoc(self._store, (self._tenant_id, invoice_id), self._fail_ids)
 
 
+class _FakeProfileSnap:
+    def __init__(self, data):
+        self._data = data
+
+    @property
+    def exists(self):
+        return self._data is not None
+
+    def to_dict(self):
+        return dict(self._data) if self._data is not None else None
+
+
+class _FakeProfileDocRef:
+    def __init__(self, data):
+        self._data = data
+
+    def get(self):
+        return _FakeProfileSnap(self._data)
+
+
+class _FakeUsersCollection:
+    """Tracks .document(uid) calls so tests can assert the profile cache
+    fires exactly once per unique resident, not once per booking."""
+
+    def __init__(self, profiles: dict):
+        self._profiles = profiles
+        self.document_calls: list[str] = []
+
+    def document(self, uid):
+        self.document_calls.append(uid)
+        return _FakeProfileDocRef(self._profiles.get(uid))
+
+
 class _FakeTenantDoc:
-    def __init__(self, tenant_id, facilities, bookings, invoice_store, fail_ids):
+    def __init__(self, tenant_id, facilities, bookings, invoice_store, fail_ids, profiles):
         self._tenant_id = tenant_id
         self._facilities = facilities
         self._bookings = bookings
         self._invoice_store = invoice_store
         self._fail_ids = fail_ids
+        self.users_collection = _FakeUsersCollection(profiles)
 
     def collection(self, name):
         if name == "facilities":
@@ -70,38 +104,47 @@ class _FakeTenantDoc:
             return _FakeStream(self._bookings)
         if name == "invoices":
             return _FakeInvoicesCollection(self._invoice_store, self._tenant_id, self._fail_ids)
+        if name == "users":
+            return self.users_collection
         raise AssertionError(f"unexpected collection: {name}")
 
 
 class _FakeTenantsCollection:
-    def __init__(self, tenants, facilities_by_tenant, bookings_by_tenant, invoice_store, fail_ids):
+    def __init__(self, tenants, facilities_by_tenant, bookings_by_tenant, invoice_store,
+                 fail_ids, profiles_by_tenant):
         self._tenants = tenants
         self._facilities_by_tenant = facilities_by_tenant
         self._bookings_by_tenant = bookings_by_tenant
         self._invoice_store = invoice_store
         self._fail_ids = fail_ids
+        self._profiles_by_tenant = profiles_by_tenant
+        self.tenant_docs: dict[str, "_FakeTenantDoc"] = {}
 
     def where(self, field, op, value):
         assert (field, op) == ("status", "==")
         return _FakeStream([t for t in self._tenants if t.get("status") == value])
 
     def document(self, tenant_id):
-        return _FakeTenantDoc(
-            tenant_id,
-            self._facilities_by_tenant.get(tenant_id, []),
-            self._bookings_by_tenant.get(tenant_id, []),
-            self._invoice_store,
-            self._fail_ids,
-        )
+        if tenant_id not in self.tenant_docs:
+            self.tenant_docs[tenant_id] = _FakeTenantDoc(
+                tenant_id,
+                self._facilities_by_tenant.get(tenant_id, []),
+                self._bookings_by_tenant.get(tenant_id, []),
+                self._invoice_store,
+                self._fail_ids,
+                self._profiles_by_tenant.get(tenant_id, {}),
+            )
+        return self.tenant_docs[tenant_id]
 
 
 class _FakeClient:
     def __init__(self, tenants, facilities_by_tenant, bookings_by_tenant,
-                 existing_invoices=None, fail_household_ids=None):
+                 existing_invoices=None, fail_household_ids=None, profiles_by_tenant=None):
         self.invoice_store: dict = dict(existing_invoices or {})
         self._tenants_col = _FakeTenantsCollection(
             tenants, facilities_by_tenant, bookings_by_tenant,
             self.invoice_store, fail_household_ids or set(),
+            profiles_by_tenant or {},
         )
 
     def collection(self, name):
@@ -112,11 +155,15 @@ class _FakeClient:
 TENANT = {"tenant_id": "t-1", "slug": "demo", "status": "active"}
 
 
-def _booking(booking_id, household_id, facility_id, date="2026-06-15"):
+def _booking(booking_id, household_id, facility_id, date="2026-06-15", uid=None):
     return {
         "id": booking_id, "household_id": household_id, "facility_id": facility_id,
-        "date": date, "status": "confirmed",
+        "date": date, "status": "confirmed", "uid": uid,
     }
+
+
+def _profile(display_name, flat_number=None):
+    return {"display_name": display_name, "flat_number": flat_number}
 
 
 def _facility(facility_id, name, price_paise):
@@ -325,3 +372,103 @@ def test_inactive_tenant_is_not_processed():
     assert summary["tenants_processed"] == 0
     assert summary["households_invoiced"] == 0
     assert client.invoice_store == {}
+
+
+# ── Correction: denormalized resident_uid/resident_name + flat_number ───────
+# (Phase 15.3 fix — resolved once per unique resident per tenant generation
+# pass, at generation time, never at display time.)
+
+def test_line_items_carry_the_correct_resident_not_a_housemates():
+    """A two-resident household: each line item's resident_uid/resident_name
+    must match the booking that actually produced it, never the other
+    resident sharing the same household_id."""
+    facilities = {"t-1": [_facility("fac-A", "Court A", 5000)]}
+    bookings = {"t-1": [
+        _booking("b1", "h-1", "fac-A", uid="u-alice"),
+        _booking("b2", "h-1", "fac-A", uid="u-bob"),
+    ]}
+    profiles = {"t-1": {
+        "u-alice": _profile("Alice", flat_number="A-1"),
+        "u-bob": _profile("Bob", flat_number="A-1"),
+    }}
+    client = _FakeClient([TENANT], facilities, bookings, profiles_by_tenant=profiles)
+
+    generate_invoices(client, today=TODAY)
+
+    items = client.invoice_store[("t-1", "h-1_2026-06")]["line_items"]
+    by_booking = {i["booking_id"]: i for i in items}
+    assert by_booking["b1"]["resident_uid"] == "u-alice"
+    assert by_booking["b1"]["resident_name"] == "Alice"
+    assert by_booking["b2"]["resident_uid"] == "u-bob"
+    assert by_booking["b2"]["resident_name"] == "Bob"
+
+
+def test_profile_lookup_cached_once_per_unique_resident_not_per_booking():
+    """The actual point of the correction: 3 bookings from the same resident
+    must trigger exactly 1 profile fetch, not 3. Asserts the fake users
+    collection's call count directly — does not just infer caching from
+    the output."""
+    facilities = {"t-1": [_facility("fac-A", "Court A", 1000)]}
+    bookings = {"t-1": [
+        _booking("b1", "h-1", "fac-A", date="2026-06-01", uid="u-alice"),
+        _booking("b2", "h-1", "fac-A", date="2026-06-08", uid="u-alice"),
+        _booking("b3", "h-1", "fac-A", date="2026-06-15", uid="u-alice"),
+    ]}
+    profiles = {"t-1": {"u-alice": _profile("Alice", flat_number="A-1")}}
+    client = _FakeClient([TENANT], facilities, bookings, profiles_by_tenant=profiles)
+
+    generate_invoices(client, today=TODAY)
+
+    users_col = client._tenants_col.tenant_docs["t-1"].users_collection
+    assert users_col.document_calls == ["u-alice"]  # one fetch, not three
+
+
+def test_flat_number_set_on_invoice_from_first_resident_encountered():
+    facilities = {"t-1": [_facility("fac-A", "Court A", 5000)]}
+    bookings = {"t-1": [
+        _booking("b1", "h-1", "fac-A", uid="u-alice"),
+        _booking("b2", "h-1", "fac-A", uid="u-bob"),
+    ]}
+    profiles = {"t-1": {
+        "u-alice": _profile("Alice", flat_number="A-1"),
+        "u-bob": _profile("Bob", flat_number="A-1"),
+    }}
+    client = _FakeClient([TENANT], facilities, bookings, profiles_by_tenant=profiles)
+
+    generate_invoices(client, today=TODAY)
+
+    assert client.invoice_store[("t-1", "h-1_2026-06")]["flat_number"] == "A-1"
+
+
+def test_missing_profile_falls_back_without_crashing():
+    """A booking's uid with no resolvable profile (deleted resident) must
+    not crash generation — resident_name falls back to a sentinel and
+    flat_number falls back to None."""
+    facilities = {"t-1": [_facility("fac-A", "Court A", 5000)]}
+    bookings = {"t-1": [_booking("b1", "h-1", "fac-A", uid="u-deleted")]}
+    client = _FakeClient([TENANT], facilities, bookings, profiles_by_tenant={"t-1": {}})
+
+    summary = generate_invoices(client, today=TODAY)
+
+    assert summary["households_failed"] == []
+    inv = client.invoice_store[("t-1", "h-1_2026-06")]
+    assert inv["flat_number"] is None
+    assert inv["line_items"][0]["resident_uid"] == "u-deleted"
+    assert inv["line_items"][0]["resident_name"] == "Unknown resident"
+
+
+def test_booking_with_no_uid_at_all_does_not_query_profiles():
+    """Defensive: a booking somehow missing uid entirely must not attempt
+    a profile lookup (would fail on a None document id) — falls back
+    the same as a missing profile."""
+    facilities = {"t-1": [_facility("fac-A", "Court A", 5000)]}
+    bookings = {"t-1": [_booking("b1", "h-1", "fac-A")]}  # uid defaults to None
+    client = _FakeClient([TENANT], facilities, bookings, profiles_by_tenant={"t-1": {}})
+
+    generate_invoices(client, today=TODAY)
+
+    users_col = client._tenants_col.tenant_docs["t-1"].users_collection
+    assert users_col.document_calls == []  # guarded — never queried
+    inv = client.invoice_store[("t-1", "h-1_2026-06")]
+    assert inv["line_items"][0]["resident_name"] == "Unknown resident"
+    assert inv["flat_number"] is None
