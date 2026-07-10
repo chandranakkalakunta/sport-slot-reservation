@@ -78,6 +78,7 @@ export interface Policies {
   booking_window_open_time?: string;
   cancellation_buffer_hours?: number;
   max_slots_per_user_per_sport_per_day?: number;
+  invoice_generation_time?: string;
 }
 
 export function usePolicies() {

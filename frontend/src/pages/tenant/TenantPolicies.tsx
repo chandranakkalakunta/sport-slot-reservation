@@ -15,6 +15,7 @@ export default function TenantPolicies() {
   const [openTime, setOpenTime] = useState("06:00");
   const [bufferHours, setBufferHours] = useState(1);
   const [maxSlots, setMaxSlots] = useState(2);
+  const [invoiceGenTime, setInvoiceGenTime] = useState("03:00");
   const [error, setError] = useState<string | null>(null);
   const [ok, setOk] = useState(false);
 
@@ -27,6 +28,7 @@ export default function TenantPolicies() {
     if (p.booking_window_open_time !== undefined) setOpenTime(p.booking_window_open_time);
     if (p.cancellation_buffer_hours !== undefined) setBufferHours(p.cancellation_buffer_hours);
     if (p.max_slots_per_user_per_sport_per_day !== undefined) setMaxSlots(p.max_slots_per_user_per_sport_per_day);
+    if (p.invoice_generation_time !== undefined) setInvoiceGenTime(p.invoice_generation_time);
   }, [policiesData]);
 
   async function submit(e: FormEvent) {
@@ -38,6 +40,7 @@ export default function TenantPolicies() {
         booking_window_open_time: openTime,
         cancellation_buffer_hours: bufferHours,
         max_slots_per_user_per_sport_per_day: maxSlots,
+        invoice_generation_time: invoiceGenTime,
       });
       setOk(true);
     } catch (e) {
@@ -101,6 +104,19 @@ export default function TenantPolicies() {
               min={1}
               value={maxSlots}
               onChange={(e) => setMaxSlots(Number(e.target.value))}
+              required
+            />
+          </div>
+          <div className="space-y-1">
+            <label htmlFor="policy-invoice-gen-time" className="text-sm font-medium text-foreground">
+              Invoice generation time (HH:MM) — always on the 1st of the month
+            </label>
+            <Input
+              id="policy-invoice-gen-time"
+              className="tabular-nums"
+              value={invoiceGenTime}
+              onChange={(e) => setInvoiceGenTime(e.target.value)}
+              placeholder="03:00"
               required
             />
           </div>
