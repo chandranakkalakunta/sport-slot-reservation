@@ -121,4 +121,41 @@ describe("MyInvoices", () => {
     expect(screen.getByRole("link", { name: "My bookings" })).toHaveAttribute("href", "/bookings");
     expect(screen.getByRole("link", { name: "Invoices" })).toHaveAttribute("href", "/invoices");
   });
+
+  it("shows the booking resident's name per line item in a shared household (15.3 correction)", () => {
+    const multiResidentInvoice = {
+      ...INVOICE,
+      line_items: [
+        { ...INVOICE.line_items[0], resident_uid: "u-alice", resident_name: "Alice" },
+        { ...INVOICE.line_items[1], resident_uid: "u-bob", resident_name: "Bob" },
+      ],
+    };
+    vi.mocked(useAuth).mockReturnValue({
+      claims: { role: "resident", household_id: "h-1" },
+    } as unknown as ReturnType<typeof useAuth>);
+    vi.mocked(hooks.useMyInvoices).mockReturnValue({
+      data: { items: [multiResidentInvoice] }, isLoading: false,
+    } as unknown as ReturnType<typeof hooks.useMyInvoices>);
+
+    wrap(<MyInvoices />);
+
+    expect(screen.getByText(/Tennis Court · 2026-06-05 · Alice/)).toBeInTheDocument();
+    expect(screen.getByText(/Tennis Court · 2026-06-12 · Bob/)).toBeInTheDocument();
+  });
+
+  it("renders gracefully when resident_name is absent (pre-correction invoices)", () => {
+    // INVOICE's fixture line items carry no resident_name at all — mirrors
+    // the 2 existing test invoices in Firestore generated before this fix.
+    vi.mocked(useAuth).mockReturnValue({
+      claims: { role: "resident", household_id: "h-1" },
+    } as unknown as ReturnType<typeof useAuth>);
+    vi.mocked(hooks.useMyInvoices).mockReturnValue({
+      data: { items: [INVOICE] }, isLoading: false,
+    } as unknown as ReturnType<typeof hooks.useMyInvoices>);
+
+    wrap(<MyInvoices />);
+
+    // No crash, no stray " · undefined" — just facility + date.
+    expect(screen.getByText("Tennis Court · 2026-06-05")).toBeInTheDocument();
+  });
 });

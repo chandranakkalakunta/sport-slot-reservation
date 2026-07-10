@@ -44,15 +44,33 @@ matching this project's one-SA-per-trust-boundary convention) calls a new intern
 (`auth/scheduler_auth.py`) that mirrors `verify_tasks_oidc`'s exact OIDC-verification structure
 against the new SA identity. `services/invoicing.py` does the actual computation: for each active
 tenant, it queries confirmed bookings dated in the previous calendar month (postpaid billing),
-groups them by the `household_id` already present on every booking document (no profile join
-needed), sums `price_paise` per household — skipping bookings against unpriced facilities
-entirely (not a Rs.0 line item, simply absent) — and writes one immutable invoice document per
-household via Firestore `create()` on the deterministic ID `{household_id}_{YYYY-MM}`, which
-gives natural idempotent re-run safety (a second run for the same period silently skips
-households that already have an invoice, no error). Tenant- and household-level failures are
-isolated with per-item try/except and loud `structlog` logging — one household's or tenant's
-failure never blocks the rest of the batch — and the job returns a structured summary (tenants
-processed, households invoiced, households skipped, households failed with reasons).
+groups them by the `household_id` already present on every booking document, sums `price_paise`
+per household — skipping bookings against unpriced facilities entirely (not a Rs.0 line item,
+simply absent) — and writes one immutable invoice document per household via Firestore `create()`
+on the deterministic ID `{household_id}_{YYYY-MM}`, which gives natural idempotent re-run safety
+(a second run for the same period silently skips households that already have an invoice, no
+error). Tenant- and household-level failures are isolated with per-item try/except and loud
+`structlog` logging — one household's or tenant's failure never blocks the rest of the batch —
+and the job returns a structured summary (tenants processed, households invoiced, households
+skipped, households failed with reasons).
+
+**Correction (same Phase 15.3, applied after initial merge): denormalized resident + flat
+identity onto the invoice at generation time.** The original cut grouped bookings by
+`household_id` alone — an internal code, not guaranteed human-readable or even derivable from
+`flat_number` (the bulk-import path allows an explicit `household_id` override) — and gave no way
+to tell which specific resident of a shared household made each booking, which is essential for
+dispute resolution. Fixed by adding a `UserProfileRepository` lookup **inside** `_generate_for_tenant`,
+cached per unique `uid` within one tenant's generation pass (one Firestore read per resident, not
+per booking — verified directly by asserting the fake profile collection's call count, not just
+the output). Each line item now carries `resident_uid`/`resident_name`; each invoice document now
+carries `flat_number`, sourced from the first resident encountered for that household. Resolved
+once, at generation time, deliberately — never at display/read time, which would mean a live
+profile lookup on every invoice-list page view instead of one flat document fetch, expensive at
+real scale (hundreds/thousands of flats per tenant). A missing/deleted profile falls back to
+`"Unknown resident"` / `null` rather than crashing generation. The two invoices already in
+Firestore from earlier manual verification were left untouched — they simply predate these
+fields; display code (this correction's own `MyInvoices.tsx` update, and the future tenant-admin
+view, 15.4b) must treat both fields as optional.
 
 **Four deliberate, known gaps (not oversights):**
 1. **Per-tenant generation time not yet honored.** Phase 15.2's `policies.invoice_generation_time`
