@@ -22,6 +22,21 @@ class BookingRepository(TenantRepository):
         )
         return {snap.to_dict().get("start") for snap in query.stream()}
 
+    def list_confirmed_in_range(self, start_date: str, end_date: str) -> list[dict]:
+        """Confirmed bookings with date in [start_date, end_date] (inclusive).
+
+        Used by monthly invoice generation (Phase 15.3) to pull the previous
+        calendar month's billable bookings. Requires the (status, date)
+        composite index in firestore.indexes.json.
+        """
+        query = (
+            self._collection
+            .where("status", "==", "confirmed")
+            .where("date", ">=", start_date)
+            .where("date", "<=", end_date)
+        )
+        return [snap.to_dict() for snap in query.stream()]
+
     def list_for_date(self, date: str) -> list[dict]:
         """All bookings (confirmed AND cancelled) for a given date across all
         facilities in this tenant.  Single equality filter on `date` — uses
