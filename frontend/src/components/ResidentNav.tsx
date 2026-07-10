@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { Button } from "./ui/button";
 
 // Shared AppHeader nav for resident-facing pages (Facilities, Assistant,
-// MyBookings) — both links always visible so neither is a dead end.
+// MyBookings) — all three links always visible so none is a dead end.
 export function ResidentNav() {
   return (
     <>
@@ -12,6 +12,9 @@ export function ResidentNav() {
       </Button>
       <Button asChild variant="outline" size="sm">
         <Link to="/bookings" style={{ textDecoration: "none" }}>My bookings</Link>
+      </Button>
+      <Button asChild variant="outline" size="sm">
+        <Link to="/invoices" style={{ textDecoration: "none" }}>Invoices</Link>
       </Button>
     </>
   );

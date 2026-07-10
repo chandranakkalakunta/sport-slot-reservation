@@ -23,8 +23,13 @@ describe("ResidentNav", () => {
     expect(screen.getByRole("link", { name: "My bookings" })).toHaveAttribute("href", "/bookings");
   });
 
-  it("renders both links at once — neither is a dead end", () => {
+  it("renders an Invoices link pointing to /invoices", () => {
     wrap();
-    expect(screen.getAllByRole("link")).toHaveLength(2);
+    expect(screen.getByRole("link", { name: "Invoices" })).toHaveAttribute("href", "/invoices");
+  });
+
+  it("renders all three links at once — none is a dead end", () => {
+    wrap();
+    expect(screen.getAllByRole("link")).toHaveLength(3);
   });
 });
