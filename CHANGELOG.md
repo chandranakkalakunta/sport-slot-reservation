@@ -6,6 +6,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### feat: Phase 15.2 — invoice generation time policy (July 2026)
+
+**What:** Tenant-admins can now configure the TIME of month invoices generate, via a new
+`invoice_generation_time` field on `PoliciesPatch` (`tenant_config.py`), validated with the same
+`_HHMM` regex already used for `booking_window_open_time` (no new/duplicate validator). Default
+is `03:00`. The day-of-month remains fixed at the 1st — not configurable in this sub-phase, by
+explicit Coordinator decision; the previously-documented `billing_cycle_type`
+(postpaid/prepaid/biweekly) + anchor-day flexibility was decided against and stays unbuilt.
+
+`TenantPolicies.tsx` follows the existing 4-field Policies pattern exactly: the new field is wired
+into all three required points — initial `useState("03:00")` default, the `useEffect` pre-fill
+from `usePolicies()`, and the `submit` payload — verified individually so it doesn't repeat the
+partial-wiring/fetch-on-mount bug fixed earlier for the other 4 fields. New form input matches the
+existing `booking_window_open_time` HH:MM text input exactly.
+
+**Scope:** Policy field only. Invoice generation itself (15.3) and day-of-month configurability
+(explicitly rejected for this phase) are out of scope.
+
 ### feat: Phase 15.1 — per-facility pricing configuration (July 2026)
 
 **What:** Facilities gain an optional `price_paise` field (`FacilityCreate`, `FacilityUpdate`,

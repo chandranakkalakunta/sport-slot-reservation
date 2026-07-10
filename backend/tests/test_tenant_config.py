@@ -197,6 +197,44 @@ async def test_policies_bad_time_format_422(make_client):
     assert resp.json()["code"] == "VALIDATION_FAILED"
 
 
+async def test_policies_invoice_generation_time_round_trips(make_client):
+    """PATCH invoice_generation_time then GET returns the saved value (fetch-on-mount regression)."""
+    with patch(VERIFY, return_value=ADMIN):
+        async with make_client() as c:
+            client = _tenant_client()
+            c._transport.app.dependency_overrides[get_firestore_client] = lambda: client
+            resp = await c.patch(
+                "/api/v1/tenant/policies",
+                json={"invoice_generation_time": "04:30"},
+                headers={**AUTH, **HOST},
+            )
+            assert resp.status_code == 200
+            assert resp.json()["policies"]["invoice_generation_time"] == "04:30"
+
+            # Simulate the persisted state a subsequent GET would see.
+            c._transport.app.dependency_overrides[get_firestore_client] = (
+                lambda: _tenant_client(policies={"invoice_generation_time": "04:30"})
+            )
+            resp = await c.get("/api/v1/tenant/policies", headers={**AUTH, **HOST})
+    assert resp.status_code == 200
+    assert resp.json()["policies"]["invoice_generation_time"] == "04:30"
+
+
+async def test_policies_invoice_generation_time_bad_format_422(make_client):
+    with patch(VERIFY, return_value=ADMIN):
+        async with make_client() as c:
+            c._transport.app.dependency_overrides[get_firestore_client] = (
+                lambda: _tenant_client()
+            )
+            resp = await c.patch(
+                "/api/v1/tenant/policies",
+                json={"invoice_generation_time": "9am"},
+                headers={**AUTH, **HOST},
+            )
+    assert resp.status_code == 422
+    assert resp.json()["code"] == "VALIDATION_FAILED"
+
+
 async def test_get_policies_returns_saved_values(make_client):
     """GET /tenant/policies returns what is stored — this was the missing route."""
     stored = {

@@ -63,6 +63,7 @@ class PoliciesPatch(BaseModel):
     booking_window_open_time: str | None = None
     cancellation_buffer_hours: int | None = None
     max_slots_per_user_per_sport_per_day: int | None = None
+    invoice_generation_time: str | None = None
 
 
 @router.get("/tenant/policies")
@@ -92,6 +93,9 @@ async def update_policies(
     if ("booking_window_open_time" in updates
             and not _HHMM.match(updates["booking_window_open_time"])):
         raise ApiError(422, error_codes.VALIDATION_FAILED, "booking_window_open_time must be HH:MM")
+    if ("invoice_generation_time" in updates
+            and not _HHMM.match(updates["invoice_generation_time"])):
+        raise ApiError(422, error_codes.VALIDATION_FAILED, "invoice_generation_time must be HH:MM")
     ref = client.collection("tenants").document(ctx.tenant_id)
     existing = (ref.get().to_dict() or {}).get("policies", {})
     existing.update(updates)

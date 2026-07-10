@@ -1,4 +1,5 @@
 import { render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -104,5 +105,56 @@ describe("TenantPolicies", () => {
     // All fields absent from server → keep defaults
     expect(screen.getByLabelText(/booking horizon/i)).toHaveValue(14);
     expect(screen.getByLabelText(/max slots/i)).toHaveValue(2);
+  });
+
+  // ── New: invoice_generation_time (Phase 15.2) ───────────────────────────────
+
+  it("shows the hardcoded default 03:00 for a tenant that has never set invoice_generation_time", () => {
+    vi.mocked(usePolicies).mockReturnValue({
+      data: { policies: {} },
+      isLoading: false,
+    } as unknown as ReturnType<typeof usePolicies>);
+
+    renderPage();
+
+    expect(screen.getByLabelText(/invoice generation time/i)).toHaveValue("03:00");
+  });
+
+  it("populates invoice_generation_time from fetched value, not the hardcoded default (regression)", async () => {
+    vi.mocked(usePolicies).mockReturnValue({
+      data: {
+        policies: {
+          booking_horizon_days: 2,
+          booking_window_open_time: "08:00",
+          cancellation_buffer_hours: 1,
+          max_slots_per_user_per_sport_per_day: 1,
+          invoice_generation_time: "04:30",
+        },
+      },
+      isLoading: false,
+    } as unknown as ReturnType<typeof usePolicies>);
+
+    renderPage();
+
+    await waitFor(() => {
+      expect(screen.getByLabelText(/invoice generation time/i)).toHaveValue("04:30");
+    });
+  });
+
+  it("fires update mutation with invoice_generation_time in the submit payload", async () => {
+    const mutateAsync = vi.fn().mockResolvedValue({});
+    vi.mocked(useUpdatePolicies).mockImplementation(
+      () => ({ mutateAsync, isPending: false }) as unknown as ReturnType<typeof useUpdatePolicies>,
+    );
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(screen.getByRole("button", { name: /save policies/i }));
+
+    await waitFor(() => {
+      expect(mutateAsync).toHaveBeenCalledWith(
+        expect.objectContaining({ invoice_generation_time: "03:00" }),
+      );
+    });
   });
 });
