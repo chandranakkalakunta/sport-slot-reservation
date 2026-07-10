@@ -6,6 +6,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### feat: Phase 15.3 — invoice generation engine (July 2026)
+
+**What:** The core of Phase 15 — turns priced facility bookings into actual per-household
+invoices. A new Cloud Scheduler job (new dedicated `sa-scheduler-invoker` service account,
+matching this project's one-SA-per-trust-boundary convention) calls a new internal endpoint,
+`POST /internal/invoicing/generate`, guarded by a new `verify_scheduler_oidc` auth dependency
+(`auth/scheduler_auth.py`) that mirrors `verify_tasks_oidc`'s exact OIDC-verification structure
+against the new SA identity. `services/invoicing.py` does the actual computation: for each active
+tenant, it queries confirmed bookings dated in the previous calendar month (postpaid billing),
+groups them by the `household_id` already present on every booking document (no profile join
+needed), sums `price_paise` per household — skipping bookings against unpriced facilities
+entirely (not a Rs.0 line item, simply absent) — and writes one immutable invoice document per
+household via Firestore `create()` on the deterministic ID `{household_id}_{YYYY-MM}`, which
+gives natural idempotent re-run safety (a second run for the same period silently skips
+households that already have an invoice, no error). Tenant- and household-level failures are
+isolated with per-item try/except and loud `structlog` logging — one household's or tenant's
+failure never blocks the rest of the batch — and the job returns a structured summary (tenants
+processed, households invoiced, households skipped, households failed with reasons).
+
+**Four deliberate, known gaps (not oversights):**
+1. **Per-tenant generation time not yet honored.** Phase 15.2's `policies.invoice_generation_time`
+   field exists and is stored, but this sub-phase runs on ONE fixed global Cloud Scheduler
+   schedule (03:00 UTC on the 1st) for every tenant. Wiring per-tenant schedules is deferred to a
+   later sub-phase.
+2. **Invoices are immutable — no correction mechanism yet.** There is no update/PATCH path for an
+   invoice document. Corrections (adjustments/credit entries) are unbuilt, future scope.
+3. **No payment status tracked anywhere.** This system generates the bill amount only; whether or
+   how an invoice gets paid is entirely the concern of an external "next level" system. No
+   paid/unpaid field exists on the invoice document by design.
+4. **New Terraform requires a manual Coordinator apply.** `terraform/cloud_scheduler.tf` (new
+   `sa-scheduler-invoker` SA, its `run.invoker` IAM binding, and the `google_cloud_scheduler_job`
+   resource) and a new Firestore composite index (`infrastructure/firestore.indexes.json`, for the
+   `(status, date)` booking range query) are both prepared (`terraform fmt`/`validate` clean) but
+   **not applied**. This sub-phase is not functional in production until the Coordinator runs
+   `terraform apply` and deploys the Firestore index.
+
 ### feat: Phase 15.2 — invoice generation time policy (July 2026)
 
 **What:** Tenant-admins can now configure the TIME of month invoices generate, via a new

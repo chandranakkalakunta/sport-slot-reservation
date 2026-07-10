@@ -27,6 +27,7 @@ class Settings(BaseSettings):
     tasks_location: str = "asia-south1"
     worker_base_url: str | None = None
     tasks_invoker_sa: str | None = None
+    scheduler_invoker_sa: str | None = None
     reset_token_ttl_seconds: int = 3600
     reset_cooldown_seconds: int = 900
     reset_continue_url: str = "https://slotsense.chandraailabs.com/reset"
