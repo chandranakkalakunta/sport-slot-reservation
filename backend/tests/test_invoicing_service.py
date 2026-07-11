@@ -9,7 +9,13 @@ import datetime
 
 from google.api_core.exceptions import AlreadyExists
 
-from sport_slot.services.invoicing import _previous_month_range, generate_invoices
+from sport_slot.auth.context import TenantContext
+from sport_slot.services.invoicing import (
+    _current_month_range,
+    _previous_month_range,
+    generate_invoices,
+    preview_current_month_charge,
+)
 
 
 class _FakeSnap:
@@ -472,3 +478,72 @@ def test_booking_with_no_uid_at_all_does_not_query_profiles():
     inv = client.invoice_store[("t-1", "h-1_2026-06")]
     assert inv["line_items"][0]["resident_name"] == "Unknown resident"
     assert inv["flat_number"] is None
+
+
+# ── Phase 15.4c: current-month range + live preview ──────────────────────────
+
+def test_current_month_range_mid_month():
+    start, end, label = _current_month_range(datetime.date(2026, 7, 15))
+    assert (start, end, label) == ("2026-07-01", "2026-07-15", "2026-07")
+
+
+def test_current_month_range_first_of_month():
+    start, end, label = _current_month_range(datetime.date(2026, 7, 1))
+    assert (start, end, label) == ("2026-07-01", "2026-07-01", "2026-07")
+
+
+def _preview_ctx() -> TenantContext:
+    return TenantContext(uid="admin-1", tenant_id="t-1", tenant_slug="demo",
+                          role="tenant_admin", household_id=None)
+
+
+def test_preview_reflects_a_newly_added_confirmed_booking():
+    """A booking confirmed THIS month (not yet invoiced — no document exists
+    for it anywhere) must show up in the live preview's total and line items."""
+    today = datetime.date(2026, 7, 15)
+    facilities = {"t-1": [_facility("fac-A", "Court A", 7500)]}
+    bookings = {"t-1": [_booking("b1", "h-1", "fac-A", date="2026-07-10", uid="u-alice")]}
+    profiles = {"t-1": {"u-alice": _profile("Alice", flat_number="A-1")}}
+    client = _FakeClient([TENANT], facilities, bookings, profiles_by_tenant=profiles)
+
+    result = preview_current_month_charge(client, _preview_ctx(), "t-1", "h-1", today=today)
+
+    assert result["preview"] is True
+    assert result["household_id"] == "h-1"
+    assert result["period"] == "2026-07"
+    assert result["flat_number"] == "A-1"
+    assert result["total_paise"] == 7500
+    assert len(result["line_items"]) == 1
+    assert result["line_items"][0]["booking_id"] == "b1"
+    assert result["line_items"][0]["resident_name"] == "Alice"
+
+
+def test_preview_writes_nothing_to_firestore():
+    """The whole point of a preview: it must never create/persist an
+    invoice document. Asserted directly against the fake's write-tracking
+    store, not just inferred from the response shape."""
+    today = datetime.date(2026, 7, 15)
+    facilities = {"t-1": [_facility("fac-A", "Court A", 5000)]}
+    bookings = {"t-1": [_booking("b1", "h-1", "fac-A", date="2026-07-10", uid="u-alice")]}
+    profiles = {"t-1": {"u-alice": _profile("Alice", flat_number="A-1")}}
+    client = _FakeClient([TENANT], facilities, bookings, profiles_by_tenant=profiles)
+
+    preview_current_month_charge(client, _preview_ctx(), "t-1", "h-1", today=today)
+
+    # No invoice document exists anywhere in the fake's backing store —
+    # the only way data lands there is via InvoiceRepository.create_if_absent.
+    assert client.invoice_store == {}
+
+
+def test_preview_for_household_with_no_bookings_yet_returns_zero_total_not_error():
+    today = datetime.date(2026, 7, 15)
+    facilities = {"t-1": [_facility("fac-A", "Court A", 5000)]}
+    bookings = {"t-1": []}
+    client = _FakeClient([TENANT], facilities, bookings, profiles_by_tenant={"t-1": {}})
+
+    result = preview_current_month_charge(client, _preview_ctx(), "t-1", "h-1", today=today)
+
+    assert result["total_paise"] == 0
+    assert result["line_items"] == []
+    assert result["flat_number"] is None
+    assert result["preview"] is True

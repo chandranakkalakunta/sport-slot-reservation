@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { apiFetch } from "../lib/api";
 import type { WeeklySchedule } from "../types/facilitySchedule";
+import type { InvoiceLineItem } from "./invoiceHooks";
 
 export interface CatalogType { type_id: string; name: string; sport: string; }
 export interface TenantFacility {
@@ -199,6 +200,48 @@ export function useTenantLatestInvoices() {
   return useQuery({
     queryKey: ["tenant", "invoices", "latest"],
     queryFn: () => apiFetch<{ items: LatestInvoice[] }>("/invoices/tenant/latest"),
+  });
+}
+
+export interface InvoiceHistoryEntry {
+  invoice_id: string;
+  household_id: string;
+  flat_number: string | null;
+  period: string;
+  total_paise: number;
+  line_items: InvoiceLineItem[];
+}
+
+export function useTenantInvoiceHistory(householdId: string | null) {
+  return useQuery({
+    queryKey: ["tenant", "invoices", "history", householdId],
+    queryFn: () =>
+      apiFetch<{ items: InvoiceHistoryEntry[] }>(
+        `/invoices/tenant/history?household_id=${encodeURIComponent(householdId ?? "")}`,
+      ),
+    enabled: !!householdId,
+  });
+}
+
+export interface InvoicePreview {
+  household_id: string;
+  period: string;
+  period_start: string;
+  period_end: string;
+  flat_number: string | null;
+  line_items: InvoiceLineItem[];
+  total_paise: number;
+  preview: true;
+}
+
+export function useTenantInvoicePreview(householdId: string | null) {
+  return useQuery({
+    queryKey: ["tenant", "invoices", "preview", householdId],
+    queryFn: () =>
+      apiFetch<InvoicePreview>(
+        `/invoices/tenant/preview?household_id=${encodeURIComponent(householdId ?? "")}`,
+      ),
+    enabled: !!householdId,
   });
 }
 

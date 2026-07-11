@@ -6,6 +6,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### feat: Phase 15.4c — per-flat invoice history + current-month preview (July 2026)
+
+**Expands 15.4b's original "latest only, no history" decision.** That scope was a deliberate
+simplification at the time — but real usage surfaced a genuine gap, not a bug: a tenant-admin
+resolving a resident dispute needs more than the single latest invoice. They need (a) recent
+history for that flat, and (b) visibility into the CURRENT, not-yet-invoiced month's bookings,
+since disputes often surface before that month's invoice has even generated. This sub-phase adds
+both, as a named evolution of 15.4b rather than treating "history" as having always been in scope.
+
+**History** reuses `InvoiceRepository.list_for_household` (built in 15.4) completely unchanged —
+a new tenant-admin route, `GET /api/v1/invoices/tenant/history?household_id=...`, just calls it
+with `limit=3` against an arbitrary household (not `ctx.household_id`, unlike the resident-facing
+`/mine`). Minimal new backend work, since the method already did exactly what was needed.
+
+**Current-month preview required a real refactor, not just a new endpoint.** The core per-household
+grouping/pricing/resident-resolution logic that used to live inline in `_generate_for_tenant` is now
+its own function, `_compute_household_charges`, called identically by the real monthly generator
+(which persists the result via `create_if_absent`) and by the new `preview_current_month_charge`
+(which computes the SAME thing for the current, in-progress month and returns it — writing nothing
+to Firestore). One source of truth for "what does this household owe," so the preview and a real
+invoice can never silently drift apart (protocol §5.14). The extraction was verified
+behavior-preserving by running the full pre-existing `test_invoicing_service.py` suite immediately
+after the refactor — all 18 tests passed unmodified before any new test was added.
+
+`TenantInvoices.tsx` (15.4b) is extended rather than replaced: clicking a flat's row reveals both
+its last 3 generated invoices and its live current-month preview inline. The preview is visually
+distinguished with an explicit `Badge` reading "Preview — not yet invoiced," so a tenant-admin can
+never mistake a live, unofficial computation for a real, immutable invoice document.
+
+**Regression tests directly exercise the real risk in this sub-phase**: the preview writes nothing
+to Firestore (asserted against the fake client's backing store, not inferred from the response
+shape), a newly confirmed current-month booking is reflected correctly in the preview's total, and
+a resident (non-admin) caller is rejected with 403 on both new routes.
+
 ### feat: Phase 15.4b — tenant-admin latest invoice per flat (July 2026)
 
 **What:** Tenant-admins can now look up any resident's latest billing status by flat number, to

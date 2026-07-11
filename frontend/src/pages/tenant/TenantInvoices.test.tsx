@@ -1,15 +1,21 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("../../components/AppHeader", () => ({ AppHeader: () => null }));
 
 vi.mock("../../hooks/tenantAdminHooks", () => ({
   useTenantLatestInvoices: vi.fn(),
+  useTenantInvoiceHistory: vi.fn(),
+  useTenantInvoicePreview: vi.fn(),
 }));
 
-import { useTenantLatestInvoices } from "../../hooks/tenantAdminHooks";
+import {
+  useTenantInvoiceHistory,
+  useTenantInvoicePreview,
+  useTenantLatestInvoices,
+} from "../../hooks/tenantAdminHooks";
 import TenantInvoices from "./TenantInvoices";
 
 const INVOICES = [
@@ -92,5 +98,70 @@ describe("TenantInvoices", () => {
     renderPage();
 
     expect(screen.getByRole("link", { name: /Dashboard/ })).toHaveAttribute("href", "/tenant");
+  });
+
+  describe("selecting a flat's row (15.4c)", () => {
+    const HISTORY_ITEM = {
+      invoice_id: "h-1_2026-05", household_id: "h-1", flat_number: "A-1",
+      period: "2026-05", total_paise: 100000, line_items: [],
+    };
+    const PREVIEW = {
+      household_id: "h-1", period: "2026-07", period_start: "2026-07-01",
+      period_end: "2026-07-11", flat_number: "A-1", total_paise: 4200,
+      line_items: [
+        { booking_id: "b1", facility_id: "f1", facility_name: "Tennis Court",
+          date: "2026-07-05", price_paise: 4200, resident_name: "Alice" },
+      ],
+      preview: true as const,
+    };
+
+    beforeEach(() => {
+      vi.mocked(useTenantLatestInvoices).mockReturnValue({
+        data: { items: INVOICES }, isLoading: false,
+      } as unknown as ReturnType<typeof useTenantLatestInvoices>);
+      vi.mocked(useTenantInvoiceHistory).mockReturnValue({
+        data: { items: [HISTORY_ITEM] }, isLoading: false,
+      } as unknown as ReturnType<typeof useTenantInvoiceHistory>);
+      vi.mocked(useTenantInvoicePreview).mockReturnValue({
+        data: PREVIEW, isLoading: false,
+      } as unknown as ReturnType<typeof useTenantInvoicePreview>);
+    });
+
+    it("does not fetch history/preview until a row is selected", () => {
+      renderPage();
+
+      expect(useTenantInvoiceHistory).not.toHaveBeenCalled();
+      expect(useTenantInvoicePreview).not.toHaveBeenCalled();
+    });
+
+    it("reveals history and a clearly-labeled preview when a row is clicked", async () => {
+      const user = userEvent.setup();
+      renderPage();
+
+      expect(screen.queryByText("Preview — not yet invoiced")).not.toBeInTheDocument();
+
+      await user.click(screen.getByRole("button", { name: /A-1/ }));
+
+      // Preview — visually distinguished with its own explicit label.
+      expect(screen.getByText("Preview — not yet invoiced")).toBeInTheDocument();
+      expect(screen.getByText("2026-07 (in progress) · ₹42.00")).toBeInTheDocument();
+      expect(screen.getByText(/Tennis Court · 2026-07-05 · Alice/)).toBeInTheDocument();
+
+      // History — a real, generated invoice, rendered separately from the preview.
+      expect(screen.getByText("Recent invoices")).toBeInTheDocument();
+      expect(screen.getByText("2026-05 · ₹1000.00")).toBeInTheDocument();
+    });
+
+    it("collapses the detail when the same row is clicked again", async () => {
+      const user = userEvent.setup();
+      renderPage();
+
+      const row = screen.getByRole("button", { name: /A-1/ });
+      await user.click(row);
+      expect(screen.getByText("Preview — not yet invoiced")).toBeInTheDocument();
+
+      await user.click(row);
+      expect(screen.queryByText("Preview — not yet invoiced")).not.toBeInTheDocument();
+    });
   });
 });

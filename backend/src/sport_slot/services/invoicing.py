@@ -38,6 +38,17 @@ own request). Per-tenant work then builds a synthetic system TenantContext
 to reuse BookingRepository/InvoiceRepository — those classes only require
 ctx.tenant_id to be set, so this is a legitimate reuse, not a bypass of
 any role check (this endpoint is guarded entirely by verify_scheduler_oidc).
+
+EXTRACTION (Phase 15.4c, protocol §5.14 — one source of truth): the core
+per-household grouping/pricing/resident-resolution logic used to live
+inline in `_generate_for_tenant`. It is now `_compute_household_charges`,
+called identically by `_generate_for_tenant` (which persists the result)
+AND by `preview_current_month_charge` (which computes the SAME thing for
+the current, not-yet-invoiced month and returns it unpersisted, for a
+tenant-admin's live "what would this household's bill be so far" lookup).
+Neither path duplicates the other's computation — they call the same
+function, so a real invoice and its preview can never silently drift
+apart.
 """
 
 import datetime
@@ -62,6 +73,16 @@ def _previous_month_range(today: datetime.date) -> tuple[str, str, str]:
     period_end = last_day_prev_month
     period_label = period_start.strftime("%Y-%m")
     return period_start.isoformat(), period_end.isoformat(), period_label
+
+
+def _current_month_range(today: datetime.date) -> tuple[str, str, str]:
+    """Return (period_start, period_end, period_label) for the CURRENT,
+    still-in-progress calendar month — first of this month through today
+    (Phase 15.4c preview). Unlike `_previous_month_range`, this is never
+    used for real invoice generation, only the live preview."""
+    period_start = today.replace(day=1)
+    period_label = period_start.strftime("%Y-%m")
+    return period_start.isoformat(), today.isoformat(), period_label
 
 
 def _list_active_tenants(client) -> list[dict]:
@@ -130,14 +151,19 @@ def generate_invoices(client, *, today: datetime.date | None = None) -> dict:
     return summary
 
 
-def _generate_for_tenant(
-    client, tenant_id: str, tenant_slug: str | None,
-    period_start: str, period_end: str, period_label: str, summary: dict,
-) -> None:
-    ctx = TenantContext(
-        uid=_SYSTEM_UID, tenant_id=tenant_id, tenant_slug=tenant_slug,
-        role="system", household_id=None,
-    )
+def _compute_household_charges(
+    client, ctx: TenantContext, tenant_id: str, period_start: str, period_end: str,
+) -> dict[str, dict]:
+    """Core per-household charge computation (Phase 15.4c extraction) —
+    the ONE place that groups confirmed bookings by household, resolves
+    prices and resident identity, and builds line items. Shared,
+    identically, by the real monthly generator (`_generate_for_tenant`,
+    which persists the result) and the live current-month preview
+    (`preview_current_month_charge`, which does not) — see module
+    docstring. Returns household_id -> {"line_items", "total_paise",
+    "flat_number"}; does NOT skip zero-total households or persist
+    anything — that stays with each caller.
+    """
     priced = _priced_facilities(client, tenant_id)
     bookings = BookingRepository(ctx, client).list_confirmed_in_range(period_start, period_end)
 
@@ -171,10 +197,58 @@ def _generate_for_tenant(
             "resident_name": resident_name,
         })
 
+    return {
+        household_id: {
+            "line_items": items,
+            "total_paise": sum(item["price_paise"] for item in items),
+            "flat_number": household_flat.get(household_id),
+        }
+        for household_id, items in by_household.items()
+    }
+
+
+def preview_current_month_charge(
+    client, ctx: TenantContext, tenant_id: str, household_id: str,
+    *, today: datetime.date | None = None,
+) -> dict:
+    """LIVE, unpersisted preview (Phase 15.4c) of one household's CURRENT,
+    still-in-progress month — for a tenant-admin resolving a dispute
+    before that month's real invoice has even generated. Calls the exact
+    same `_compute_household_charges` the real generator uses, just with
+    the current month's date range, and writes NOTHING to Firestore.
+    A household with nothing eligible yet this month gets a zero-total,
+    empty-line-items result — never raises, never treated as an error.
+    """
+    today = today or datetime.date.today()
+    period_start, period_end, period_label = _current_month_range(today)
+    charges = _compute_household_charges(client, ctx, tenant_id, period_start, period_end)
+    charge = charges.get(household_id, {"line_items": [], "total_paise": 0, "flat_number": None})
+    return {
+        "household_id": household_id,
+        "period": period_label,
+        "period_start": period_start,
+        "period_end": period_end,
+        "flat_number": charge["flat_number"],
+        "line_items": charge["line_items"],
+        "total_paise": charge["total_paise"],
+        "preview": True,
+    }
+
+
+def _generate_for_tenant(
+    client, tenant_id: str, tenant_slug: str | None,
+    period_start: str, period_end: str, period_label: str, summary: dict,
+) -> None:
+    ctx = TenantContext(
+        uid=_SYSTEM_UID, tenant_id=tenant_id, tenant_slug=tenant_slug,
+        role="system", household_id=None,
+    )
+    charges = _compute_household_charges(client, ctx, tenant_id, period_start, period_end)
+
     invoice_repo = InvoiceRepository(ctx, client)
-    for household_id, line_items in by_household.items():
+    for household_id, charge in charges.items():
         try:
-            total_paise = sum(item["price_paise"] for item in line_items)
+            total_paise = charge["total_paise"]
             if total_paise == 0:
                 summary["households_skipped"] += 1
                 log.info("invoice_generation_household_zero_total_skipped",
@@ -186,11 +260,11 @@ def _generate_for_tenant(
                 "invoice_id": invoice_id,
                 "tenant_id": tenant_id,
                 "household_id": household_id,
-                "flat_number": household_flat.get(household_id),
+                "flat_number": charge["flat_number"],
                 "period": period_label,
                 "period_start": period_start,
                 "period_end": period_end,
-                "line_items": line_items,
+                "line_items": charge["line_items"],
                 "total_paise": total_paise,
                 "generated_at": datetime.datetime.now(datetime.UTC),
             }

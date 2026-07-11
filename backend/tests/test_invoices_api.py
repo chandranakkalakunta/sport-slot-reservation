@@ -1,13 +1,20 @@
 """Tests for Phase 15.4 (family invoice summary UI) — GET /invoices/mine
 and InvoiceRepository.list_for_household — plus Phase 15.4b (tenant-admin
 latest invoice per flat) — GET /invoices/tenant/latest and
-InvoiceRepository.list_latest_per_household.
+InvoiceRepository.list_latest_per_household — plus Phase 15.4c (per-flat
+history + live current-month preview) — GET /invoices/tenant/history and
+GET /invoices/tenant/preview.
 
 Cross-household isolation is a security-adjacent boundary: tested directly
 against real query-filtering logic (a small hand-written fake Firestore
 query object, not a MagicMock that "happens to" return the right thing),
 per the operational directive not to just assume correct filtering. The
-resident-rejected-403 test for the 15.4b route is the same kind of boundary.
+resident-rejected-403 tests for the 15.4b/15.4c tenant-admin routes are the
+same kind of boundary. Preview-specific tests (writes-nothing, reflects a
+new booking) live in test_invoicing_service.py, where the richer fake
+Firestore client (facilities/bookings/users, not just invoices) already
+exists — this file only checks the /tenant/preview route's own wiring
+(pass-through of household_id/tenant_id, and the 403 gate).
 """
 from unittest.mock import MagicMock, patch
 
@@ -259,3 +266,100 @@ async def test_tenant_latest_invoices_empty_tenant_returns_empty_list_not_error(
 
     assert resp.status_code == 200
     assert resp.json()["items"] == []
+
+
+# ── Route-level (15.4c): GET /invoices/tenant/history, tenant-admin only ─────
+
+MANY_PERIODS_H3 = [
+    {"invoice_id": f"h-3_2026-{m:02d}", "household_id": "h-3", "period": f"2026-{m:02d}",
+     "flat_number": "C-3", "total_paise": 1000 * m, "line_items": []}
+    for m in range(1, 6)  # 5 periods: 2026-01 .. 2026-05
+]
+
+
+async def test_tenant_invoice_history_limits_to_3_most_recent(make_client):
+    client_fake = _client_with_invoices(MANY_PERIODS_H3)
+    with patch(VERIFY, return_value=TENANT_ADMIN):
+        async with make_client() as client:
+            client._transport.app.dependency_overrides[get_firestore_client] = lambda: client_fake
+            resp = await client.get(
+                "/api/v1/invoices/tenant/history?household_id=h-3", headers={**AUTH, **HOST},
+            )
+
+    assert resp.status_code == 200
+    ids = [i["invoice_id"] for i in resp.json()["items"]]
+    assert ids == ["h-3_2026-05", "h-3_2026-04", "h-3_2026-03"]  # 3 most recent, newest-first
+
+
+async def test_tenant_invoice_history_arbitrary_household_not_just_admins_own(make_client):
+    """Admin-facing: must accept ANY household_id in the tenant, unlike /mine."""
+    client_fake = _client_with_invoices(INVOICES)
+    with patch(VERIFY, return_value=TENANT_ADMIN):
+        async with make_client() as client:
+            client._transport.app.dependency_overrides[get_firestore_client] = lambda: client_fake
+            resp = await client.get(
+                "/api/v1/invoices/tenant/history?household_id=h-2", headers={**AUTH, **HOST},
+            )
+
+    assert resp.status_code == 200
+    ids = [i["invoice_id"] for i in resp.json()["items"]]
+    assert ids == ["h-2_2026-06"]
+
+
+async def test_tenant_invoice_history_rejects_resident_caller_403(make_client):
+    client_fake = _client_with_invoices(INVOICES)
+    with patch(VERIFY, return_value=RESIDENT_H1):
+        async with make_client() as client:
+            client._transport.app.dependency_overrides[get_firestore_client] = lambda: client_fake
+            resp = await client.get(
+                "/api/v1/invoices/tenant/history?household_id=h-1", headers={**AUTH, **HOST},
+            )
+
+    assert resp.status_code == 403
+
+
+# ── Route-level (15.4c): GET /invoices/tenant/preview, tenant-admin only ────
+# The preview computation itself (writes-nothing, reflects a new booking) is
+# tested in test_invoicing_service.py against the richer fake client. Here we
+# only check this route's own wiring and its 403 gate.
+
+async def test_tenant_invoice_preview_rejects_resident_caller_403(make_client):
+    client_fake = _client_with_invoices(INVOICES)
+    with patch(VERIFY, return_value=RESIDENT_H1):
+        async with make_client() as client:
+            client._transport.app.dependency_overrides[get_firestore_client] = lambda: client_fake
+            resp = await client.get(
+                "/api/v1/invoices/tenant/preview?household_id=h-1", headers={**AUTH, **HOST},
+            )
+
+    assert resp.status_code == 403
+
+
+async def test_tenant_invoice_preview_route_passes_through_to_shared_preview_function(make_client):
+    """Confirms the route wires household_id + the admin's own tenant_id
+    into preview_current_month_charge and returns its result directly
+    (unwrapped, matching the GET /users/me single-resource convention)."""
+    client_fake = _client_with_invoices(INVOICES)
+    fake_preview = {
+        "household_id": "h-1", "period": "2026-07", "period_start": "2026-07-01",
+        "period_end": "2026-07-11", "flat_number": "A-1", "line_items": [],
+        "total_paise": 4200, "preview": True,
+    }
+    with patch(VERIFY, return_value=TENANT_ADMIN), \
+         patch("sport_slot.api.v1.invoices.preview_current_month_charge",
+               return_value=fake_preview) as mock_preview:
+        async with make_client() as client:
+            client._transport.app.dependency_overrides[get_firestore_client] = lambda: client_fake
+            resp = await client.get(
+                "/api/v1/invoices/tenant/preview?household_id=h-1", headers={**AUTH, **HOST},
+            )
+
+    assert resp.status_code == 200
+    assert resp.json() == fake_preview
+    _, kwargs = mock_preview.call_args
+    args = mock_preview.call_args.args
+    # Called as (client, ctx, tenant_id, household_id) — tenant_id must be the
+    # ADMIN's own tenant (from ctx), household_id the requested query param.
+    assert args[2] == "t-1"
+    assert args[3] == "h-1"
+    assert kwargs == {}
