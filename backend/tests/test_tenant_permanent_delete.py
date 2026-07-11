@@ -1,4 +1,13 @@
-"""Phase 13.4 tests: tenant permanent delete (platform-admin only, ADR-0034 §2)."""
+"""Phase 13.4 tests: tenant permanent delete (platform-admin only, ADR-0034 §2).
+
+Phase 15.7 correction: recursive_delete is no longer called once on the whole
+tenant document — it's called once PER dynamically-enumerated subcollection,
+excluding `invoices` (ADR-0034's carve-out), followed by a plain delete of
+the now-childless tenant document itself. The fixture and the two tests that
+asserted the old single-call mechanism are updated accordingly; the OUTCOME
+for non-invoice data (auth cleanup, deletion-log stub, 403/404 gates) is
+unchanged and asserted identically to before.
+"""
 from unittest.mock import MagicMock, patch
 
 import firebase_admin.auth as fb_auth
@@ -23,13 +32,15 @@ WRITE_LOG = "sport_slot.services.tenants.write_deletion_log"
 def _delete_tenant_mock(
     tenant_exists: bool = True,
     user_uids: list[str] | None = None,
-    recursive_delete_count: int = 42,
+    subcollection_counts: dict[str, int] | None = None,
 ):
-    """Mock Firestore client for tenant permanent-delete route.
+    """Mock Firestore client for tenant permanent-delete.
 
-    Separates the tenant doc lookup, the users subcollection stream, and the
-    platform_deletion_log write using side_effect on .collection() so each
-    returns the right mock without conflicts.
+    `subcollection_counts` maps {collection_name: recursive_delete count} and
+    represents the tenant's ACTUAL subcollections as dynamically enumerated
+    via `tenant_ref.collections()` — never a hardcoded list. Defaults to a
+    realistic set that always includes `invoices`, which the production code
+    must never pass to `recursive_delete`.
     """
     client = MagicMock()
 
@@ -40,26 +51,38 @@ def _delete_tenant_mock(
         "display_name": "ACME Corp",
     }
 
-    tenant_ref = MagicMock()
-    tenant_ref.get.return_value = tenant_snap
+    if subcollection_counts is None:
+        subcollection_counts = {"bookings": 30, "users": 2, "facilities": 10, "invoices": 5}
+    # The production code always reads tenant_ref.collection("users").stream()
+    # for uid enumeration — ensure it's always present and iterable, even if
+    # a test's subcollection_counts omits it.
+    subcollection_counts = {"users": 0, **subcollection_counts}
 
-    # Simulate user uid enumeration — each snap's .id is the uid
+    # Each subcollection is its own CollectionReference-shaped mock with a
+    # real `.id` — the production code only ever reads `.id` to decide
+    # whether to skip it, never assumes/hardcodes which names exist.
+    sub_refs = {}
+    for name in subcollection_counts:
+        ref = MagicMock()
+        ref.id = name
+        sub_refs[name] = ref
+
     uids = user_uids if user_uids is not None else ["u-1", "u-2"]
     user_snaps = []
     for uid in uids:
         s = MagicMock()
         s.id = uid
         user_snaps.append(s)
+    if "users" in sub_refs:
+        sub_refs["users"].stream.return_value = user_snaps
 
-    users_col = MagicMock()
-    users_col.stream.return_value = user_snaps
-
-    tenant_doc_mock = MagicMock()
-    tenant_doc_mock.get.return_value = tenant_snap
-    tenant_doc_mock.collection.return_value = users_col
+    tenant_ref = MagicMock()
+    tenant_ref.get.return_value = tenant_snap
+    tenant_ref.collections.return_value = list(sub_refs.values())
+    tenant_ref.collection.side_effect = lambda name: sub_refs.get(name, MagicMock())
 
     tenants_col = MagicMock()
-    tenants_col.document.return_value = tenant_doc_mock
+    tenants_col.document.return_value = tenant_ref
 
     log_col = MagicMock()
 
@@ -71,7 +94,11 @@ def _delete_tenant_mock(
         return MagicMock()
 
     client.collection.side_effect = _collection_side_effect
-    client.recursive_delete.return_value = recursive_delete_count
+
+    def _recursive_delete_side_effect(ref):
+        return subcollection_counts.get(ref.id, 0)
+
+    client.recursive_delete.side_effect = _recursive_delete_side_effect
     return client
 
 
@@ -95,10 +122,15 @@ async def test_delete_tenant_permanently_forbidden_for_tenant_admin(make_client)
 # ── Test (b): successful delete ───────────────────────────────────────────────
 
 async def test_delete_tenant_permanently_full_cascade(make_client):
-    """(b) GREEN: recursive_delete called on correct ref; all Auth users removed;
+    """(b) GREEN: recursive_delete called on each non-invoice subcollection;
+    tenant doc itself deleted directly; all Auth users removed;
     platform_deletion_log stub written with correct counts; no PII in stub.
     """
-    client = _delete_tenant_mock(user_uids=["u-1", "u-2"], recursive_delete_count=99)
+    client = _delete_tenant_mock(
+        user_uids=["u-1", "u-2"],
+        subcollection_counts={"bookings": 50, "users": 2, "facilities": 47, "invoices": 5},
+    )
+    tenant_ref = client.collection("tenants").document("t-abc")
 
     with patch(VERIFY, return_value=ADMIN_CLAIMS), \
          patch(DELETE_FB) as mock_del_fb, \
@@ -114,15 +146,20 @@ async def test_delete_tenant_permanently_full_cascade(make_client):
     body = resp.json()
     assert body["tenant_id"] == "t-abc"
     assert body["status"] == "deleted"
-    assert body["firestore_docs_deleted"] == 99
+    # 50 (bookings) + 2 (users) + 47 (facilities) + 1 (tenant doc itself) — invoices' 5 excluded.
+    assert body["firestore_docs_deleted"] == 100
     assert body["auth_users_deleted"] == 2
     assert body["auth_users_already_absent"] == 0
 
-    # recursive_delete called with the tenant DocumentReference.
-    client.recursive_delete.assert_called_once()
-    ref_arg = client.recursive_delete.call_args[0][0]
-    # The ref is obtained via client.collection("tenants").document("t-abc").
-    assert ref_arg is client.collection("tenants").document("t-abc")
+    # recursive_delete called once per non-invoice subcollection — never on
+    # the whole tenant document, never on invoices.
+    assert client.recursive_delete.call_count == 3
+    called_ids = {call.args[0].id for call in client.recursive_delete.call_args_list}
+    assert called_ids == {"bookings", "users", "facilities"}
+    assert "invoices" not in called_ids
+
+    # The tenant document itself is deleted directly (plain .delete(), not recursive_delete).
+    tenant_ref.delete.assert_called_once()
 
     # Both Auth users deleted.
     assert mock_del_fb.call_count == 2
@@ -136,7 +173,7 @@ async def test_delete_tenant_permanently_full_cascade(make_client):
     assert kw["tenant_slug"] == "acme"
     assert kw["tenant_display_name"] == "ACME Corp"
     assert kw["actor_uid"] == "sa-1"
-    assert kw["firestore_docs_deleted"] == 99
+    assert kw["firestore_docs_deleted"] == 100
     assert kw["auth_users_deleted"] == 2
     assert kw["auth_users_already_absent"] == 0
     # PII fields must NOT be present in the stub.
@@ -153,7 +190,10 @@ async def test_delete_tenant_permanently_tolerates_missing_auth_user(make_client
     RED before Phase 13.4: UserNotFoundError would propagate as 500.
     GREEN: warning logged, auth_users_already_absent=1, stub still written.
     """
-    client = _delete_tenant_mock(user_uids=["u-1", "u-missing"], recursive_delete_count=10)
+    client = _delete_tenant_mock(
+        user_uids=["u-1", "u-missing"],
+        subcollection_counts={"bookings": 5, "users": 2, "invoices": 3},
+    )
 
     def _del_side_effect(uid):
         if uid == "u-missing":
@@ -197,3 +237,89 @@ async def test_delete_tenant_permanently_404_when_not_found(make_client):
     assert resp.status_code == 404
     client.recursive_delete.assert_not_called()
     mock_log.assert_not_called()
+
+
+# ── Phase 15.7: ADR-0034 invoice-exclusion carve-out ─────────────────────────
+
+async def test_delete_tenant_permanently_never_recursive_deletes_invoices(make_client):
+    """The core carve-out guarantee: recursive_delete must NEVER be called
+    with the invoices collection, even though it IS one of the tenant's real,
+    dynamically-enumerated subcollections."""
+    client = _delete_tenant_mock(
+        subcollection_counts={"bookings": 10, "users": 2, "invoices": 999},
+    )
+
+    with patch(VERIFY, return_value=ADMIN_CLAIMS), \
+         patch(DELETE_FB), patch(WRITE_LOG):
+        async with make_client() as c:
+            c._transport.app.dependency_overrides[get_firestore_client] = lambda: client
+            resp = await c.delete(
+                "/api/v1/admin/tenants/t-abc/permanent",
+                headers={**AUTH, **ADMIN_HOST},
+            )
+
+    assert resp.status_code == 200
+    called_ids = {call.args[0].id for call in client.recursive_delete.call_args_list}
+    assert "invoices" not in called_ids
+    # The 999-count invoices collection must never have contributed to the total.
+    assert resp.json()["firestore_docs_deleted"] == 10 + 2 + 1  # bookings + users + tenant doc
+
+
+async def test_delete_tenant_permanently_deletes_bare_tenant_document():
+    """The tenant document itself is genuinely deleted (not a soft-delete) —
+    per Coordinator's locked decision, only invoices survive."""
+    from sport_slot.services.tenants import delete_tenant_permanently
+
+    client = _delete_tenant_mock(subcollection_counts={"bookings": 1, "invoices": 1})
+    tenant_ref = client.collection("tenants").document("t-abc")
+
+    with patch(DELETE_FB), patch(WRITE_LOG):
+        delete_tenant_permanently(client, tenant_id="t-abc", caller_uid="sa-1")
+
+    tenant_ref.delete.assert_called_once()
+
+
+async def test_delete_tenant_permanently_handles_a_hypothetical_future_subcollection():
+    """PROOF this is dynamic enumeration, not a disguised hardcoded list: a
+    subcollection ("waitlists") that exists in NONE of this codebase's known
+    collection names, and appears in no hardcoded list anywhere, is still
+    correctly recursive-deleted. A hardcoded-list implementation (e.g.
+    checking only "bookings"/"users"/"facilities"/"audit") would silently
+    skip this collection entirely and fail this assertion — recursive_delete
+    would never be called for it, and its 77 documents would leak.
+    """
+    from sport_slot.services.tenants import delete_tenant_permanently
+
+    client = _delete_tenant_mock(
+        subcollection_counts={
+            "bookings": 10, "users": 2, "facilities": 5, "audit": 3,
+            "invoices": 8, "waitlists": 77,  # hypothetical, unknown-to-any-list collection
+        },
+    )
+
+    with patch(DELETE_FB), patch(WRITE_LOG):
+        result = delete_tenant_permanently(client, tenant_id="t-abc", caller_uid="sa-1")
+
+    called_ids = {call.args[0].id for call in client.recursive_delete.call_args_list}
+    assert "waitlists" in called_ids  # the hypothetical collection WAS deleted
+    assert "invoices" not in called_ids
+    # 10 + 2 + 5 + 3 + 77 (all non-invoice) + 1 (tenant doc) = 98
+    assert result["firestore_docs_deleted"] == 98
+
+
+async def test_delete_tenant_permanently_enumerates_users_before_deleting_them():
+    """User UIDs are still enumerated BEFORE any deletion happens, same as
+    today — the 'users' subcollection's uids must be captured even though
+    it's later itself recursive-deleted."""
+    from sport_slot.services.tenants import delete_tenant_permanently
+
+    client = _delete_tenant_mock(
+        user_uids=["u-1", "u-2", "u-3"],
+        subcollection_counts={"bookings": 1, "users": 3, "invoices": 1},
+    )
+
+    with patch(DELETE_FB) as mock_del_fb, patch(WRITE_LOG):
+        result = delete_tenant_permanently(client, tenant_id="t-abc", caller_uid="sa-1")
+
+    assert result["auth_users_deleted"] == 3
+    assert mock_del_fb.call_count == 3

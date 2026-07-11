@@ -12,21 +12,32 @@ log = structlog.get_logger()
 
 
 def delete_tenant_permanently(client, *, tenant_id: str, caller_uid: str) -> dict:
-    """Cascade-delete an entire tenant and all its Firebase Auth users.
+    """Cascade-delete a tenant and all its Firebase Auth users — EXCEPT its
+    invoices, which survive per ADR-0034's carve-out (Phase 15.7).
 
-    Deletion order (per ADR-0034 §2):
+    Deletion order (per ADR-0034 §2, updated for the invoice carve-out):
       1. Confirm tenant exists; capture name/slug BEFORE any destructive step.
-      2. Enumerate all user UIDs in `tenants/{id}/users` (read-only — must happen
-         before recursive_delete destroys the subcollection).
-      3. `client.recursive_delete(ref)` wipes the entire Firestore subtree.
-      4. For each enumerated uid: delete Firebase Auth user, tolerating
+      2. Enumerate all user UIDs in `tenants/{id}/users` (read-only — must
+         happen before any subcollection is destroyed).
+      3. Dynamically enumerate the tenant's ACTUAL subcollections via
+         `tenant_ref.collections()` — never a hardcoded list, which would
+         silently miss any subcollection added in a future phase and
+         quietly reintroduce this exact gap. Recursively delete every one
+         EXCEPT `invoices`.
+      4. Delete the now-childless tenant document itself directly (a plain
+         `.delete()`, not `recursive_delete` — nothing should remain beneath
+         it except the deliberately-preserved `invoices` subcollection,
+         which sits alongside it in Firestore's structure, not literally
+         "inside" the document in a way a plain document delete would touch).
+      5. For each enumerated uid: delete Firebase Auth user, tolerating
          UserNotFoundError per the Phase 13.3 pattern.
-      5. Write a stub to the top-level `platform_deletion_log` collection with
+      6. Write a stub to the top-level `platform_deletion_log` collection with
          no PII beyond uid references and the deletion counts.
 
-    No invoice collection exists yet (Phase 15 unbuilt). When Phase 15 ships,
-    this function must be updated to exclude invoice records from the recursive
-    delete per ADR-0034's carve-out — do not delete invoices.
+    Invoices are deliberately left orphaned (no parent tenant document) —
+    Firestore permits querying a subcollection by full path regardless of
+    whether its parent document still exists. Locked Coordinator decision:
+    the tenant document itself is still fully deleted; only invoices survive.
     """
     tenant_ref = client.collection("tenants").document(tenant_id)
     tenant_snap = tenant_ref.get()
@@ -37,14 +48,27 @@ def delete_tenant_permanently(client, *, tenant_id: str, caller_uid: str) -> dic
     tenant_slug = tenant_data.get("slug", "")
     tenant_display_name = tenant_data.get("display_name", tenant_slug)
 
-    # Enumerate user UIDs BEFORE recursive_delete — the subcollection is gone after.
+    # Enumerate user UIDs BEFORE any subcollection is destroyed.
     user_uids = [
         snap.id
         for snap in client.collection("tenants").document(tenant_id)
         .collection("users").stream()
     ]
 
-    firestore_docs_deleted = client.recursive_delete(tenant_ref)
+    # Dynamically enumerate the tenant's ACTUAL subcollections — never a
+    # hardcoded list (e.g. "bookings, users, facilities, audit"), which would
+    # silently miss any subcollection added in a future phase and quietly
+    # reintroduce this exact gap.
+    firestore_docs_deleted = 0
+    for sub_collection in tenant_ref.collections():
+        if sub_collection.id == "invoices":
+            continue  # ADR-0034 carve-out — invoices survive, deliberately orphaned
+        firestore_docs_deleted += client.recursive_delete(sub_collection)
+
+    # Now-childless except for the deliberately-preserved `invoices` sibling
+    # subcollection — a plain document delete, not recursive_delete.
+    tenant_ref.delete()
+    firestore_docs_deleted += 1
 
     auth_deleted = 0
     auth_already_absent = 0

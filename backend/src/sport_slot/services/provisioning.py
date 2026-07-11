@@ -188,9 +188,14 @@ class UserProvisioningService:
         if profile is None:
             raise ProvisioningError(404, error_codes.USER_NOT_FOUND, f"User {target_uid!r} not found")
 
-        # No invoice collection exists yet (Phase 15). When Phase 15 introduces one,
-        # this deletion must be updated to exclude invoice records per ADR-0034's
-        # carve-out — do not delete invoices when that collection exists.
+        # ADR-0034 invoice-exclusion carve-out (Phase 15.7): already satisfied
+        # structurally, no code change needed. Invoices live in their own
+        # `tenants/{id}/invoices` subcollection keyed by household_id — this
+        # function only ever deletes from `bookings` (filtered by uid) and
+        # never queries or touches invoices at all. Contrast with
+        # delete_tenant_permanently (services/tenants.py), which DID need a
+        # real fix since its whole-subtree recursive_delete would otherwise
+        # have destroyed invoices along with everything else.
         bookings_col = (
             self._client.collection("tenants")
             .document(tenant_id)
