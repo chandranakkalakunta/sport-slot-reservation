@@ -118,6 +118,14 @@ order.*
 |-----|-------|--------|---------|
 | [0034](0034-facility-lifecycle-and-dpdp-erasure.md) | Facility Lifecycle, Direct Entity Deletion & DPDP-Compliant Erasure | Accepted | Extends ADR-0017: facility Delete-only lifecycle (no Deactivate/PURGED stage), and a direct, independent Delete action for residents/tenant-admins/tenants, superseding ADR-0017's never-implemented 90-day PURGE script for the on-demand case |
 
+
+## Phase 15 — Billing & Invoicing
+
+| ADR | Title | Status | Summary |
+|-----|-------|--------|---------|
+| [0035](0035-billing-invoicing-architecture.md) | Billing & Invoicing Architecture | Accepted | Optional flat-rate per-facility pricing (integer paise); postpaid monthly billing, fixed day, admin-configurable time only; immutable create-only invoices with deterministic IDs for idempotent re-runs; payment status fully external, never tracked; household-level billing resolved directly from bookings, with flat_number/resident_name denormalized at generation time; keyless GCS export (summary-level only, not the system of record) via self-impersonated signed URLs; two independent manual recovery triggers; tenant-admin visibility evolved from latest-only to history + live current-month preview; read-only agent invoice tools with deterministic pre-Vertex routing (extends ADR-0026) after a live-reproduced Gemini tool-selection reliability bug; implements ADR-0034's invoice-exclusion carve-out via dynamic subcollection enumeration |
+
+
 ## Reading Order
 
 For someone new to the project, read ADRs in numerical order.
