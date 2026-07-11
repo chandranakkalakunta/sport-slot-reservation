@@ -6,6 +6,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### fix: deterministic pre-Vertex routing for invoice queries (July 2026)
+
+**A confirmed, live-reproduced reliability bug — not a wording issue, not a stale deploy, both
+explicitly ruled out this session.** Identical phrasing ("my invoice please") worked correctly in
+one fresh session and failed in another, with the exact same 15.6 system-prompt routing
+instructions in place both times. This is genuine Gemini function-calling non-determinism for
+INITIAL tool selection — a different problem from the cancel flow's existing determinism
+(ADR-0026/ADR-0027), which only prevents hallucinating *which* booking to act on after Gemini has
+already chosen to call `cancel`; it has never made the initial tool-selection decision itself
+deterministic for any tool. A full-tree grep confirmed no retry logic, forced/mandatory
+function-calling mode, or fallback mechanism existed anywhere in `services/agent/` to catch this.
+
+**Fix:** a second pre-Vertex interception block in `run_agent`, same structural shape as the
+existing cancel-disambiguation check it sits beside. A conservative, whole-word keyword match
+(`invoice`, `invoices`, `bill`, `bills`, `owe`, `owed` — none collide with any other tool's
+phrasing space) skips Vertex **entirely, both turns**, and dispatches directly to the exact 15.6
+`get_my_invoices`/`get_my_current_month_charges` functions, sub-classified by "this month"/"so
+far"/"till date"/"current month" phrasing. Deliberately narrow: invoice tools only — generalizing
+this to other tools (`check_availability`, `book`, `cancel`, etc.) is an explicitly separate,
+undecided future discussion.
+
+**Additive only, proven by call-count, not just absence of error:** a non-matching message (e.g.
+"book tennis tomorrow") is asserted to still call Vertex exactly as today. The four literal
+phrasings confirmed failing live this session are each asserted to call Vertex **zero** times. The
+full pre-existing agent test suite (143 tests across `test_agent.py`, `test_agent_booking.py`,
+`test_agent_cancel.py`, `test_agent_preferences.py`) passed with **zero modifications** — the only
+two touched tests (in 15.6's own `test_agent_invoices.py`) needed their input *wording* changed
+because they happened to use phrasings that now correctly match the new deterministic path by
+design, not because anything broke.
+
 ### feat: Phase 15.6 — read-only agent invoice tools (July 2026)
 
 **What:** The agent can now answer invoice questions, per Phase 15's original requirement ("what
