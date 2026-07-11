@@ -19,6 +19,19 @@ resource "google_storage_bucket" "invoice_exports" {
   labels = var.default_labels
 }
 
+# Explicit, bucket-scoped grant — sa-cloud-run had ONLY the signing
+# grant below (serviceAccountTokenCreator), never actual read/write
+# access to objects in this bucket. Confirmed via `gsutil iam get`:
+# only broad project-level legacy roles existed, nothing for
+# sa-cloud-run specifically. Both automatic export (write) and the
+# download/re-export routes (read) need this — objectAdmin covers
+# both without a project-wide grant.
+resource "google_storage_bucket_iam_member" "invoice_exports_cloud_run_access" {
+  bucket = google_storage_bucket.invoice_exports.name
+  role   = "roles/storage.objectAdmin"
+  member = "serviceAccount:${data.google_service_account.cloud_run.email}"
+}
+
 # Self-impersonation for signed URLs (keyless architecture): Cloud Run's
 # default credentials have no private key to sign a GCS URL with
 # directly (blob.generate_signed_url requires one). Mirrors the EXACT
