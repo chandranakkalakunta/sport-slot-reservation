@@ -245,6 +245,58 @@ export function useTenantInvoicePreview(householdId: string | null) {
   });
 }
 
+export interface RegenerateSummary {
+  tenant_id: string;
+  period: string;
+  households_invoiced: number;
+  households_skipped: number;
+  households_failed: { tenant_id: string; household_id: string; reason: string }[];
+}
+
+export function useRegenerateInvoices() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (period?: string) =>
+      apiFetch<RegenerateSummary>(
+        `/invoices/tenant/regenerate${period ? `?period=${encodeURIComponent(period)}` : ""}`,
+        { method: "POST" },
+      ),
+    // Regeneration may create new invoices — refresh the latest-per-flat list
+    // and any open household detail (history/preview share this key prefix).
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["tenant", "invoices"] }),
+  });
+}
+
+export interface ExportResult {
+  csv_path: string;
+  json_path: string;
+  row_count: number;
+}
+
+export function useReExportInvoices() {
+  return useMutation({
+    mutationFn: (period?: string) =>
+      apiFetch<ExportResult>(
+        `/invoices/tenant/export${period ? `?period=${encodeURIComponent(period)}` : ""}`,
+        { method: "POST" },
+      ),
+  });
+}
+
+export interface ExportDownloadUrls {
+  csv_url: string;
+  json_url: string;
+}
+
+export function useInvoiceExportDownloadUrls() {
+  return useMutation({
+    mutationFn: (period?: string) =>
+      apiFetch<ExportDownloadUrls>(
+        `/invoices/tenant/export/download${period ? `?period=${encodeURIComponent(period)}` : ""}`,
+      ),
+  });
+}
+
 export function useBulkCreateUsers() {
   const qc = useQueryClient();
   return useMutation({

@@ -65,3 +65,14 @@ class InvoiceRepository(TenantRepository):
             if current is None or doc.get("period", "") > current.get("period", ""):
                 latest[household_id] = doc
         return sorted(latest.values(), key=lambda d: d.get("flat_number") or "")
+
+    def list_for_tenant_period(self, period: str) -> list[dict]:
+        """ALL of this tenant's invoices for one period — every household,
+        not just one (Phase 15.5 export). Distinct from `list_for_household`
+        (one household, all periods) and `list_latest_per_household` (whole
+        tenant, latest period only). Single equality filter on `period` —
+        Firestore's automatic single-field index covers this, no composite
+        index needed.
+        """
+        query = self._collection.where("period", "==", period)
+        return [snap.to_dict() for snap in query.stream()]

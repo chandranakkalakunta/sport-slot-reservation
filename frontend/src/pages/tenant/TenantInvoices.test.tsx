@@ -9,9 +9,25 @@ vi.mock("../../hooks/tenantAdminHooks", () => ({
   useTenantLatestInvoices: vi.fn(),
   useTenantInvoiceHistory: vi.fn(),
   useTenantInvoicePreview: vi.fn(),
+  useRegenerateInvoices: vi.fn(),
+  useReExportInvoices: vi.fn(),
+  useInvoiceExportDownloadUrls: vi.fn(),
+}));
+
+vi.mock("../../lib/api", () => ({
+  ApiClientError: class extends Error {
+    code: string; status: number;
+    constructor(e: { code: string; message: string; status: number }) {
+      super(e.message); this.code = e.code; this.status = e.status;
+    }
+  },
+  apiFetch: vi.fn(),
 }));
 
 import {
+  useInvoiceExportDownloadUrls,
+  useReExportInvoices,
+  useRegenerateInvoices,
   useTenantInvoiceHistory,
   useTenantInvoicePreview,
   useTenantLatestInvoices,
@@ -26,6 +42,18 @@ const INVOICES = [
 function renderPage() {
   return render(<MemoryRouter><TenantInvoices /></MemoryRouter>);
 }
+
+beforeEach(() => {
+  vi.mocked(useRegenerateInvoices).mockReturnValue({
+    mutateAsync: vi.fn(), isPending: false,
+  } as unknown as ReturnType<typeof useRegenerateInvoices>);
+  vi.mocked(useReExportInvoices).mockReturnValue({
+    mutateAsync: vi.fn(), isPending: false,
+  } as unknown as ReturnType<typeof useReExportInvoices>);
+  vi.mocked(useInvoiceExportDownloadUrls).mockReturnValue({
+    mutateAsync: vi.fn(), isPending: false,
+  } as unknown as ReturnType<typeof useInvoiceExportDownloadUrls>);
+});
 
 describe("TenantInvoices", () => {
   it("lists the latest invoice per flat with ₹ total", () => {
@@ -162,6 +190,115 @@ describe("TenantInvoices", () => {
 
       await user.click(row);
       expect(screen.queryByText("Preview — not yet invoiced")).not.toBeInTheDocument();
+    });
+  });
+
+  describe("admin actions (15.5)", () => {
+    beforeEach(() => {
+      vi.mocked(useTenantLatestInvoices).mockReturnValue({
+        data: { items: INVOICES }, isLoading: false,
+      } as unknown as ReturnType<typeof useTenantLatestInvoices>);
+    });
+
+    it("regenerates and shows the resulting summary", async () => {
+      const mutateAsync = vi.fn().mockResolvedValue({
+        tenant_id: "t-1", period: "2026-06",
+        households_invoiced: 3, households_skipped: 1, households_failed: [],
+      });
+      vi.mocked(useRegenerateInvoices).mockReturnValue({
+        mutateAsync, isPending: false,
+      } as unknown as ReturnType<typeof useRegenerateInvoices>);
+      const user = userEvent.setup();
+      renderPage();
+
+      await user.click(screen.getByRole("button", { name: "Regenerate" }));
+
+      expect(mutateAsync).toHaveBeenCalledWith(undefined);
+      expect(await screen.findByText(/Regenerated 2026-06: 3 invoiced, 1 skipped\./)).toBeInTheDocument();
+    });
+
+    it("passes the entered period to regenerate", async () => {
+      const mutateAsync = vi.fn().mockResolvedValue({
+        tenant_id: "t-1", period: "2026-03",
+        households_invoiced: 1, households_skipped: 0, households_failed: [],
+      });
+      vi.mocked(useRegenerateInvoices).mockReturnValue({
+        mutateAsync, isPending: false,
+      } as unknown as ReturnType<typeof useRegenerateInvoices>);
+      const user = userEvent.setup();
+      renderPage();
+
+      await user.type(screen.getByLabelText(/period for admin actions/i), "2026-03");
+      await user.click(screen.getByRole("button", { name: "Regenerate" }));
+
+      expect(mutateAsync).toHaveBeenCalledWith("2026-03");
+    });
+
+    it("re-exports and shows the row count", async () => {
+      const mutateAsync = vi.fn().mockResolvedValue({
+        csv_path: "t-1/2026-06/invoices.csv", json_path: "t-1/2026-06/invoices.json", row_count: 4,
+      });
+      vi.mocked(useReExportInvoices).mockReturnValue({
+        mutateAsync, isPending: false,
+      } as unknown as ReturnType<typeof useReExportInvoices>);
+      const user = userEvent.setup();
+      renderPage();
+
+      await user.click(screen.getByRole("button", { name: "Re-export" }));
+
+      expect(await screen.findByText("Exported 4 invoice(s).")).toBeInTheDocument();
+    });
+
+    it("opens the signed CSV URL in a new tab on Download CSV", async () => {
+      const mutateAsync = vi.fn().mockResolvedValue({
+        csv_url: "https://signed/csv", json_url: "https://signed/json",
+      });
+      vi.mocked(useInvoiceExportDownloadUrls).mockReturnValue({
+        mutateAsync, isPending: false,
+      } as unknown as ReturnType<typeof useInvoiceExportDownloadUrls>);
+      const openSpy = vi.spyOn(window, "open").mockImplementation(() => null);
+      const user = userEvent.setup();
+      renderPage();
+
+      await user.click(screen.getByRole("button", { name: "Download CSV" }));
+
+      expect(mutateAsync).toHaveBeenCalled();
+      await vi.waitFor(() =>
+        expect(openSpy).toHaveBeenCalledWith("https://signed/csv", "_blank", "noopener,noreferrer"),
+      );
+      openSpy.mockRestore();
+    });
+
+    it("opens the signed JSON URL in a new tab on Download JSON", async () => {
+      const mutateAsync = vi.fn().mockResolvedValue({
+        csv_url: "https://signed/csv", json_url: "https://signed/json",
+      });
+      vi.mocked(useInvoiceExportDownloadUrls).mockReturnValue({
+        mutateAsync, isPending: false,
+      } as unknown as ReturnType<typeof useInvoiceExportDownloadUrls>);
+      const openSpy = vi.spyOn(window, "open").mockImplementation(() => null);
+      const user = userEvent.setup();
+      renderPage();
+
+      await user.click(screen.getByRole("button", { name: "Download JSON" }));
+
+      await vi.waitFor(() =>
+        expect(openSpy).toHaveBeenCalledWith("https://signed/json", "_blank", "noopener,noreferrer"),
+      );
+      openSpy.mockRestore();
+    });
+
+    it("shows an error message when regeneration fails", async () => {
+      const mutateAsync = vi.fn().mockRejectedValue(new Error("boom"));
+      vi.mocked(useRegenerateInvoices).mockReturnValue({
+        mutateAsync, isPending: false,
+      } as unknown as ReturnType<typeof useRegenerateInvoices>);
+      const user = userEvent.setup();
+      renderPage();
+
+      await user.click(screen.getByRole("button", { name: "Regenerate" }));
+
+      expect(await screen.findByText("Regeneration failed.")).toBeInTheDocument();
     });
   });
 });
