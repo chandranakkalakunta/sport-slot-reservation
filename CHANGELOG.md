@@ -6,6 +6,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### feat: Phase 15.7 — ADR-0034 invoice-exclusion carve-out for tenant/user deletion (July 2026)
+
+**The final piece of Phase 15** — wiring in an obligation flagged since Phase 13.3/13.4, before the
+`invoices` collection even existed. Both affected functions carried explicit "when Phase 15 ships,
+update this" comments written back when the carve-out was still hypothetical.
+
+**`delete_user_permanently` (services/provisioning.py) needed no code change.** Confirmed via
+investigation: it only ever queries `bookings` filtered by `uid` and never touches `invoices` at
+all — structurally can't, since invoices live in a completely separate tenant subcollection keyed
+by `household_id`, never referenced by this function. The stale comment is replaced with an
+accurate one explaining why.
+
+**`delete_tenant_permanently` (services/tenants.py) was the real risk.** A single
+`client.recursive_delete(tenant_ref)` wipes the entire Firestore subtree indiscriminately —
+invoices included, with no way to exclude a path from one call on the parent document. Fixed by
+dynamically enumerating the tenant's ACTUAL subcollections at runtime via
+`tenant_ref.collections()` — deliberately **not** a hardcoded list (e.g.
+"bookings, users, facilities, audit"), which would silently miss any subcollection added in a
+future phase and quietly reintroduce this exact gap. `recursive_delete` is now called individually
+on every enumerated subcollection except `invoices`, followed by a plain `.delete()` on the
+now-childless tenant document itself (not `recursive_delete` — nothing remains beneath it except
+the deliberately-preserved `invoices` subcollection, a Firestore sibling, not something "inside"
+the document a plain delete would touch).
+
+**Per locked Coordinator decision, the tenant document itself is still fully deleted** —
+orphaned invoices (no parent tenant doc) are explicitly acceptable; Firestore permits querying a
+subcollection by full path regardless of whether its parent document still exists. This is not a
+soft delete.
+
+**The regression test that actually proves dynamic-over-hardcoded enumeration**: a fixture
+seeds a hypothetical `waitlists` subcollection that appears in no hardcoded list anywhere in this
+codebase, and asserts it IS still recursive-deleted (with its document count correctly included in
+the total). A hardcoded-list implementation would silently skip it entirely and fail this specific
+assertion. A separate test confirms `invoices` is never passed to `recursive_delete` even when
+present as a real, enumerated subcollection with a non-zero document count.
+
 ### fix: deterministic pre-Vertex routing for invoice queries (July 2026)
 
 **A confirmed, live-reproduced reliability bug — not a wording issue, not a stale deploy, both
