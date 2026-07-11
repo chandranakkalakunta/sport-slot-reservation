@@ -6,6 +6,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### feat: Voice I/O sub-phase 1a — ADR-0036 D2 deterministic confirm/deny guard (July 2026)
+
+**Standalone module, no endpoint wiring yet.** ADR-0036 established that the
+spoken confirmation turn cannot be a translate/LLM turn — a mistranslated
+"no" would breach the propose-confirm-execute gate (ADR-0023) — so it must
+be interpreted deterministically, extending ADR-0026 (deterministic Python
+guards over LLM judgment) to a new case: confirmation interpretation.
+
+Adds `services/voice/confirm_guard.py` (`classify_confirmation`, pure
+function, fail-closed to `AMBIGUOUS`) and `services/voice/confirm_lexicon_data.py`
+(per-language affirm/deny token lists for the nine ADR-0036 D3 languages:
+en, hi, te, ta, kn, ml, mr, gu, bn — native script and romanized forms).
+
+Matching is whole-word/whole-phrase, never naive substring. Notably, Python's
+regex `\b` word boundary is unusable here: `\w` excludes Unicode combining
+marks, which several of these scripts use for vowel signs and anusvara
+(e.g. Devanagari `नहीं`), so a `\b`-based match silently breaks mid-word.
+Matching instead tokenizes on whitespace with per-token punctuation
+stripping. A two-sided test proves the guard does real safety work: a naive
+`"yes" in transcript` baseline false-affirms on inputs like `"yes, nevermind"`
+while the guard correctly returns `AMBIGUOUS`.
+
+100% coverage on both new files. The non-English lexicon lists are seed
+content only — flagged COORDINATOR-REVIEW-REQUIRED (native-speaker pass)
+before sub-phase 1b, which wires this guard into the `/agent/voice`
+endpoint (D7).
+
 ### feat: Phase 15.7 — ADR-0034 invoice-exclusion carve-out for tenant/user deletion (July 2026)
 
 **The final piece of Phase 15** — wiring in an obligation flagged since Phase 13.3/13.4, before the
