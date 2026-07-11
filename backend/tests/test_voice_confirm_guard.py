@@ -8,6 +8,7 @@ from __future__ import annotations
 import pytest
 
 from sport_slot.services.voice.confirm_guard import ConfirmDecision, classify_confirmation
+from sport_slot.services.voice.confirm_lexicon_data import CONFIRM_LEXICON
 
 # ---------------------------------------------------------------------------
 # Per-language: a clear affirmative and a clear negative, native script AND
@@ -171,3 +172,41 @@ def test_naive_baseline_diverges_from_guard_on_adversarial_input(transcript):
     # ...while the deterministic guard correctly refuses to affirm.
     assert guard_result in (ConfirmDecision.AMBIGUOUS, ConfirmDecision.DENY)
     assert guard_result != ConfirmDecision.AFFIRM
+
+
+# ---------------------------------------------------------------------------
+# Pure-punctuation input must degrade safely to AMBIGUOUS. With the current
+# `_STRIP_CHARS` set, these particular inputs are caught by `_normalize`
+# returning an empty string (not by `_tokenize` returning `[]` after a
+# non-empty check) — but the externally observable guarantee this test locks
+# in is unchanged either way: punctuation-only speech never resolves to a
+# decision.
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("transcript", "language"),
+    [
+        ("!!!", "en"),
+        ("...", "en"),
+        ("।।।", "hi"),
+        ("!!!", "te"),
+    ],
+)
+def test_pure_punctuation_input_is_ambiguous(transcript, language):
+    assert classify_confirmation(transcript, language) == ConfirmDecision.AMBIGUOUS
+
+
+# ---------------------------------------------------------------------------
+# Lexicon disjointness: no language's affirm and deny lists may share a
+# token. A shared token would make that word alone always resolve to
+# AMBIGUOUS regardless of context, silently defeating the guard for that
+# token in that language.
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("language", sorted(CONFIRM_LEXICON))
+def test_lexicon_affirm_and_deny_are_disjoint(language):
+    lexicon = CONFIRM_LEXICON[language]
+    overlap = set(lexicon["affirm"]) & set(lexicon["deny"])
+    assert not overlap, f"language {language!r} has overlapping affirm/deny token(s): {overlap}"
