@@ -6,6 +6,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### feat: Phase 15.6 — read-only agent invoice tools (July 2026)
+
+**What:** The agent can now answer invoice questions, per Phase 15's original requirement ("what
+is my latest invoice (of the month till date), previous month invoice, etc."). Two new tools,
+mirroring how `list_my_bookings` and `get_my_preferences` are kept as distinct, narrowly-scoped
+tools rather than one do-everything tool:
+
+- `get_my_invoices` — recent, already-GENERATED invoices (optional `count`, default 3), most-recent-
+  first. Dispatches directly to `InvoiceRepository.list_for_household` (15.4) — zero new
+  computation logic.
+- `get_my_current_month_charges` — a LIVE, unofficial "so far this month" total, directly matching
+  the original requirement's "of the month till date" wording. Dispatches directly to
+  `preview_current_month_charge` (15.4c). The response text always frames itself explicitly as a
+  live preview ("LIVE PREVIEW, not a final invoice"), never letting the model imply it's an
+  official bill.
+
+**Both are read-only, dispatched directly** — same pattern as `check_availability`/
+`list_my_bookings`, no propose-confirm-execute step, since neither mutates anything. Both are
+strictly scoped to `ctx.household_id` (never a household_id/tenant_id argument from the LLM's tool
+call). Money is always shown to the user in ₹ rupees, never raw paise.
+
+**System prompt updated** with routing rules for both tools (mirroring the existing "if user asks
+about X, call Y" style exactly), plus a necessary carve-out: the pre-existing rule "Do not discuss
+pricing, refunds, policies, or unrelated topics" would otherwise have directly blocked the agent
+from ever using these new tools — it now explicitly permits discussing the user's own invoice
+totals, but only via the two tools, never an invented or estimated amount.
+
+**Tests directly exercise household isolation two-sided** for both tools: `get_my_invoices` against
+a real fake-Firestore fixture seeded with two households' invoices (asserts the other household's
+period/total never appears in the response text); `get_my_current_month_charges` asserts the
+dispatch wiring passes `ctx.household_id` specifically for each distinct caller (its own
+`preview_current_month_charge` household-filtering is already exhaustively tested in 15.4c).
+
 ### feat: Phase 15.5 — invoice CSV/JSON export + manual generation/export triggers (July 2026)
 
 **Closes the "15.3b" gap.** Phase 15.3 planning flagged, but never built, a manual invoice

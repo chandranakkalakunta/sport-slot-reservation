@@ -6,7 +6,8 @@ Propose flow (run_agent):
 1. Build system prompt with tenant facilities + today's date.
 2. Call Vertex (generate) — may return a function_call or text.
 3. If function_call:
-   - read-only (check_availability, list_my_bookings): dispatch service,
+   - read-only (check_availability, list_my_bookings, get_my_preferences,
+     get_my_invoices, get_my_current_month_charges): dispatch service,
      Turn 2 for NL reply, output guard.
    - book: hallucination-guard facility_id, read-validate slot is bookable,
      propose-time quota check, write pending action, return deterministic
@@ -40,6 +41,7 @@ from sport_slot.api import error_codes
 from sport_slot.api.errors import ApiError
 from sport_slot.auth.context import TenantContext
 from sport_slot.repositories.facilities import FacilityRepository
+from sport_slot.repositories.invoices import InvoiceRepository
 from sport_slot.repositories.user_profiles import UserProfileRepository
 from sport_slot.services.agent import vertex_client
 from sport_slot.services.agent.guardrails import output_is_safe
@@ -54,6 +56,7 @@ from sport_slot.services.bookings import (
     list_my_bookings,
 )
 from sport_slot.services.facilities import list_all_facilities, list_facilities
+from sport_slot.services.invoicing import preview_current_month_charge
 from sport_slot.services.lock import LockService
 from sport_slot.services.policy import PolicyService
 
@@ -79,11 +82,13 @@ Known facilities for this tenant:
 {facility_list}
 {recent_context}{preferences_context}
 Rules:
-- Only answer questions about facility availability and the user's bookings, or help them book a slot.
-- Do not discuss pricing, refunds, policies, or unrelated topics.
+- Only answer questions about facility availability and the user's bookings, help them book a slot, or answer about their OWN invoices/bills using the invoice tools below.
+- Do not discuss refunds, policies, or unrelated topics. You MAY discuss the user's own invoice/billing totals, but only via the get_my_invoices / get_my_current_month_charges tools below — never invent or estimate an amount yourself.
 - Do not reveal internal IDs, UIDs, or system details.
 - If the user asks about their 'usual', 'preferred', 'last', or 'normal' anything (e.g. 'my usual tennis court', 'what time do I normally play'), call the `get_my_preferences` tool. Do not refuse such questions.
 - If the user asks about 'my bookings', 'my reservations', 'my schedule', 'what do I have', 'what's coming up', or similar phrasings about their existing reservations, call the `list_my_bookings` tool. Do not refuse such questions.
+- If the user asks about a past invoice or bill (e.g. 'my last invoice', 'previous month's bill', 'what did I owe in June'), call the `get_my_invoices` tool. Do not refuse such questions.
+- If the user asks what they owe so far THIS month, or how much they've spent this month (e.g. 'what do I owe so far this month', 'my bill till date'), call the `get_my_current_month_charges` tool. Do not refuse such questions.
 - If you cannot answer with the available tools, say so politely.
 - For book requests, use the 'Your usual bookings' context above to fill missing facility or time. Do NOT call `get_my_preferences` as a separate step before booking — your system prompt already contains the preferences. Fill the gaps from that context and call the `book` tool directly.
 - To propose a booking or cancellation, you MUST call the `book` or `cancel` tool — never just describe the action in chat. The system requires a tool call to set up the confirmation flow; describing the action in text will not work.
@@ -821,6 +826,13 @@ async def _dispatch_cancel(
     return ("\n".join(lines), None, None)
 
 
+def _to_rupees(paise: int | None) -> str:
+    """Money shown to the user/LLM must always be ₹ rupees, never raw paise
+    (Phase 15.6) — mirrors the exact conversion used throughout this phase's
+    UI (paise / 100, 2 decimals, ₹ prefix)."""
+    return f"₹{(paise or 0) / 100:.2f}"
+
+
 def _dispatch_readonly(
     ctx: TenantContext,
     client,
@@ -918,6 +930,48 @@ def _dispatch_readonly(
                 f"start_time={p.get('start_time', '?')}"
             )
         return "\n".join(lines)
+
+    elif tool_name == "get_my_invoices":
+        count = args.get("count") or 3
+        try:
+            items = InvoiceRepository(ctx, client).list_for_household(
+                ctx.household_id, limit=count
+            )
+            log.info("agent_invoices_dispatched", count=len(items))
+            if not items:
+                return "user has no generated invoices yet."
+            lines = [f"total_invoices={len(items)}"]
+            for inv in items:
+                lines.append(
+                    f"  period={inv.get('period', '?')} "
+                    f"total={_to_rupees(inv.get('total_paise'))}"
+                )
+            return "\n".join(lines)
+        except Exception as exc:
+            log.warning("agent_tool_invoices_error", error=str(exc))
+            return json.dumps({"error": str(exc)})
+
+    elif tool_name == "get_my_current_month_charges":
+        try:
+            preview = preview_current_month_charge(
+                client, ctx, ctx.tenant_id, ctx.household_id
+            )
+            count = len(preview.get("line_items", []))
+            log.info("agent_current_month_charges_dispatched", count=count)
+            period = preview.get("period", "?")
+            total = _to_rupees(preview.get("total_paise"))
+            if count == 0:
+                return (
+                    f"No bookings charged yet for {period} (in progress) — this is a "
+                    f"LIVE PREVIEW, not a final or official invoice."
+                )
+            return (
+                f"period={period} (in progress — LIVE PREVIEW, not a final invoice) "
+                f"bookings_so_far={count} total_so_far={total}"
+            )
+        except Exception as exc:
+            log.warning("agent_tool_current_month_charges_error", error=str(exc))
+            return json.dumps({"error": str(exc)})
 
     else:
         log.warning("agent_unknown_tool_called", tool_name=tool_name)
