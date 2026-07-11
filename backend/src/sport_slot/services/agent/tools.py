@@ -1,7 +1,8 @@
 """Agent tool schemas — plain dicts only, zero google imports.
 
 Registered tools: check_availability, list_my_bookings, book, cancel,
-                  get_my_preferences.
+                  get_my_preferences, get_my_invoices,
+                  get_my_current_month_charges.
 """
 
 from __future__ import annotations
@@ -112,6 +113,45 @@ GET_MY_PREFERENCES: dict = {
     },
 }
 
+GET_MY_INVOICES: dict = {
+    "name": "get_my_invoices",
+    "description": (
+        "List the current user's recent GENERATED invoices (past, already-billed "
+        "months), most recent first. Use this when the user asks about a past "
+        "invoice or bill (e.g. 'my last invoice', 'previous month's bill', 'what "
+        "did I owe in June'). For the CURRENT, still-in-progress month's charges "
+        "so far, use get_my_current_month_charges instead."
+    ),
+    "parameters": {
+        "type": "object",
+        "properties": {
+            "count": {
+                "type": "integer",
+                "description": "Maximum number of past invoices to return (default 3).",
+            },
+        },
+        "required": [],
+    },
+}
+
+GET_MY_CURRENT_MONTH_CHARGES: dict = {
+    "name": "get_my_current_month_charges",
+    "description": (
+        "Get a LIVE preview of what the user owes so far for the CURRENT, "
+        "still-in-progress calendar month — this is NOT a final or official "
+        "invoice, since that month hasn't been billed yet. Use this when the user "
+        "asks things like 'what do I owe so far this month', 'how much have I "
+        "spent this month', or 'my bill for the month till date'. For a past, "
+        "already-generated invoice, use get_my_invoices instead."
+    ),
+    "parameters": {
+        "type": "object",
+        "properties": {},
+        "required": [],
+    },
+}
+
 REGISTERED_TOOLS: list[dict] = [
-    CHECK_AVAILABILITY, LIST_MY_BOOKINGS, BOOK, CANCEL, GET_MY_PREFERENCES
+    CHECK_AVAILABILITY, LIST_MY_BOOKINGS, BOOK, CANCEL, GET_MY_PREFERENCES,
+    GET_MY_INVOICES, GET_MY_CURRENT_MONTH_CHARGES,
 ]

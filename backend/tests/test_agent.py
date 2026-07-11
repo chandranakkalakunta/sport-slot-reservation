@@ -101,7 +101,9 @@ def test_registered_tools_include_book():
     assert "book" in names
     assert "cancel" in names
     assert "get_my_preferences" in names
-    assert len(names) == 5
+    assert "get_my_invoices" in names
+    assert "get_my_current_month_charges" in names
+    assert len(names) == 7
 
 
 # ── guardrails: rules_pass ────────────────────────────────────────────────────
