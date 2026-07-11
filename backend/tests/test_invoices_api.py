@@ -174,6 +174,30 @@ async def test_invoices_mine_no_household_id_returns_empty(make_client):
     client_fake.collection.assert_not_called()
 
 
+# ── Repository-level (15.5): list_for_tenant_period ───────────────────────────
+
+def test_list_for_tenant_period_returns_all_households_for_that_period_only():
+    ctx = TenantContext(uid="admin-1", tenant_id="t-1", tenant_slug="demo",
+                         role="tenant_admin", household_id=None)
+    client = _client_with_invoices(INVOICES)
+    repo = InvoiceRepository(ctx, client)
+
+    result = repo.list_for_tenant_period("2026-06")
+
+    ids = {d["invoice_id"] for d in result}
+    assert ids == {"h-1_2026-06", "h-2_2026-06"}  # both households, this period only
+    assert "h-1_2026-05" not in ids  # different period, excluded
+
+
+def test_list_for_tenant_period_no_matches_returns_empty_list():
+    ctx = TenantContext(uid="admin-1", tenant_id="t-1", tenant_slug="demo",
+                         role="tenant_admin", household_id=None)
+    client = _client_with_invoices(INVOICES)
+    repo = InvoiceRepository(ctx, client)
+
+    assert repo.list_for_tenant_period("2099-01") == []
+
+
 # ── Repository-level (15.4b): list_latest_per_household ──────────────────────
 
 def test_list_latest_per_household_picks_max_period_not_the_older_one():
@@ -363,3 +387,129 @@ async def test_tenant_invoice_preview_route_passes_through_to_shared_preview_fun
     assert args[2] == "t-1"
     assert args[3] == "h-1"
     assert kwargs == {}
+
+
+# ── Route-level (15.5): manual regenerate/export/download, tenant-admin only,
+# strictly scoped to the caller's own ctx.tenant_id (no tenant_id parameter
+# exists on any of these routes — an attempt to inject one is asserted to be
+# ignored, not merely "assumed" safe). ─────────────────────────────────────
+
+TENANT_ADMIN_T2 = {"uid": "admin-2", "role": "tenant_admin", "tenant_id": "t-2", "tenant_slug": "other"}
+
+
+async def test_tenant_regenerate_scoped_to_callers_own_tenant(make_client):
+    with patch(VERIFY, return_value=TENANT_ADMIN), \
+         patch("sport_slot.api.v1.invoices.regenerate_for_tenant",
+               return_value={"tenant_id": "t-1", "period": "2026-06"}) as mock_regen:
+        async with make_client() as client:
+            client._transport.app.dependency_overrides[get_firestore_client] = lambda: MagicMock()
+            # Attempted tenant_id injection via query param — the route has
+            # no such parameter, so this must be silently ignored.
+            resp = await client.post(
+                "/api/v1/invoices/tenant/regenerate?tenant_id=t-999",
+                headers={**AUTH, **HOST},
+            )
+
+    assert resp.status_code == 200
+    args, _ = mock_regen.call_args
+    passed_ctx = args[1]
+    assert passed_ctx.tenant_id == "t-1"  # never t-999, never any other tenant
+
+
+async def test_tenant_regenerate_different_admin_sees_own_tenant_only(make_client):
+    # Unrecognized host (not a *.slotsense subdomain) — falls back to
+    # trusting the JWT tenant_slug claim (ADR-0012 §2), avoiding a
+    # host/claim TENANT_MISMATCH 403 unrelated to what this test checks.
+    other_host = {"host": "localhost"}
+    with patch(VERIFY, return_value=TENANT_ADMIN_T2), \
+         patch("sport_slot.api.v1.invoices.regenerate_for_tenant",
+               return_value={"tenant_id": "t-2", "period": "2026-06"}) as mock_regen:
+        async with make_client() as client:
+            client._transport.app.dependency_overrides[get_firestore_client] = lambda: MagicMock()
+            resp = await client.post("/api/v1/invoices/tenant/regenerate", headers={**AUTH, **other_host})
+
+    assert resp.status_code == 200
+    args, _ = mock_regen.call_args
+    assert args[1].tenant_id == "t-2"
+
+
+async def test_tenant_regenerate_rejects_resident_caller_403(make_client):
+    with patch(VERIFY, return_value=RESIDENT_H1):
+        async with make_client() as client:
+            client._transport.app.dependency_overrides[get_firestore_client] = lambda: MagicMock()
+            resp = await client.post("/api/v1/invoices/tenant/regenerate", headers={**AUTH, **HOST})
+
+    assert resp.status_code == 403
+
+
+async def test_tenant_export_scoped_to_callers_own_tenant(make_client):
+    with patch(VERIFY, return_value=TENANT_ADMIN), \
+         patch("sport_slot.api.v1.invoices.export_invoices_for_period",
+               return_value={"csv_path": "x", "json_path": "y", "row_count": 0}) as mock_export:
+        async with make_client() as client:
+            client._transport.app.dependency_overrides[get_firestore_client] = lambda: MagicMock()
+            resp = await client.post(
+                "/api/v1/invoices/tenant/export?period=2026-06&tenant_id=t-999",
+                headers={**AUTH, **HOST},
+            )
+
+    assert resp.status_code == 200
+    args, _ = mock_export.call_args
+    # Called as (client, tenant_id, period) — tenant_id must be ctx's own.
+    assert args[1] == "t-1"
+    assert args[2] == "2026-06"
+
+
+async def test_tenant_export_rejects_resident_caller_403(make_client):
+    with patch(VERIFY, return_value=RESIDENT_H1):
+        async with make_client() as client:
+            client._transport.app.dependency_overrides[get_firestore_client] = lambda: MagicMock()
+            resp = await client.post("/api/v1/invoices/tenant/export", headers={**AUTH, **HOST})
+
+    assert resp.status_code == 403
+
+
+async def test_tenant_export_download_scoped_to_callers_own_tenant(make_client):
+    fake_urls = {"csv_url": "https://signed/csv", "json_url": "https://signed/json"}
+    with patch(VERIFY, return_value=TENANT_ADMIN), \
+         patch("sport_slot.api.v1.invoices.signed_export_urls",
+               return_value=fake_urls) as mock_signed:
+        async with make_client() as client:
+            client._transport.app.dependency_overrides[get_firestore_client] = lambda: MagicMock()
+            resp = await client.get(
+                "/api/v1/invoices/tenant/export/download?period=2026-06&tenant_id=t-999",
+                headers={**AUTH, **HOST},
+            )
+
+    assert resp.status_code == 200
+    assert resp.json() == fake_urls
+    args, _ = mock_signed.call_args
+    # Called as (tenant_id, period) — tenant_id must be ctx's own, never t-999.
+    assert args[0] == "t-1"
+    assert args[1] == "2026-06"
+
+
+async def test_tenant_export_download_rejects_resident_caller_403(make_client):
+    with patch(VERIFY, return_value=RESIDENT_H1):
+        async with make_client() as client:
+            client._transport.app.dependency_overrides[get_firestore_client] = lambda: MagicMock()
+            resp = await client.get("/api/v1/invoices/tenant/export/download", headers={**AUTH, **HOST})
+
+    assert resp.status_code == 403
+
+
+async def test_tenant_regenerate_and_export_default_period_is_previous_month(make_client):
+    """When no period query param is given, both routes must default to
+    the previous calendar month (same as the scheduled job) — asserted
+    against what was actually passed to the underlying functions."""
+    with patch(VERIFY, return_value=TENANT_ADMIN), \
+         patch("sport_slot.api.v1.invoices.export_invoices_for_period",
+               return_value={"csv_path": "x", "json_path": "y", "row_count": 0}) as mock_export:
+        async with make_client() as client:
+            client._transport.app.dependency_overrides[get_firestore_client] = lambda: MagicMock()
+            resp = await client.post("/api/v1/invoices/tenant/export", headers={**AUTH, **HOST})
+
+    assert resp.status_code == 200
+    args, _ = mock_export.call_args
+    assert args[2] != ""  # a real "YYYY-MM" label was resolved, not left blank
+    assert len(args[2]) == 7 and args[2][4] == "-"

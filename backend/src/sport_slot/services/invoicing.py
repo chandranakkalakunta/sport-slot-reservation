@@ -49,6 +49,20 @@ tenant-admin's live "what would this household's bill be so far" lookup).
 Neither path duplicates the other's computation — they call the same
 function, so a real invoice and its preview can never silently drift
 apart.
+
+EXPORT (Phase 15.5): `_generate_for_tenant` now also uploads a CSV/JSON
+summary export (services/invoice_export.py) after a tenant's households
+finish processing — success or per-household failure, since a partial
+batch is still worth exporting as-is. Export failure is logged loudly but
+never raised, so it can never turn a successful generation run into a
+reported failure (same non-blocking philosophy as the notification
+enqueue in services/bookings.py). `regenerate_for_tenant` is a thin,
+tenant-scoped wrapper around `_generate_for_tenant` for a tenant-admin's
+manual re-trigger (closes the "15.3b" gap: previously, a failed scheduled
+run had no recovery path at all) — it defaults to the previous calendar
+month, same as the scheduled job, and — because it calls the same
+`_generate_for_tenant` — also auto-exports on completion, exactly like
+the scheduled path.
 """
 
 import datetime
@@ -59,6 +73,7 @@ from sport_slot.auth.context import TenantContext
 from sport_slot.repositories.bookings import BookingRepository
 from sport_slot.repositories.invoices import InvoiceRepository
 from sport_slot.repositories.user_profiles import UserProfileRepository
+from sport_slot.services.invoice_export import export_invoices_for_period
 
 log = structlog.get_logger()
 
@@ -83,6 +98,18 @@ def _current_month_range(today: datetime.date) -> tuple[str, str, str]:
     period_start = today.replace(day=1)
     period_label = period_start.strftime("%Y-%m")
     return period_start.isoformat(), today.isoformat(), period_label
+
+
+def _month_range_for_period(period_label: str) -> tuple[str, str]:
+    """Return (period_start, period_end) for an explicit "YYYY-MM" label
+    (Phase 15.5 manual regeneration with an explicit period). Stdlib-only,
+    matching `_previous_month_range`'s own approach — no date library
+    dependency for a single month-end calculation."""
+    year, month = (int(p) for p in period_label.split("-"))
+    start = datetime.date(year, month, 1)
+    next_month_first = datetime.date(year + 1, 1, 1) if month == 12 else datetime.date(year, month + 1, 1)
+    end = next_month_first - datetime.timedelta(days=1)
+    return start.isoformat(), end.isoformat()
 
 
 def _list_active_tenants(client) -> list[dict]:
@@ -282,3 +309,40 @@ def _generate_for_tenant(
             log.error("invoice_generation_household_failed",
                       tenant_id=tenant_id, household_id=household_id,
                       period=period_label, error=str(exc))
+
+    try:
+        export_invoices_for_period(client, tenant_id, period_label)
+    except Exception as exc:  # noqa: BLE001 - export failure must never turn a successful generation into a failure
+        log.error("invoice_export_failed", tenant_id=tenant_id, period=period_label, error=str(exc))
+
+
+def regenerate_for_tenant(
+    client, ctx: TenantContext, *, period_label: str | None = None,
+    today: datetime.date | None = None,
+) -> dict:
+    """Tenant-admin manual re-trigger (Phase 15.5 — closes the "15.3b" gap:
+    previously, a failed scheduled generation run had NO recovery path at
+    all). Scoped STRICTLY to ctx.tenant_id — this function has no
+    parameter for any other tenant, by construction, not just convention.
+    Defaults to the previous calendar month (same period the scheduled
+    job would cover) when period_label is omitted. Calls
+    `_generate_for_tenant` directly — identical computation, persistence,
+    and automatic export to the scheduled path, so a manual re-run behaves
+    exactly like the real one.
+    """
+    if period_label is None:
+        today = today or datetime.date.today()
+        period_start, period_end, period_label = _previous_month_range(today)
+    else:
+        period_start, period_end = _month_range_for_period(period_label)
+
+    summary: dict = {
+        "tenant_id": ctx.tenant_id,
+        "period": period_label,
+        "households_invoiced": 0,
+        "households_skipped": 0,
+        "households_failed": [],
+    }
+    _generate_for_tenant(client, ctx.tenant_id, ctx.tenant_slug,
+                          period_start, period_end, period_label, summary)
+    return summary

@@ -4,18 +4,39 @@ Uses small hand-written fake Firestore classes (not MagicMock chaining) so
 each collection/document call routes to the right seeded fixture data —
 clearer than deep MagicMock attribute-chaining for a client this shape-
 sensitive (tenants -> per-tenant facilities/bookings/invoices).
+
+Phase 15.5: `export_invoices_for_period` is mocked (autouse, below) for
+EVERY test in this file — it makes a real `storage.Client()`/
+`google.auth.default()` call, which must never be attempted in a unit
+test regardless of what credentials happen to be present in the
+environment running it. Export-specific behavior is tested in
+test_invoice_export.py and the wiring/regenerate tests near the bottom
+of this file.
 """
 import datetime
+from unittest.mock import MagicMock
 
+import pytest
 from google.api_core.exceptions import AlreadyExists
 
 from sport_slot.auth.context import TenantContext
 from sport_slot.services.invoicing import (
     _current_month_range,
+    _month_range_for_period,
     _previous_month_range,
     generate_invoices,
     preview_current_month_charge,
+    regenerate_for_tenant,
 )
+
+
+@pytest.fixture(autouse=True)
+def mock_export(monkeypatch):
+    """Prevents every test in this file from attempting a real GCS/auth
+    call via the auto-export wired into _generate_for_tenant (15.5)."""
+    mock = MagicMock(return_value={"csv_path": "x.csv", "json_path": "x.json", "row_count": 0})
+    monkeypatch.setattr("sport_slot.services.invoicing.export_invoices_for_period", mock)
+    return mock
 
 
 class _FakeSnap:
@@ -547,3 +568,98 @@ def test_preview_for_household_with_no_bookings_yet_returns_zero_total_not_error
     assert result["line_items"] == []
     assert result["flat_number"] is None
     assert result["preview"] is True
+
+
+# ── Phase 15.5: automatic export wiring + manual regeneration ────────────────
+
+def test_month_range_for_period_mid_year():
+    assert _month_range_for_period("2026-06") == ("2026-06-01", "2026-06-30")
+
+
+def test_month_range_for_period_december_wraps_correctly():
+    assert _month_range_for_period("2026-12") == ("2026-12-01", "2026-12-31")
+
+
+def test_successful_generation_triggers_automatic_export(mock_export):
+    facilities = {"t-1": [_facility("fac-A", "Court A", 5000)]}
+    bookings = {"t-1": [_booking("b1", "h-1", "fac-A")]}
+    client = _FakeClient([TENANT], facilities, bookings)
+
+    generate_invoices(client, today=TODAY)
+
+    mock_export.assert_called_once_with(client, "t-1", "2026-06")
+
+
+def test_export_failure_does_not_fail_the_generation_summary(mock_export):
+    """Export is a non-blocking side effect (mirrors the notification-
+    enqueue pattern elsewhere) — its failure must never turn an otherwise
+    successful generation into a reported households_failed entry."""
+    mock_export.side_effect = RuntimeError("simulated GCS failure")
+    facilities = {"t-1": [_facility("fac-A", "Court A", 5000)]}
+    bookings = {"t-1": [_booking("b1", "h-1", "fac-A")]}
+    client = _FakeClient([TENANT], facilities, bookings)
+
+    summary = generate_invoices(client, today=TODAY)
+
+    assert summary["households_invoiced"] == 1
+    assert summary["households_failed"] == []
+    assert ("t-1", "h-1_2026-06") in client.invoice_store
+
+
+def _regen_ctx(tenant_id="t-1") -> TenantContext:
+    return TenantContext(uid="admin-1", tenant_id=tenant_id, tenant_slug="demo",
+                          role="tenant_admin", household_id=None)
+
+
+def test_regenerate_for_tenant_defaults_to_previous_month():
+    facilities = {"t-1": [_facility("fac-A", "Court A", 5000)]}
+    bookings = {"t-1": [_booking("b1", "h-1", "fac-A", date="2026-06-15")]}
+    client = _FakeClient([TENANT], facilities, bookings)
+
+    summary = regenerate_for_tenant(client, _regen_ctx(), today=datetime.date(2026, 7, 10))
+
+    assert summary["period"] == "2026-06"
+    assert summary["households_invoiced"] == 1
+    assert ("t-1", "h-1_2026-06") in client.invoice_store
+
+
+def test_regenerate_for_tenant_with_explicit_period():
+    facilities = {"t-1": [_facility("fac-A", "Court A", 5000)]}
+    bookings = {"t-1": [_booking("b1", "h-1", "fac-A", date="2026-03-15")]}
+    client = _FakeClient([TENANT], facilities, bookings)
+
+    summary = regenerate_for_tenant(client, _regen_ctx(), period_label="2026-03")
+
+    assert summary["period"] == "2026-03"
+    assert ("t-1", "h-1_2026-03") in client.invoice_store
+
+
+def test_regenerate_for_tenant_only_touches_caller_own_tenant():
+    """Cross-tenant isolation: regenerate_for_tenant has no tenant_id
+    parameter to override — seeding a SECOND tenant's data and calling
+    regenerate for tenant t-1 must never write anything for t-2."""
+    facilities = {
+        "t-1": [_facility("fac-A", "Court A", 5000)],
+        "t-2": [_facility("fac-B", "Court B", 7000)],
+    }
+    bookings = {
+        "t-1": [_booking("b1", "h-1", "fac-A", date="2026-03-15")],
+        "t-2": [_booking("b2", "h-9", "fac-B", date="2026-03-15")],
+    }
+    client = _FakeClient([TENANT, {"tenant_id": "t-2", "slug": "other", "status": "active"}],
+                          facilities, bookings)
+
+    regenerate_for_tenant(client, _regen_ctx("t-1"), period_label="2026-03")
+
+    assert ("t-1", "h-1_2026-03") in client.invoice_store
+    assert ("t-2", "h-9_2026-03") not in client.invoice_store
+
+
+def test_regenerate_for_tenant_also_auto_exports(mock_export):
+    facilities = {"t-1": [_facility("fac-A", "Court A", 5000)]}
+    bookings = {"t-1": [_booking("b1", "h-1", "fac-A", date="2026-03-15")]}
+    client = _FakeClient([TENANT], facilities, bookings)
+
+    regenerate_for_tenant(client, _regen_ctx(), period_label="2026-03")
+
+    mock_export.assert_called_once_with(client, "t-1", "2026-03")

@@ -6,6 +6,51 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### feat: Phase 15.5 — invoice CSV/JSON export + manual generation/export triggers (July 2026)
+
+**Closes the "15.3b" gap.** Phase 15.3 planning flagged, but never built, a manual invoice
+GENERATION trigger — if the scheduled monthly run failed for a tenant, there was no recovery path
+at all. This sub-phase closes it: `regenerate_for_tenant` (services/invoicing.py) is a thin,
+tenant-scoped wrapper around the existing `_generate_for_tenant` core, exposed as
+`POST /api/v1/invoices/tenant/regenerate` — tenant-admin only, strictly scoped to `ctx.tenant_id`
+(the function has no parameter for any other tenant, by construction). Defaults to the previous
+calendar month, same as the scheduled job, and — because it calls the same shared core — also
+triggers automatic export on completion, identically to the scheduled path.
+
+**Automatic summary-level export (CSV + JSON)** now fires after every tenant's successful monthly
+generation (scheduled OR manual), landing in a new, genuinely PRIVATE GCS bucket
+(`sport-slot-dev-invoices`, Terraform prepared, **not yet applied**) — never the existing public
+frontend bucket. Export is summary-level only (`household_id`, `flat_number`, `period`,
+`total_paise`, and a rounded `total_rupees` convenience field) — deliberately no line-item detail,
+per the original requirement. A separate, independent `POST /api/v1/invoices/tenant/export` route
+lets a tenant-admin manually re-trigger just the export step (e.g. files were deleted from GCS but
+the invoices themselves are fine) without re-running generation.
+
+**Signed URL download without a service account key file.** `GET /api/v1/invoices/tenant/export/download`
+returns short-lived (15 min) signed URLs for the CSV/JSON files. Cloud Run's default credentials have
+no private key to sign a GCS URL with directly — this uses `google.auth.impersonated_credentials`,
+having the SA impersonate ITSELF (a new self-referential `serviceAccountTokenCreator` grant,
+Terraform prepared, not applied), the exact same keyless mechanism already working for Firebase
+Hosting deploy tokens (`wif_iam.tf`'s `ci_token_creator_firebase`), just self- rather than
+cross-referential this time.
+
+**New `InvoiceRepository.list_for_tenant_period`** fetches every household's invoice for one
+period (distinct from `list_for_household`, one household/all periods, and
+`list_latest_per_household`, whole tenant/latest period only) — a single equality filter, no new
+composite index needed.
+
+**All three new tenant-admin routes are tested for cross-tenant isolation directly**: an attempted
+`tenant_id` query-param injection is asserted to be ignored (none of the routes has such a
+parameter — they only ever read `ctx.tenant_id`), and a resident (non-admin) caller is rejected
+with 403 on all three. The signed-URL mechanism is tested by asserting the actual impersonation
+call (`source_credentials`/`target_principal`/`target_scopes`), not just that a URL string came
+back. A manual re-export of the same period is asserted to produce byte-identical CSV/JSON content
+to what the automatic export produced.
+
+**Terraform prepared (`fmt`/`validate` clean) but NOT applied** — the new bucket and the
+self-impersonation IAM grant are not live until the Coordinator runs `terraform apply`; the export
+and signed-URL features are not functional in production until then.
+
 ### feat: Phase 15.4c — per-flat invoice history + current-month preview (July 2026)
 
 **Expands 15.4b's original "latest only, no history" decision.** That scope was a deliberate
