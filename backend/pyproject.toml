@@ -16,6 +16,7 @@ dependencies = [
   "httpx>=0.28",
   "google-cloud-tasks>=2.16",
   "google-cloud-storage>=2.18",
+  "google-cloud-speech>=2.40",
   "google-auth>=2.36",
   "google-genai>=1.0",
   "zxcvbn>=4.5.0",
@@ -28,6 +29,7 @@ dev = [
   "pytest-cov>=6.0",
   "ruff>=0.8",
   "bandit>=1.8",
+  "mypy>=2.2",
 ]
 
 [build-system]
@@ -45,6 +47,20 @@ pythonpath = ["src"]
 [tool.ruff]
 line-length = 100
 src = ["src", "tests"]
+
+[tool.mypy]
+# Scoped deliberately to services/voice/ only (Voice I/O sub-phase 1b).
+# The rest of the codebase predates this gate and is not type-hinted
+# consistently enough to pass mypy without an unrelated cleanup effort —
+# out of scope here. Do not widen `files` without doing that cleanup first.
+python_version = "3.12"
+files = ["src/sport_slot/services/voice"]
+disallow_untyped_defs = true
+check_untyped_defs = true
+no_implicit_optional = true
+warn_return_any = true
+warn_unused_ignores = true
+ignore_missing_imports = false
 
 [tool.coverage.run]
 source = ["src/sport_slot"]

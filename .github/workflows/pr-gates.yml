@@ -27,6 +27,8 @@ jobs:
         run: uv run ruff check src/ tests/
       - name: Bandit
         run: uv run bandit -r src/
+      - name: Mypy (scoped to services/voice/ only — see pyproject.toml [tool.mypy])
+        run: uv run mypy src/sport_slot/services/voice
       - name: Pytest (coverage gate >=90%)
         run: uv run pytest --cov=src --cov-fail-under=90 -q
 

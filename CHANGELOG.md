@@ -6,6 +6,56 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### feat: Voice I/O sub-phase 1b — STT ingestion + language detection (July 2026)
+
+**Standalone module, no endpoint/translation/TTS/agent wiring yet.** Adds
+`services/voice/stt.py` (`transcribe(audio_bytes) -> SttResult`), the first
+stage of the ADR-0036 D1 speech → STT → translate → agent → translate → TTS
+pipeline. Uses Speech-to-Text API V2 sync `recognize`, `AutoDetectDecodingConfig`
+(no fixed container assumed — browser audio arrives as WebM/Opus or MP4/AAC
+depending on client platform), and the nine ADR-0036 D3 candidate locales
+(en-IN, hi-IN, te-IN, ta-IN, kn-IN, ml-IN, mr-IN, gu-IN, bn-IN). Detected
+BCP-47 codes are normalized to 2-letter form; `is_supported_language` is
+computed against the same nine-language set the confirm/deny guard curates
+(`confirm_lexicon_data.CONFIRM_LEXICON`), avoiding a second hardcoded list.
+Errors from the SDK propagate as a defined `SttError`, never a bare crash;
+an empty result set returns an empty `SttResult` rather than raising.
+
+**Live-measurement finding — BLOCKING FOLLOW-UP:** per ADR-0036 D5, this
+sub-phase specified `model="chirp_3"` at the `global` recognizer location.
+Live testing against the real API (ADC available in this environment)
+found this combination does not currently work: `chirp_3` is rejected as
+"does not exist" at `global`, `us-central1`, and `europe-west4`, and at
+`asia-south1` the API returns `403 ... It is no longer generally
+available.` A real WAV round-tripped successfully with `model="long"` at
+`global`, confirming the auto-decode + recognizer wiring itself is correct
+— only the specific model identifier is stale relative to Google's current
+API state. Per Coordinator decision, `stt.py` ships AS SPECIFIED
+(`chirp_3`/`global`) with this finding flagged rather than silently
+substituting a different model — the model/tier choice affects
+language-quality, latency, and cost tradeoffs and is a decision for the
+Coordinator/Strategist, not an implementation detail. **This must be
+resolved before sub-phase 1c can produce a working voice turn.**
+
+Adds `google-cloud-speech` (pinned) as a new dependency. Adds a
+Coordinator/ADC-run live measurement harness,
+`scripts/voice/stt_live_check.py`, which prints a
+file/container/transcript/detected-lang/confidence/ok table over a
+fixtures directory, deriving WebM/AAC variants via `ffmpeg` when available
+to prove cross-container decode — this environment had neither `ffmpeg`
+nor a real speech fixture, so only a synthetic stdlib-generated tone (not
+real speech) could be used to confirm API connectivity; the real
+cross-container/Indic-language measurement is still outstanding and needs
+a Coordinator run with real audio.
+
+Adds `mypy` to CI, scoped deliberately to `services/voice/` only (see
+`pyproject.toml` `[tool.mypy]` and `.github/workflows/pr-gates.yml`) — the
+rest of the codebase predates this gate and is out of scope for this
+sub-phase.
+
+100% coverage on `stt.py` (hermetic tests, `SpeechClient` mocked — no real
+API calls in the test suite).
+
 ### feat: Voice I/O sub-phase 1a — ADR-0036 D2 deterministic confirm/deny guard (July 2026)
 
 **Standalone module, no endpoint wiring yet.** ADR-0036 established that the
