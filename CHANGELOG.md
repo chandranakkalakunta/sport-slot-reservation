@@ -51,6 +51,16 @@ to what the automatic export produced.
 self-impersonation IAM grant are not live until the Coordinator runs `terraform apply`; the export
 and signed-URL features are not functional in production until then.
 
+**Correction (same PR, caught before merge): `flat_number` could get permanently stuck on
+`None`.** `_compute_household_charges` locked a household's `flat_number` onto whichever resident
+was encountered FIRST while iterating bookings — even if that specific profile lookup failed (e.g.
+a deleted account). Confirmed via live production data: a household with one old booking from a
+deleted account and newer bookings from a currently-active resident still showed "Unknown flat" on
+the invoice, even though the active resident's `flat_number` was available from a later booking in
+the very same household/period. Fixed to only lock in a RESOLVABLE `flat_number` — a household now
+only stays unresolved if literally every resident encountered in it is unresolvable, not just the
+first one.
+
 ### feat: Phase 15.4c — per-flat invoice history + current-month preview (July 2026)
 
 **Expands 15.4b's original "latest only, no history" decision.** That scope was a deliberate

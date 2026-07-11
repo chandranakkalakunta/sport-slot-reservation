@@ -467,6 +467,25 @@ def test_flat_number_set_on_invoice_from_first_resident_encountered():
     assert client.invoice_store[("t-1", "h-1_2026-06")]["flat_number"] == "A-1"
 
 
+def test_flat_number_falls_through_to_a_later_resolvable_resident():
+    """CORRECTION (production bug): the FIRST booking's resident (u-deleted)
+    has no resolvable profile — the household's flat_number must not get
+    stuck on None just because of that. A LATER booking in the same
+    household from a currently-active resident (u-bob) DOES resolve, and
+    that resolved flat_number must be used, not "Unknown flat"."""
+    facilities = {"t-1": [_facility("fac-A", "Court A", 5000)]}
+    bookings = {"t-1": [
+        _booking("b1", "h-1", "fac-A", date="2026-06-01", uid="u-deleted"),
+        _booking("b2", "h-1", "fac-A", date="2026-06-15", uid="u-bob"),
+    ]}
+    profiles = {"t-1": {"u-bob": _profile("Bob", flat_number="A-1")}}  # u-deleted absent
+    client = _FakeClient([TENANT], facilities, bookings, profiles_by_tenant=profiles)
+
+    generate_invoices(client, today=TODAY)
+
+    assert client.invoice_store[("t-1", "h-1_2026-06")]["flat_number"] == "A-1"
+
+
 def test_missing_profile_falls_back_without_crashing():
     """A booking's uid with no resolvable profile (deleted resident) must
     not crash generation — resident_name falls back to a sentinel and

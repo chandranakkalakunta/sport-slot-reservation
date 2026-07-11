@@ -196,9 +196,14 @@ def _compute_household_charges(
 
     profile_repo = UserProfileRepository(ctx, client)
     profile_cache: dict[str, dict | None] = {}
-    # flat_number source of record per household: the first resident
-    # encountered while iterating bookings — one representative value is
-    # sufficient since flat_number is expected to be consistent per household.
+    # flat_number source of record per household: the first RESOLVABLE
+    # resident encountered while iterating bookings — one representative
+    # value is sufficient since flat_number is expected to be consistent
+    # per household. CORRECTION (production bug): a household must not
+    # get stuck on "Unknown flat" just because the FIRST booking's
+    # resident happened to be unresolvable (e.g. a deleted account) —
+    # keep checking subsequent bookings in the same household until one
+    # actually resolves. Only unresolved if EVERY resident in it is.
     household_flat: dict[str, str | None] = {}
 
     by_household: dict[str, list[dict]] = {}
@@ -212,8 +217,10 @@ def _compute_household_charges(
         uid = booking.get("uid")
         profile = _resolve_profile(profile_repo, profile_cache, uid) if uid else None
         resident_name = (profile or {}).get("display_name") or "Unknown resident"
-        if household_id not in household_flat:
-            household_flat[household_id] = (profile or {}).get("flat_number")
+        if household_flat.get(household_id) is None:
+            resolved_flat = (profile or {}).get("flat_number")
+            if resolved_flat is not None:
+                household_flat[household_id] = resolved_flat
         by_household.setdefault(household_id, []).append({
             "booking_id": booking.get("id"),
             "facility_id": booking.get("facility_id"),
