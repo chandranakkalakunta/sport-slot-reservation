@@ -32,6 +32,7 @@ from __future__ import annotations
 
 import datetime
 import json
+import re
 import zoneinfo
 from typing import NamedTuple
 
@@ -103,6 +104,31 @@ class AgentTurn(NamedTuple):
     reply: str
     pending_action_id: str | None = None
     pending_action_summary: dict | None = None
+
+
+# Deterministic pre-Vertex invoice routing (agent reliability fix): confirmed
+# via live reproduction that Gemini's tool-selection for the 15.6 invoice
+# tools is genuinely non-deterministic — identical phrasing worked in one
+# fresh session and failed in another, same system prompt both times.
+# Conservative, whole-word keyword set — none of these words appear anywhere
+# in the other tools' descriptions/phrasing space (book/cancel/
+# check_availability/list_my_bookings/get_my_preferences use entirely
+# different vocabulary), so there is no realistic collision risk. Deliberately
+# narrow: invoice tools only, never generalized to any other tool.
+_INVOICE_KEYWORDS = ("invoice", "invoices", "bill", "bills", "owe", "owed")
+_CURRENT_MONTH_PHRASES = ("this month", "so far", "till date", "to date", "current month")
+
+
+def _matches_invoice_keyword(message: str) -> bool:
+    """Whole-word match only (never substring) — e.g. 'bill' must never
+    match inside an unrelated word like 'billiards'."""
+    lowered = message.lower()
+    return any(re.search(rf"\b{re.escape(kw)}\b", lowered) for kw in _INVOICE_KEYWORDS)
+
+
+def _is_current_month_phrasing(message: str) -> bool:
+    lowered = message.lower()
+    return any(phrase in lowered for phrase in _CURRENT_MONTH_PHRASES)
 
 
 def _parse_date_hint(hint: str, today: datetime.date) -> datetime.date | None:
@@ -328,6 +354,36 @@ async def run_agent(
                     )
         except Exception as exc:
             log.warning("agent_disambig_check_error", error=str(exc))
+            # fall through to normal Vertex turn
+
+        # --- Pre-Vertex: deterministic invoice-keyword routing (reliability fix) ---
+        # Skips Vertex ENTIRELY for both turns on a high-confidence match — no
+        # tool-selection call, no reply-phrasing call. A Vertex call to merely
+        # phrase the reply would reintroduce the exact non-determinism being
+        # fixed here. Any non-matching message falls through unchanged below.
+        try:
+            if _matches_invoice_keyword(user_message):
+                tool_name = (
+                    "get_my_current_month_charges"
+                    if _is_current_month_phrasing(user_message)
+                    else "get_my_invoices"
+                )
+                reply_text = _dispatch_readonly(
+                    ctx, client, tool_name, {}, valid_ids, facilities, today_local
+                )
+                is_error = False
+                try:
+                    parsed = json.loads(reply_text)
+                    is_error = isinstance(parsed, dict) and "error" in parsed
+                except (json.JSONDecodeError, TypeError):
+                    pass
+                if is_error:
+                    log.warning("agent_deterministic_invoice_dispatch_error", tool_name=tool_name)
+                    return AgentTurn(reply=_SAFE_FALLBACK)
+                log.info("agent_deterministic_invoice_routing", tool_name=tool_name)
+                return AgentTurn(reply=reply_text)
+        except Exception as exc:
+            log.warning("agent_deterministic_invoice_routing_error", error=str(exc))
             # fall through to normal Vertex turn
 
         # --- Turn 1: LLM decides whether to call a tool or reply directly ---

@@ -261,6 +261,18 @@ def test_get_my_current_month_charges_error_returns_json_error_not_raise():
 
 
 # ── end-to-end run_agent (mirrors test_get_my_preferences_tool_* pattern) ────
+#
+# CORRECTION (agent-reliability fix, deterministic pre-Vertex routing): these
+# two tests originally used messages containing "invoice"/"owe ... this
+# month" to exercise the Gemini-function-call-routed path for these tools.
+# That wording now deterministically matches the new pre-Vertex keyword
+# check BY DESIGN (see test_agent_invoice_routing.py) and would
+# never reach Vertex at all. Reworded to phrasings that do NOT contain any
+# of the new deterministic keywords, so these tests keep exercising their
+# original intent — the Gemini-routed dispatch path for these two tools —
+# rather than being silently short-circuited. This is the same category of
+# necessary, mechanical update as bumping REGISTERED_TOOLS' expected count
+# in 15.6: caused directly by new, intended functionality, not a scope leak.
 
 @pytest.mark.asyncio
 async def test_run_agent_get_my_invoices_end_to_end():
@@ -278,7 +290,10 @@ async def test_run_agent_get_my_invoices_end_to_end():
             {"invoice_id": "h-1_2026-06", "household_id": "h-1", "period": "2026-06",
              "total_paise": 150050},
         ]
-        turn = await run_agent(CTX_H1, _firestore_client(), _NoopStore(), "What was my last invoice?")
+        turn = await run_agent(
+            CTX_H1, _firestore_client(), _NoopStore(),
+            "Can you show me what I was charged for previous periods?",
+        )
 
     turn2_msg = mock_gen.call_args_list[1].kwargs["message"]
     assert "period=2026-06" in turn2_msg
@@ -307,7 +322,8 @@ async def test_run_agent_get_my_current_month_charges_end_to_end():
               new_callable=AsyncMock, return_value=True),
     ):
         turn = await run_agent(
-            CTX_H1, _firestore_client(), _NoopStore(), "What do I owe so far this month?"
+            CTX_H1, _firestore_client(), _NoopStore(),
+            "Can you check what I've accumulated in charges recently?",
         )
 
     turn2_msg = mock_gen.call_args_list[1].kwargs["message"]
