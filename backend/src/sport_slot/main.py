@@ -17,6 +17,7 @@ from sport_slot.api.v1.facilities import tenant_facilities_router
 from sport_slot.api.v1.invoices import router as invoices_router
 from sport_slot.api.v1.tenant_config import router as tenant_config_router
 from sport_slot.api.v1.users import router as users_router
+from sport_slot.api.v1.voice import router as voice_router
 from sport_slot.config import get_settings
 from sport_slot.health import router as health_router
 from sport_slot.logging import configure_logging
@@ -60,6 +61,7 @@ def create_app() -> FastAPI:
     v1.include_router(admin_router)
     v1.include_router(auth_router)
     v1.include_router(agent_router)
+    v1.include_router(voice_router)
     v1.include_router(daily_overview_router)
     app.include_router(v1)
     return app

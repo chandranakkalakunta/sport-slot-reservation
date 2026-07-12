@@ -38,6 +38,8 @@ class Settings(BaseSettings):
     vertex_location: str = "asia-south1"
     agent_model: str = "gemini-2.5-flash"
     agent_output_guard_enabled: bool = True
+    voice_enabled: bool = False
+    voice_max_audio_bytes: int = 2 * 1024 * 1024
 
 
 @lru_cache
