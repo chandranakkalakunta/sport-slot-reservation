@@ -12,9 +12,20 @@ export function loadThread(): AgentMessage[] {
   }
 }
 
+// Voice playback data must not be persisted: a blob: object URL does not
+// survive a reload anyway, and there is no reason to bloat sessionStorage
+// with it. Text + metadata (reply_audio_mime, decision) are lean enough to
+// keep as-is.
+function stripAudioUrl(message: AgentMessage): AgentMessage {
+  if (message.audioUrl === undefined) return message;
+  const clone: AgentMessage = { ...message };
+  delete clone.audioUrl;
+  return clone;
+}
+
 export function saveThread(messages: AgentMessage[]): void {
   try {
-    sessionStorage.setItem(KEY, JSON.stringify(messages));
+    sessionStorage.setItem(KEY, JSON.stringify(messages.map(stripAudioUrl)));
   } catch {
     // storage full or disabled
   }

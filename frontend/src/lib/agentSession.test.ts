@@ -33,6 +33,30 @@ describe("agentSession", () => {
     const loaded = loadThread();
     expect(loaded[1].dismissed).toBe(true);
   });
+
+  it("strips audioUrl before persisting — never bloats sessionStorage with it", () => {
+    const withAudio: AgentMessage = { ...MSG_B, audioUrl: "blob:should-not-persist" };
+    saveThread([MSG_A, withAudio]);
+
+    const raw = sessionStorage.getItem("sport-slot:assistant-thread");
+    expect(raw).not.toContain("should-not-persist");
+
+    const loaded = loadThread();
+    expect(loaded[1].audioUrl).toBeUndefined();
+  });
+
+  it("keeps reply_audio_mime and decision metadata through round-trip (only audioUrl is stripped)", () => {
+    const withMeta: AgentMessage = {
+      ...MSG_B, reply_audio_mime: "audio/mpeg", decision: "affirm",
+      audioUrl: "blob:should-not-persist",
+    };
+    saveThread([MSG_A, withMeta]);
+
+    const loaded = loadThread();
+    expect(loaded[1].reply_audio_mime).toBe("audio/mpeg");
+    expect(loaded[1].decision).toBe("affirm");
+    expect(loaded[1].audioUrl).toBeUndefined();
+  });
 });
 
 describe("lastUserAndAgentTurn", () => {

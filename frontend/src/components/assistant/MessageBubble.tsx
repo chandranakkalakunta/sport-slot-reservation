@@ -1,5 +1,58 @@
+import { Play } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+
 import type { AgentMessage } from "../../hooks/agentHooks";
 import { ProposalCard } from "./ProposalCard";
+
+function AudioReply({ url }: { url: string }) {
+  const audioRef = useRef<HTMLAudioElement>(null);
+  const [blocked, setBlocked] = useState(false);
+
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (!audio) return;
+    const playResult = audio.play();
+    if (playResult && typeof playResult.then === "function") {
+      playResult.catch(() => setBlocked(true));
+    }
+  }, [url]);
+
+  function handlePlayClick() {
+    audioRef.current?.play().then(
+      () => setBlocked(false),
+      () => setBlocked(true),
+    );
+  }
+
+  return (
+    <div style={{ marginTop: 6, display: "flex", alignItems: "center", gap: 6 }}>
+      <audio ref={audioRef} src={url} />
+      {blocked && (
+        <button
+          type="button"
+          onClick={handlePlayClick}
+          aria-label="Play voice reply"
+          className="assistant-play-btn"
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 4,
+            padding: "4px 10px",
+            borderRadius: "var(--radius)",
+            border: "1px solid var(--color-text-muted)",
+            background: "transparent",
+            color: "var(--color-text)",
+            fontSize: 12,
+            cursor: "pointer",
+          }}
+        >
+          <Play size={12} aria-hidden="true" />
+          Play
+        </button>
+      )}
+    </div>
+  );
+}
 
 export function MessageBubble({
   message,
@@ -33,6 +86,7 @@ export function MessageBubble({
       }}>
         {message.text}
       </div>
+      {!isUser && message.audioUrl && <AudioReply url={message.audioUrl} />}
       {!isUser && message.pending_action_summary && message.pending_action_id && !message.dismissed && (
         <ProposalCard
           summary={message.pending_action_summary}

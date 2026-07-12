@@ -6,6 +6,73 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### feat: Voice I/O sub-phase 2 — mic capture + playback UI; AGENT-UX-01/02 (July 2026)
+
+**Adds the resident-facing voice UI to the existing assistant surface.
+Backend unchanged** — this sub-phase is frontend-only, built entirely on
+the already-merged `POST /agent/voice` endpoint.
+
+**Mic capture:** a new `useVoiceRecorder` hook wraps `getUserMedia` +
+`MediaRecorder`, feature-detecting the supported `mimeType`
+(`audio/webm;codecs=opus` preferred, `audio/mp4` for Safari, otherwise
+the browser's own default — never assumed). `start()` resolves a `Blob`
+once recording stops, whether stopped by the resident tapping again, a
+hard 30-second ceiling, or best-effort silence detection (an `AnalyserNode`
+RMS check) — the ceiling and tap-to-stop are the guaranteed controls;
+silence detection is a convenience layered on top, and its own failure
+(e.g. no `AudioContext`) never blocks recording. Never throws: permission
+denial and an unsupported browser both resolve `null` and set a
+human-readable `error` string instead.
+
+**Voice is additive, never a regression on text.** A mic button sits
+beside Send in `MessageInput`, disabled (not hidden) when unsupported or
+when the input itself is disabled — the text input and Send button are
+fully unaffected and keep working in every state (no microphone, denied
+permission, unsupported browser).
+
+**Spoken-confirm routing mirrors the existing tap-to-confirm path
+exactly:** a voice turn is a CONFIRM turn iff the latest non-dismissed
+agent message carries a live `pending_action_id` (the same key
+`handleConfirm` already used) — that ID rides along with the audio to
+`/agent/voice`, where the backend's deterministic guard (never an LLM)
+decides. `decision` then drives the UI: `affirm`/`deny` dismiss the
+pending message and append the result; `ambiguous` (or an empty/garbled
+transcript, `decision: null`) re-prompts and explicitly KEEPS the pending
+action alive — never guesses. A normal voice turn may itself propose a
+new pending action, rendered via the existing `ProposalCard` exactly as a
+typed turn would.
+
+**Playback:** an agent reply carrying `reply_audio` auto-plays on arrival;
+if the browser blocks autoplay, a `play()` rejection swaps in a visible,
+labeled fallback button rather than failing silently. Reply audio is
+decoded from the endpoint's base64 payload into a Blob and object URL
+only in memory — `agentSession.saveThread` strips `audioUrl` before
+writing to `sessionStorage` (a `blob:` URL wouldn't survive a reload
+anyway; text and lightweight metadata like `reply_audio_mime`/`decision`
+are kept).
+
+**`lib/api.ts`'s `apiFetch` now skips the manual `Content-Type` header
+when the body is a `FormData`** (the voice upload's multipart body) so the
+browser can set the boundary itself — the existing JSON call sites are
+unaffected.
+
+**AGENT-UX-01** (up-arrow message recall) **and AGENT-UX-02** (`/clear`
+slash command, instant, chat-app style, no confirmation) ship in the same
+pass, per the backlog's own note that both were natural to do alongside
+this UI work. Verified a cleared thread also drops any live
+`pending_action_id` — it only ever lived as a field on a thread message,
+so `setThread([])` clears it too; no separate cleanup path was needed.
+Both marked done in `docs/backlog.md`.
+
+Hermetic tests cover the recorder hook (mocked `MediaRecorder`/
+`getUserMedia`), the multipart mutation (`FormData` construction), the
+mic button and its states, autoplay + fallback playback, the full
+confirm-routing decision matrix (affirm/deny/ambiguous/empty-transcript),
+up-arrow recall, and `/clear`. The axe-core accessibility audit stays
+green, including two new checks added specifically for states the
+existing audit's default thread never exercised (the recording/"Listening…"
+state, and an agent bubble actually carrying `reply_audio`).
+
 ### feat: Voice I/O sub-phase 1c — POST /agent/voice endpoint, English-only (July 2026)
 
 **Wires the full voice turn end-to-end: audio → STT(en-IN) → [confirm

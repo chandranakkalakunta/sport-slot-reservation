@@ -62,7 +62,12 @@ vi.mock("./hooks/adminHooks", () => ({
 vi.mock("./hooks/agentHooks", () => ({
   useAgentSendMessage: vi.fn(),
   useAgentConfirm: vi.fn(),
+  useAgentVoice: vi.fn(),
   errorMessageFor: vi.fn(),
+}));
+
+vi.mock("./hooks/useVoiceRecorder", () => ({
+  useVoiceRecorder: vi.fn(),
 }));
 
 vi.mock("./lib/api", () => ({
@@ -95,6 +100,7 @@ import * as bookingHooks from "./hooks/bookingHooks";
 import * as tenantHooks from "./hooks/tenantAdminHooks";
 import * as adminHooks from "./hooks/adminHooks";
 import * as agentHooks from "./hooks/agentHooks";
+import * as voiceRecorderHook from "./hooks/useVoiceRecorder";
 
 import SignIn from "./pages/SignIn";
 import Facilities from "./pages/Facilities";
@@ -247,7 +253,15 @@ function setupDefaultMocks() {
   vi.mocked(agentHooks.useAgentConfirm).mockReturnValue({
     mutate: vi.fn(), isPending: false,
   } as unknown as ReturnType<typeof agentHooks.useAgentConfirm>);
+  vi.mocked(agentHooks.useAgentVoice).mockReturnValue({
+    mutate: vi.fn(), isPending: false,
+  } as unknown as ReturnType<typeof agentHooks.useAgentVoice>);
   vi.mocked(agentHooks.errorMessageFor).mockReturnValue("Error");
+
+  vi.mocked(voiceRecorderHook.useVoiceRecorder).mockReturnValue({
+    isSupported: true, isRecording: false, error: null,
+    start: vi.fn().mockResolvedValue(null), stop: vi.fn(),
+  });
 }
 
 // ─── Render helpers ───────────────────────────────────────────────────────────
