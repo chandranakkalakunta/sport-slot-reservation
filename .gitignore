@@ -117,6 +117,11 @@ temp/
 # Phase audit logs (local only)
 scripts/phase-*.txt
 
+# Voice I/O live-check audio fixtures (Coordinator-supplied, may contain
+# real speech — never committed; see scripts/voice/stt_live_check.py)
+resources/voice_fixtures/*
+!resources/voice_fixtures/.gitkeep
+
 # Firebase configuration (build-time injected, capture only)
 infrastructure/firebase-web-config.json
 infrastructure/firebase-*.json

@@ -6,6 +6,71 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### feat: Voice I/O sub-phase 1b — STT ingestion + language detection (July 2026)
+
+**Standalone module, no endpoint/translation/TTS/agent wiring yet.** Adds
+`services/voice/stt.py` (`transcribe(audio_bytes, language_codes) -> SttResult`),
+the first stage of the ADR-0036 D1 speech → STT → translate → agent →
+translate → TTS pipeline. Uses Speech-to-Text API V2 sync `recognize` and
+`AutoDetectDecodingConfig` (no fixed container assumed — browser audio
+arrives as WebM/Opus or MP4/AAC depending on client platform). Detected
+BCP-47 codes are normalized to 2-letter form; `is_supported_language` is
+computed against the platform's nine-language set, the same one the
+confirm/deny guard curates (`confirm_lexicon_data.CONFIRM_LEXICON`),
+avoiding a second hardcoded list. Errors from the SDK propagate as a
+defined `SttError`, never a bare crash; an empty result set returns an
+empty `SttResult` rather than raising.
+
+**Model and endpoint went through two live-measurement corrections before
+merge (ADR-0037, twice-revised) — final state below, corrected in place
+rather than left as a known-broken entry.** This sub-phase originally
+specified `model="chirp_3"` at the `global` recognizer location,
+auto-detecting across the full nine-language set in one call (ADR-0036
+D3/D5). Live testing against the real API found:
+
+- `chirp_3` is withdrawn: rejected as "does not exist" everywhere tested
+  (`global`, `us-central1`, `europe-west4`, `us`, `eu`); at `asia-south1`
+  and `europe-west2` (the regions it was previously scoped to) the API
+  returns `403 ... It is no longer generally available` — GA-revocation,
+  not a permission or preview-enrollment gate (the same principal
+  succeeds against other models seconds later).
+- Candidate-list auto-detection across more than 3 language codes does
+  not exist anywhere on this API version: capped at 3 codes, and only
+  offered at the `eu`/`global`/`us` multi-region endpoints.
+- `chirp_2` (GA) was tried at `global` next, but a further live probe
+  found `chirp_2` is itself REGIONAL: rejected as "does not exist" at
+  `global`/`us`/`eu`, accepted at `asia-southeast1`.
+
+**Final state:** `model="chirp_2"` (GA) at the **`asia-southeast1`**
+regional endpoint (explicit `api_endpoint`, not the SDK default), shipping
+**single-code English-first** recognition — the caller passes exactly one
+BCP-47 code. `stt.py` validates `1 <= len(language_codes) <= 3` (the API's
+hard cap) so the signature and validation are already correct for a future
+multi-language sub-phase without another change; that sub-phase would also
+need to revisit the endpoint back to `eu`/`global`/`us`, since
+`asia-southeast1` (like the other Asia-adjacent GA endpoints) accepts only
+one language code per call — no candidate-list auto-detection there.
+Multi-language (Indic) auto-detection across a tenant's candidate set is
+therefore **deferred**, not shipped in this sub-phase. Non-English
+transcription quality is validated post-deploy (sub-phase 3), not a
+pre-merge blocker — English acceptance against the real API at
+`chirp_2`/`asia-southeast1` is proven.
+
+Adds `google-cloud-speech` (pinned) as a new dependency. Adds a
+Coordinator/ADC-run live measurement harness,
+`scripts/voice/stt_live_check.py`, which prints a
+file/container/transcript/detected-lang/confidence/ok table over a
+fixtures directory, deriving WebM/AAC variants via `ffmpeg` when available
+to prove cross-container decode.
+
+Adds `mypy` to CI, scoped deliberately to `services/voice/` only (see
+`pyproject.toml` `[tool.mypy]` and `.github/workflows/pr-gates.yml`) — the
+rest of the codebase predates this gate and is out of scope for this
+sub-phase.
+
+100% coverage on `stt.py` (hermetic tests, `SpeechClient` mocked — no real
+API calls in the test suite).
+
 ### feat: Voice I/O sub-phase 1a — ADR-0036 D2 deterministic confirm/deny guard (July 2026)
 
 **Standalone module, no endpoint wiring yet.** ADR-0036 established that the
