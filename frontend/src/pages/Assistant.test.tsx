@@ -3,6 +3,8 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+vi.mock("../lib/firebase", () => ({ auth: { currentUser: null } }));
+
 vi.mock("../components/AppHeader", () => ({
   AppHeader: ({ children }: { children?: React.ReactNode }) => <div>{children}</div>,
 }));
