@@ -61,14 +61,19 @@ def test_normal_result_parsed_correctly():
 def test_request_is_built_with_expected_recognizer_config():
     response = _response([_result("en-IN", [_alternative("yes", 0.9)])])
     mock_client = _mock_client(response)
-    with patch(_CLIENT_PATH, return_value=mock_client):
+    with patch(_CLIENT_PATH, return_value=mock_client) as mock_client_cls:
         transcribe(b"audio-bytes", _TRIO)
 
     request = mock_client.recognize.call_args.kwargs["request"]
-    assert request.recognizer.endswith("/locations/global/recognizers/_")
+    assert request.recognizer.endswith("/locations/asia-southeast1/recognizers/_")
     assert request.config.model == "chirp_2"
     assert list(request.config.language_codes) == _TRIO
     assert request.content == b"audio-bytes"
+
+    # ADR-0037 (revised): asia-southeast1 is not the default (global) API
+    # endpoint, so the client must be constructed with it explicitly.
+    client_options = mock_client_cls.call_args.kwargs["client_options"]
+    assert client_options.api_endpoint == "asia-southeast1-speech.googleapis.com"
 
 
 def test_request_sends_exactly_the_caller_supplied_candidate_list():

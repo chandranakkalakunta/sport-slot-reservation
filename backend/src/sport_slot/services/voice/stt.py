@@ -7,24 +7,31 @@ and a confidence score. No translation, no agent wiring, no TTS, and no
 call into the confirm/deny guard (services/voice/confirm_guard.py)
 happen here — those are sub-phase 1c.
 
-ADR-0037 D3′ (supersedes ADR-0036 D3): candidate-list auto-detection on
-this API is capped at 3 language codes, and is only available at the
-eu/global/us multi-region endpoints — the platform's full nine-language
-set cannot be sent in one call. The caller (sub-phase 1c) is therefore
-responsible for passing the calling resident's TENANT's configured
-candidate trio (1–3 BCP-47 codes); this module only validates the count
-and sends exactly what it is given. The nine-language platform set
-(`confirm_lexicon_data.CONFIRM_LEXICON`) remains the source of truth for
-`is_supported_language`, independent of which trio was requested.
+ADR-0037 D3′ (supersedes ADR-0036 D3, revised): candidate-list
+auto-detection on this API is capped at 3 language codes, and is only
+available at the eu/global/us multi-region endpoints — the regional
+Asia-Pacific endpoints (e.g. `asia-southeast1`) accept exactly ONE
+language code per call, no auto-detect. English-first ships
+single-code recognition against the caller-supplied language (1 code);
+multi-language auto-detection across a tenant's candidate set is
+DEFERRED to a future multi-language sub-phase, which would need to
+revisit the endpoint (eu/global/us) to get auto-detect back. This
+module still validates `1 <= len(language_codes) <= 3` — harmless for
+today's single-code call, and already correct for that future sub-phase
+without another signature change. The nine-language platform set
+(`confirm_lexicon_data.CONFIRM_LEXICON`) remains the source of truth
+for `is_supported_language`, independent of how many codes were sent.
 
-ADR-0037 (model & endpoint, supersedes ADR-0036 D5): `chirp_3` was
-found to be withdrawn (GA-revoked) via live testing in sub-phase 1b —
-`chirp_2` (GA) is used instead. Candidate-list auto-detection is only
-offered at the eu/global/us multi-region endpoints (the Asia GA
-endpoints accept a single language code only, no auto-detect), so this
-module targets the `global` recognizer endpoint. This is a permanent
-residency exception (ADR-0037 D5′), not improvable to an in-Asia region
-under this detection strategy.
+ADR-0037 (model & endpoint, revised): `chirp_3` was found to be
+withdrawn (GA-revoked) via live testing in sub-phase 1b — `chirp_2`
+(GA) is used instead. A further live probe found `chirp_2` itself is
+REGIONAL: rejected as "does not exist" at `global`/`us`/`eu`, and
+accepted at `asia-southeast1`. This module therefore targets the
+`asia-southeast1` recognizer endpoint (regional `api_endpoint`, not the
+default global one) for the English-first release. This keeps
+recognition in-region (better residency posture than the earlier
+global-endpoint plan), at the cost of deferring multi-language
+auto-detect, which is only available at eu/global/us.
 """
 
 from __future__ import annotations
@@ -33,6 +40,7 @@ import time
 from typing import NamedTuple
 
 import structlog
+from google.api_core.client_options import ClientOptions
 from google.cloud import speech_v2
 from google.cloud.speech_v2.types import cloud_speech
 
@@ -41,12 +49,14 @@ from sport_slot.services.voice.confirm_lexicon_data import CONFIRM_LEXICON
 
 log = structlog.get_logger()
 
-# ADR-0037: global multi-region endpoint — required for candidate-list
-# auto-detection (eu/global/us only); chirp_2 is GA here.
-_RECOGNIZER_LOCATION = "global"
+# ADR-0037 (revised): regional endpoint — chirp_2 is GA here, single
+# language code only (no candidate-list auto-detect at this location).
+_RECOGNIZER_LOCATION = "asia-southeast1"
 _MODEL = "chirp_2"
 
 # ADR-0037 D3′: the API caps candidate-list auto-detection at 3 codes.
+# English-first sends exactly 1; kept general for the future
+# multi-language sub-phase (which would also need eu/global/us).
 _MAX_CANDIDATE_CODES = 3
 
 # Single source of truth for "is this language supported" — the platform's
@@ -66,7 +76,7 @@ class SttError(Exception):
 class SttResult(NamedTuple):
     """Result of one STT call. `language` is None when nothing was
     detected (e.g. no results at all); `is_supported_language` is only
-    ever True for one of the nine ADR-0036 D3 languages.
+    ever True for one of the nine ADR-0037 D3′ platform languages.
     """
 
     transcript: str
@@ -92,6 +102,17 @@ def _recognizer_path(project: str) -> str:
     return f"projects/{project}/locations/{_RECOGNIZER_LOCATION}/recognizers/_"
 
 
+def _get_client() -> speech_v2.SpeechClient:
+    """Regional client — `asia-southeast1` is not the default (global)
+    endpoint, so the API endpoint must be set explicitly or the request
+    is routed to global and rejected ("model does not exist")."""
+    return speech_v2.SpeechClient(
+        client_options=ClientOptions(
+            api_endpoint=f"{_RECOGNIZER_LOCATION}-speech.googleapis.com"
+        )
+    )
+
+
 def transcribe(audio_bytes: bytes, language_codes: list[str]) -> SttResult:
     """Transcribe `audio_bytes` via Speech-to-Text V2 (sync `recognize`).
 
@@ -115,7 +136,7 @@ def transcribe(audio_bytes: bytes, language_codes: list[str]) -> SttResult:
         )
 
     settings = get_settings()
-    client = speech_v2.SpeechClient()
+    client = _get_client()
 
     config = cloud_speech.RecognitionConfig(
         auto_decoding_config=cloud_speech.AutoDetectDecodingConfig(),

@@ -21,45 +21,40 @@ avoiding a second hardcoded list. Errors from the SDK propagate as a
 defined `SttError`, never a bare crash; an empty result set returns an
 empty `SttResult` rather than raising.
 
-**Superseded by ADR-0037 before merge — corrected in place, not left as a
-known-broken entry.** This sub-phase originally specified `model="chirp_3"`
-at the `global` recognizer location, auto-detecting across the full
-nine-language set in one call (ADR-0036 D3/D5). Live testing against the
-real API found neither half of that held:
+**Model and endpoint went through two live-measurement corrections before
+merge (ADR-0037, twice-revised) — final state below, corrected in place
+rather than left as a known-broken entry.** This sub-phase originally
+specified `model="chirp_3"` at the `global` recognizer location,
+auto-detecting across the full nine-language set in one call (ADR-0036
+D3/D5). Live testing against the real API found:
 
-- `chirp_3` is withdrawn: rejected as "does not exist" at `global`,
-  `us-central1`, `europe-west4`, `us`, and `eu`; at `asia-south1` and
-  `europe-west2` (the regions it was previously scoped to) the API returns
-  `403 ... It is no longer generally available` — GA-revocation, not a
-  permission or preview-enrollment gate (the same principal succeeds
-  against other models seconds later).
-- Candidate-list auto-detection across more than 3 language codes does not
-  exist anywhere on this API version: it is capped at 3 codes, and only
-  offered at the `eu`/`global`/`us` multi-region endpoints. The GA
-  Asia-adjacent endpoints (`asia-southeast1`, `us-central1`,
-  `europe-west4`) accept exactly **one** language code — no candidate-list
-  detection there at all, regardless of model.
+- `chirp_3` is withdrawn: rejected as "does not exist" everywhere tested
+  (`global`, `us-central1`, `europe-west4`, `us`, `eu`); at `asia-south1`
+  and `europe-west2` (the regions it was previously scoped to) the API
+  returns `403 ... It is no longer generally available` — GA-revocation,
+  not a permission or preview-enrollment gate (the same principal
+  succeeds against other models seconds later).
+- Candidate-list auto-detection across more than 3 language codes does
+  not exist anywhere on this API version: capped at 3 codes, and only
+  offered at the `eu`/`global`/`us` multi-region endpoints.
+- `chirp_2` (GA) was tried at `global` next, but a further live probe
+  found `chirp_2` is itself REGIONAL: rejected as "does not exist" at
+  `global`/`us`/`eu`, accepted at `asia-southeast1`.
 
-**ADR-0037 resolves this:** `model="chirp_2"` (GA) at the `global`
-multi-region endpoint, with the caller (sub-phase 1c) passing each
-resident's **tenant's** configured candidate trio (1–3 BCP-47 codes,
-defaulting to `["en-IN", "hi-IN", "te-IN"]` when unset) rather than the
-platform's full nine-language set in one call. `stt.py` now validates
-`1 <= len(language_codes) <= 3` and raises `SttError` outside that range —
-the API enforces this cap and a call outside it can never succeed. The
-platform's nine-language set is unchanged and remains the source of truth
-for `is_supported_language`; only the per-call candidate list is bounded.
-The `global` endpoint (and its residency exception, outside asia-south1)
-is now permanent under this detection strategy, not improvable to an
-in-Asia region — see ADR-0037 D5′.
-
-Real-speech transcription quality on the Indic locales against `chirp_2`
-is a stated pre-merge follow-up in ADR-0037 and is **still outstanding**:
-this environment had no real speech fixture, and Application Default
-Credentials expired mid-session (interactive re-auth required, not
-completable non-interactively), so even an acceptance-only live re-check
-could not be run after the `chirp_2`/`global` fix. Needs a Coordinator run
-with a real clip and fresh ADC before merge.
+**Final state:** `model="chirp_2"` (GA) at the **`asia-southeast1`**
+regional endpoint (explicit `api_endpoint`, not the SDK default), shipping
+**single-code English-first** recognition — the caller passes exactly one
+BCP-47 code. `stt.py` validates `1 <= len(language_codes) <= 3` (the API's
+hard cap) so the signature and validation are already correct for a future
+multi-language sub-phase without another change; that sub-phase would also
+need to revisit the endpoint back to `eu`/`global`/`us`, since
+`asia-southeast1` (like the other Asia-adjacent GA endpoints) accepts only
+one language code per call — no candidate-list auto-detection there.
+Multi-language (Indic) auto-detection across a tenant's candidate set is
+therefore **deferred**, not shipped in this sub-phase. Non-English
+transcription quality is validated post-deploy (sub-phase 3), not a
+pre-merge blocker — English acceptance against the real API at
+`chirp_2`/`asia-southeast1` is proven.
 
 Adds `google-cloud-speech` (pinned) as a new dependency. Adds a
 Coordinator/ADC-run live measurement harness,
