@@ -29,7 +29,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from sport_slot.auth.context import TenantContext
-from sport_slot.services.agent.orchestrator import _dispatch_readonly, run_agent
+from sport_slot.services.agent.orchestrator import _dispatch_readonly, _format_period, run_agent
 from sport_slot.services.agent.vertex_client import AgentResponse
 
 CTX_H1 = TenantContext(uid="u1", tenant_id="t-1", tenant_slug="demo",
@@ -136,6 +136,18 @@ INVOICES_TWO_HOUSEHOLDS = [
 ]
 
 
+# ── _format_period helper ─────────────────────────────────────────────────────
+
+def test_format_period_converts_iso_to_prose():
+    assert _format_period("2026-07") == "July 2026"
+
+
+def test_format_period_returns_input_unchanged_when_unparseable():
+    """Defensive fallback for the "?" placeholder used when a period is
+    unexpectedly missing — must never raise."""
+    assert _format_period("?") == "?"
+
+
 # ── get_my_invoices: direct dispatch ─────────────────────────────────────────
 
 def test_get_my_invoices_returns_compact_summary_in_rupees():
@@ -143,7 +155,8 @@ def test_get_my_invoices_returns_compact_summary_in_rupees():
 
     result = _dispatch_readonly(CTX_H1, client, "get_my_invoices", {}, set(), [])
 
-    assert "period=2026-06" in result
+    assert result == "Your most recent invoice is for June 2026: ₹1500.50."
+    assert "June 2026" in result  # prose period, never the raw "2026-06"
     assert "₹1500.50" in result
     assert "150050" not in result  # never raw paise
 
@@ -155,9 +168,11 @@ def test_get_my_invoices_household_isolation_two_sided():
 
     result = _dispatch_readonly(CTX_H1, client, "get_my_invoices", {}, set(), [])
 
-    assert "2026-05" in result and "2026-06" in result
+    assert "Here are your 2 most recent invoices:" in result
+    assert "May 2026" in result and "June 2026" in result
+    assert "₹100.00" in result  # h-1's 2026-05 total (10000 paise)
+    assert "₹1500.50" in result  # h-1's 2026-06 total (150050 paise)
     assert "₹9999.00" not in result  # h-2's total (999900 paise) never appears
-    assert "total_invoices=2" in result  # only h-1's two invoices
 
 
 def test_get_my_invoices_other_household_sees_only_its_own():
@@ -165,7 +180,7 @@ def test_get_my_invoices_other_household_sees_only_its_own():
 
     result = _dispatch_readonly(CTX_H2, client, "get_my_invoices", {}, set(), [])
 
-    assert "total_invoices=1" in result
+    assert result == "Your most recent invoice is for June 2026: ₹9999.00."
     assert "₹9999.00" in result
     assert "₹1500.50" not in result  # h-1's data never appears for h-2
 
@@ -175,7 +190,7 @@ def test_get_my_invoices_empty_household_graceful_not_error():
 
     result = _dispatch_readonly(CTX_H1, client, "get_my_invoices", {}, set(), [])
 
-    assert result == "user has no generated invoices yet."
+    assert result == "You don't have any invoices yet."
     assert "error" not in result.lower()
 
 
@@ -189,8 +204,8 @@ def test_get_my_invoices_respects_explicit_count_argument():
 
     result = _dispatch_readonly(CTX_H1, client, "get_my_invoices", {"count": 1}, set(), [])
 
-    assert result.count("period=") == 1
-    assert "total_invoices=1" in result
+    # limit=1 + order_by period DESCENDING -> only the latest period (2026-04) survives
+    assert result == "Your most recent invoice is for April 2026: ₹40.00."
 
 
 def test_get_my_invoices_error_returns_json_error_not_raise():
@@ -215,11 +230,15 @@ def test_get_my_current_month_charges_frames_itself_as_a_preview():
     with patch(PREVIEW, return_value=fake_preview):
         result = _dispatch_readonly(CTX_H1, MagicMock(), "get_my_current_month_charges", {}, set(), [])
 
-    assert "LIVE PREVIEW" in result
+    assert result == (
+        "So far in July 2026 you have 1 booking totalling ₹42.00. "
+        "This is a live preview, not a final invoice."
+    )
+    assert "July 2026" in result  # prose period, never the raw "2026-07"
     assert "not a final invoice" in result
     assert "₹42.00" in result
     assert "4200" not in result  # never raw paise
-    assert "bookings_so_far=1" in result
+    assert "1 booking" in result  # singular, count preserved
 
 
 def test_get_my_current_month_charges_empty_state_still_frames_as_preview():
@@ -231,7 +250,8 @@ def test_get_my_current_month_charges_empty_state_still_frames_as_preview():
         result = _dispatch_readonly(CTX_H1, MagicMock(), "get_my_current_month_charges", {}, set(), [])
 
     assert "No bookings charged yet" in result
-    assert "LIVE PREVIEW" in result
+    assert "July 2026" in result  # prose period, never the raw "2026-07"
+    assert "live preview" in result.lower()
     assert "error" not in result.lower()
 
 
@@ -296,7 +316,7 @@ async def test_run_agent_get_my_invoices_end_to_end():
         )
 
     turn2_msg = mock_gen.call_args_list[1].kwargs["message"]
-    assert "period=2026-06" in turn2_msg
+    assert "June 2026" in turn2_msg  # prose period, never the raw "2026-06"
     assert "₹1500.50" in turn2_msg
     assert turn.reply == "Your last invoice was ₹1500.50 for 2026-06."
     mock_repo_cls.return_value.list_for_household.assert_called_once_with("h-1", limit=3)
@@ -327,7 +347,8 @@ async def test_run_agent_get_my_current_month_charges_end_to_end():
         )
 
     turn2_msg = mock_gen.call_args_list[1].kwargs["message"]
-    assert "LIVE PREVIEW" in turn2_msg
+    assert "July 2026" in turn2_msg  # prose period, never the raw "2026-07"
+    assert "live preview" in turn2_msg.lower()
     assert "₹42.00" in turn2_msg
     assert turn.reply == "So far this month (still in progress, not a final invoice) you owe ₹42.00."
     mock_preview.assert_called_once()

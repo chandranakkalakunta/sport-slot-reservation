@@ -150,7 +150,8 @@ async def test_real_failing_phrasing_routes_to_get_my_invoices_never_calls_verte
 
     mock_gen.assert_not_called()  # Vertex skipped entirely — both turns
     assert turn.pending_action_id is None
-    assert "period=2026-06" in turn.reply
+    assert turn.reply == "Your most recent invoice is for June 2026: ₹1500.50."
+    assert "June 2026" in turn.reply  # prose period, never the raw "2026-06"
     assert "₹1500.50" in turn.reply
     mock_repo_cls.return_value.list_for_household.assert_called_once_with("h-1", limit=3)
 
@@ -170,7 +171,8 @@ async def test_real_failing_phrasing_what_did_i_owe_last_month_routes_to_history
 
     mock_gen.assert_not_called()
     mock_preview.assert_not_called()  # must NOT go to the current-month tool
-    assert "period=2026-06" in turn.reply
+    assert "June 2026" in turn.reply  # prose period, never the raw "2026-06"
+    assert "₹1500.50" in turn.reply
     mock_repo_cls.return_value.list_for_household.assert_called_once_with("h-1", limit=3)
 
 
@@ -193,7 +195,12 @@ async def test_current_month_phrasing_routes_to_preview_never_calls_vertex():
 
     mock_gen.assert_not_called()
     assert turn.pending_action_id is None
-    assert "LIVE PREVIEW" in turn.reply
+    assert turn.reply == (
+        "So far in July 2026 you have 1 booking totalling ₹42.00. "
+        "This is a live preview, not a final invoice."
+    )
+    assert "July 2026" in turn.reply  # prose period, never the raw "2026-07"
+    assert "live preview" in turn.reply.lower()
     assert "₹42.00" in turn.reply
     call_args = mock_preview.call_args.args
     assert call_args[1] == CTX
