@@ -7,15 +7,24 @@ and a confidence score. No translation, no agent wiring, no TTS, and no
 call into the confirm/deny guard (services/voice/confirm_guard.py)
 happen here — those are sub-phase 1c.
 
-ADR-0036 D3: language detection is conditioned on the nine curated
-candidate locales (the same language set the confirm/deny guard
-curates — see `confirm_lexicon_data.CONFIRM_LEXICON` for the single
-source of truth on which languages are "supported").
+ADR-0037 D3′ (supersedes ADR-0036 D3): candidate-list auto-detection on
+this API is capped at 3 language codes, and is only available at the
+eu/global/us multi-region endpoints — the platform's full nine-language
+set cannot be sent in one call. The caller (sub-phase 1c) is therefore
+responsible for passing the calling resident's TENANT's configured
+candidate trio (1–3 BCP-47 codes); this module only validates the count
+and sends exactly what it is given. The nine-language platform set
+(`confirm_lexicon_data.CONFIRM_LEXICON`) remains the source of truth for
+`is_supported_language`, independent of which trio was requested.
 
-ADR-0036 D5: Chirp 3 (the model tier with natural Indic-language
-support) is not available in asia-south1, so this module deliberately
-targets the `global` Speech-to-Text recognizer endpoint — a documented,
-accepted residency exception, not an oversight.
+ADR-0037 (model & endpoint, supersedes ADR-0036 D5): `chirp_3` was
+found to be withdrawn (GA-revoked) via live testing in sub-phase 1b —
+`chirp_2` (GA) is used instead. Candidate-list auto-detection is only
+offered at the eu/global/us multi-region endpoints (the Asia GA
+endpoints accept a single language code only, no auto-detect), so this
+module targets the `global` recognizer endpoint. This is a permanent
+residency exception (ADR-0037 D5′), not improvable to an in-Asia region
+under this detection strategy.
 """
 
 from __future__ import annotations
@@ -32,28 +41,17 @@ from sport_slot.services.voice.confirm_lexicon_data import CONFIRM_LEXICON
 
 log = structlog.get_logger()
 
-# ADR-0036 D5: global is the accepted residency exception for Chirp 3.
+# ADR-0037: global multi-region endpoint — required for candidate-list
+# auto-detection (eu/global/us only); chirp_2 is GA here.
 _RECOGNIZER_LOCATION = "global"
-_MODEL = "chirp_3"
+_MODEL = "chirp_2"
 
-# ADR-0036 D3: the nine curated candidate locales, condition detection on
-# these only. Kept in "-IN" BCP-47 form here because that is what the
-# Speech-to-Text API's `language_codes` config expects; the 2-letter
-# "supported" set is the normalized form of the same list.
-_CANDIDATE_LOCALES: tuple[str, ...] = (
-    "en-IN",
-    "hi-IN",
-    "te-IN",
-    "ta-IN",
-    "kn-IN",
-    "ml-IN",
-    "mr-IN",
-    "gu-IN",
-    "bn-IN",
-)
+# ADR-0037 D3′: the API caps candidate-list auto-detection at 3 codes.
+_MAX_CANDIDATE_CODES = 3
 
-# Single source of truth for "is this language supported" — the same nine
-# languages the confirm/deny guard curates (ADR-0036 D3).
+# Single source of truth for "is this language supported" — the platform's
+# full nine-language set (ADR-0036 D3 / ADR-0037 D3′), independent of which
+# ≤3-code candidate trio a given call actually sent.
 _SUPPORTED_LANGUAGES: frozenset[str] = frozenset(CONFIRM_LEXICON.keys())
 
 
@@ -94,8 +92,14 @@ def _recognizer_path(project: str) -> str:
     return f"projects/{project}/locations/{_RECOGNIZER_LOCATION}/recognizers/_"
 
 
-def transcribe(audio_bytes: bytes) -> SttResult:
+def transcribe(audio_bytes: bytes, language_codes: list[str]) -> SttResult:
     """Transcribe `audio_bytes` via Speech-to-Text V2 (sync `recognize`).
+
+    `language_codes` is the calling resident's tenant's configured
+    candidate trio (ADR-0037 D3′) — 1 to 3 BCP-47 codes (e.g.
+    ["en-IN", "hi-IN", "te-IN"]); Speech-to-Text auto-detects among
+    them. Raises `SttError` if the count is outside 1..3 — the API
+    enforces this cap and a call outside it can never succeed.
 
     Auto-decodes the container (WebM/Opus, MP4/AAC, etc. — ADR-0036
     context: browser audio arrives in different containers depending on
@@ -104,12 +108,18 @@ def transcribe(audio_bytes: bytes) -> SttResult:
     never a bare, unclassified exception. An empty result set (nothing
     recognized) is not an error: it returns an empty `SttResult`.
     """
+    if not 1 <= len(language_codes) <= _MAX_CANDIDATE_CODES:
+        raise SttError(
+            f"language_codes must have between 1 and {_MAX_CANDIDATE_CODES} "
+            f"entries, got {len(language_codes)}"
+        )
+
     settings = get_settings()
     client = speech_v2.SpeechClient()
 
     config = cloud_speech.RecognitionConfig(
         auto_decoding_config=cloud_speech.AutoDetectDecodingConfig(),
-        language_codes=list(_CANDIDATE_LOCALES),
+        language_codes=language_codes,
         model=_MODEL,
     )
     request = cloud_speech.RecognizeRequest(
