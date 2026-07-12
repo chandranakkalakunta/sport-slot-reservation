@@ -10,7 +10,7 @@ traceability record.
 **Entry convention:** `[ID] status — one-line what & why. Blocker. Ref.`
 Status ∈ `OPEN` · `BLOCKED` · `IN PROGRESS` · `✓ DONE — Phase X / PR #n`.
 
-_Last updated: 2026-07-12_
+_Last updated: 2026-07-13_
 
 ---
 
@@ -43,14 +43,6 @@ _Last updated: 2026-07-12_
 
 ## Agent / AI Assistant
 
-- **AGENT-UX-01 · OPEN** — Up-arrow in the assistant input recalls & edits
-  the previous message for resend (e.g. "book tennis court tomorrow" →
-  agent asks which court → ↑, edit to "…court 1…", resend). Frontend
-  (MessageInput.tsx). Natural to do alongside voice sub-phase 2.
-- **AGENT-UX-02 · OPEN** — `/clear` slash command: clears the visible
-  thread + local session state, UI-only, no backend/data deletion. Open
-  decision: also drop any live `pending_action_id` (recommended: yes).
-  Frontend (agentSession.ts). Alongside sub-phase 2.
 - **VOICE-ML · BLOCKED** — Non-English voice (Telugu, Hindi, …). Blocked
   NOT by translation (Gemini translate is trivial) but by STT language
   auto-detection: capped at 3 langs, only at us/eu/global endpoints;
@@ -107,3 +99,13 @@ _Last updated: 2026-07-12_
 - **AGENT-INVOICE-FMT · ✓ DONE — Phase Voice/1c-pre / PR #130** —
   Professional prose for agent invoice replies (was raw key=value);
   presentation-only, TTS-safe.
+- **AGENT-UX-01 · ✓ DONE — Phase Voice / PR #TBD** — Up-arrow in the
+  assistant input recalls the most recent user message for editing/resend.
+  Frontend (MessageInput.tsx, Assistant.tsx). Shipped alongside voice
+  sub-phase 2 mic capture UI.
+- **AGENT-UX-02 · ✓ DONE — Phase Voice / PR #TBD** — `/clear` slash command
+  clears the visible thread + sessionStorage instantly, chat-app style, no
+  confirm. Verified a cleared thread also drops any live
+  `pending_action_id` — it only ever lived as a field on a thread message,
+  so clearing the thread necessarily clears it too; no separate cleanup
+  path was needed. Frontend (MessageInput.tsx, Assistant.tsx).

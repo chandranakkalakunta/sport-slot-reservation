@@ -38,7 +38,11 @@ export class ApiClientError extends Error {
 export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise<T> {
   const token = await auth.currentUser?.getIdToken();
   const headers = new Headers(init.headers);
-  headers.set("Content-Type", "application/json");
+  // FormData bodies (multipart, e.g. voice audio upload) must NOT get a
+  // manual Content-Type — the browser sets it, including the boundary.
+  if (!(init.body instanceof FormData)) {
+    headers.set("Content-Type", "application/json");
+  }
   if (token) headers.set("Authorization", `Bearer ${token}`);
 
   const resp = await fetch(`/api/v1${path}`, { ...init, headers });

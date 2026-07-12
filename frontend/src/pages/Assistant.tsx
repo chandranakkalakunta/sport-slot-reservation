@@ -10,7 +10,9 @@ import {
   errorMessageFor,
   useAgentConfirm,
   useAgentSendMessage,
+  useAgentVoice,
 } from "../hooks/agentHooks";
+import { base64ToBlob } from "../lib/audio";
 import { lastUserAndAgentTurn, loadThread, saveThread } from "../lib/agentSession";
 import "../styles/assistant.css";
 
@@ -19,6 +21,7 @@ export default function Assistant() {
   const [isTyping, setIsTyping] = useState(false);
   const sendMessage = useAgentSendMessage();
   const confirmAction = useAgentConfirm();
+  const voiceMessage = useAgentVoice();
 
   useEffect(() => {
     saveThread(thread);
@@ -82,13 +85,97 @@ export default function Assistant() {
     });
   }
 
+  function handleVoice(audio: Blob) {
+    // A spoken turn is a CONFIRM turn iff the latest non-dismissed agent
+    // message has a live pending_action_id — mirrors handleConfirm's own
+    // pending_action_id keying.
+    const latestPending = [...thread].reverse().find((m) => m.kind === "agent" && !m.dismissed);
+    const pendingActionId = latestPending?.pending_action_id;
+
+    setIsTyping(true);
+    voiceMessage.mutate({ audio, pending_action_id: pendingActionId }, {
+      onSuccess: (reply) => {
+        const userMsg: AgentMessage = {
+          kind: "user",
+          text: reply.transcript,
+          timestamp: Date.now(),
+        };
+        const audioUrl = reply.reply_audio
+          ? URL.createObjectURL(base64ToBlob(reply.reply_audio, reply.reply_audio_mime ?? "audio/mpeg"))
+          : undefined;
+
+        setThread((prev) => {
+          const withUser = [...prev, userMsg];
+
+          if (pendingActionId) {
+            // CONFIRM TURN — decision drives the UI (ADR-0036/0037).
+            if (reply.decision === "affirm" || reply.decision === "deny") {
+              const dismissed = withUser.map((m) =>
+                m.pending_action_id === pendingActionId ? { ...m, dismissed: true } : m,
+              );
+              const resultMsg: AgentMessage = {
+                kind: "agent",
+                text: reply.reply_text,
+                audioUrl,
+                reply_audio_mime: reply.reply_audio_mime ?? undefined,
+                decision: reply.decision,
+                timestamp: Date.now() + 1,
+              };
+              return [...dismissed, resultMsg];
+            }
+            // ambiguous, or an empty/garbled transcript (decision null) —
+            // never guess: re-prompt, keep the pending action alive.
+            const repromptMsg: AgentMessage = {
+              kind: "agent",
+              text: reply.reply_text,
+              audioUrl,
+              reply_audio_mime: reply.reply_audio_mime ?? undefined,
+              decision: reply.decision ?? undefined,
+              timestamp: Date.now() + 1,
+            };
+            return [...withUser, repromptMsg];
+          }
+
+          // NORMAL TURN — may itself propose a new pending action.
+          const agentMsg: AgentMessage = {
+            kind: "agent",
+            text: reply.reply_text,
+            pending_action_id: reply.pending_action_id ?? undefined,
+            pending_action_summary: reply.pending_action_summary ?? undefined,
+            audioUrl,
+            reply_audio_mime: reply.reply_audio_mime ?? undefined,
+            timestamp: Date.now() + 1,
+          };
+          return [...withUser, agentMsg];
+        });
+        setIsTyping(false);
+      },
+      onError: (err) => {
+        const errMsg: AgentMessage = {
+          kind: "agent",
+          text: errorMessageFor(err),
+          timestamp: Date.now(),
+        };
+        setThread((prev) => [...prev, errMsg]);
+        setIsTyping(false);
+      },
+    });
+  }
+
   function handleDismiss(timestamp: number) {
     setThread((prev) =>
       prev.map((m) => (m.timestamp === timestamp ? { ...m, dismissed: true } : m)),
     );
   }
 
-  const inputDisabled = isTyping || sendMessage.isPending || confirmAction.isPending;
+  function handleClear() {
+    // Any live pending only ever lived as a field on a thread message —
+    // clearing the thread necessarily drops it too, no separate cleanup.
+    setThread([]);
+  }
+
+  const lastUserMessage = [...thread].reverse().find((m) => m.kind === "user")?.text;
+  const inputDisabled = isTyping || sendMessage.isPending || confirmAction.isPending || voiceMessage.isPending;
 
   return (
     <div style={{ display: "flex", flexDirection: "column", position: "fixed", top: 0, right: 0, bottom: 0, left: 0, paddingBottom: 72 }}>
@@ -132,7 +219,13 @@ export default function Assistant() {
           padding: "12px 16px",
           borderTop: "1px solid var(--color-text-muted)",
         }}>
-          <MessageInput onSend={handleSend} disabled={inputDisabled} />
+          <MessageInput
+            onSend={handleSend}
+            onVoice={handleVoice}
+            onClear={handleClear}
+            lastUserMessage={lastUserMessage}
+            disabled={inputDisabled}
+          />
         </div>
       </main>
     </div>
