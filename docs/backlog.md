@@ -69,14 +69,21 @@ _Last updated: 2026-07-12_
   MUST return resident-ready prose (list_my_bookings / get_my_preferences
   emit raw key=value today, laundered only by Gemini Turn-2 — they'd leak
   if routed deterministically). Decide if their reliability ever matters.
-- **VOICE-HARDEN-01 · OPEN (hard gate before /agent/voice flag-on)** —
-  Enforce a 30s max-utterance duration cap (ADR-0036 D6). 1c ships only a
-  2MB byte cap (~8-11 min at typical bitrates); STT's 60s sync limit is a
-  loose backstop. Needed before flag-on / sub-phase 3 live testing.
-- **VOICE-HARDEN-02 · OPEN (hard gate before /agent/voice flag-on)** —
+- **VOICE-HARDEN-01 · OPEN (hard gate before /agent/voice prod enablement)** —
+  Enforce a 30s max-utterance duration cap server-side (ADR-0036 D6). 1c
+  ships only a 2MB byte cap (~8-11 min at typical bitrates); STT's 60s sync
+  limit is a loose backstop. (Client-side 30s auto-stop is built in
+  sub-phase 2 as UX; this is the server-side enforcement.) Before prod.
+- **VOICE-HARDEN-02 · OPEN (hard gate before /agent/voice prod enablement)** —
   Add a voice-specific (stricter) per-resident rate limit for /agent/voice
   reflecting its ≈₹1/turn cost (ADR-0036 D6). 1c inherits the generic
-  per-user default (functional, not cost-tuned). Needed before flag-on.
+  per-user default (functional, not cost-tuned). Needed before prod.
+- **VOICE-IOS · OPEN (before iOS launch, not day-one)** — Verify & harden
+  iOS Safari voice capture. Safari MediaRecorder emits MP4/AAC (backend STT
+  auto-decode already tolerates it); sub-phase 2 attempts compatibility via
+  mimeType feature-detection but is NOT tested on iOS devices. Needs real
+  iOS device testing (permission flow, mimeType, playback) before iOS is a
+  supported target. Android/desktop is primary.
 
 ## Infrastructure & Technical
 
@@ -94,6 +101,9 @@ _Last updated: 2026-07-12_
 - **VOICE-1b · ✓ DONE — Phase Voice / PR #129** — STT ingestion + language
   detection; chirp_2 @ asia-southeast1, single-code English-first.
   Ref: ADR-0036, ADR-0037.
+- **VOICE-1c · ✓ DONE — Phase Voice / PR #131** — /agent/voice endpoint,
+  English-only pipeline (STT → confirm-guard | agent → TTS). Feature flag
+  present (on in dev env, off in prod). Ref: ADR-0036, ADR-0037.
 - **AGENT-INVOICE-FMT · ✓ DONE — Phase Voice/1c-pre / PR #130** —
   Professional prose for agent invoice replies (was raw key=value);
   presentation-only, TTS-safe.
