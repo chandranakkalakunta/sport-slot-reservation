@@ -6,6 +6,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### fix: professional prose for agent invoice replies (July 2026)
+
+**Presentation only — no value, period, currency, or data-shown change.** The
+AI booking agent's two invoice tools (`get_my_invoices`,
+`get_my_current_month_charges`) were leaking raw key=value debug text
+directly to residents, e.g. `total_invoices=1 period=2026-07
+total=₹2400.00`, while every other agent reply reads as clean prose. Root
+cause: ADR-0035 Decision 9's deterministic pre-Vertex invoice router
+returns these two tools' dispatch strings directly as the final reply,
+skipping the normal Gemini rephrasing turn (by design, for reliability) —
+so unlike `list_my_bookings`/`get_my_preferences` (which are always
+Gemini-rephrased before reaching a resident, despite using the same
+internal key=value shape), these two tools' raw internal strings were the
+literal, unprocessed resident-facing text.
+
+Reworded both tools' reply branches in `services/agent/orchestrator.py`
+to natural, TTS-safe prose (relevant ahead of the voice work — these
+strings will later be read aloud): "no invoices" → "You don't have any
+invoices yet."; a single invoice → "Your most recent invoice is for July
+2026: ₹2,400.00."; multiple → a lead line + one prose line per invoice
+(there is no per-period lookup in the underlying tool — it always
+returns the N most recent, so wording never claims a specific-month
+query that doesn't exist); the current-month live preview → "So far in
+July 2026 you have 15 bookings totalling ₹2,100.00. This is a live
+preview, not a final invoice." Periods are now spoken as words ("July
+2026") via a new `_format_period` helper, never the raw ISO form.
+Amounts, counts, and periods are unchanged — every reworded test asserts
+the same numeric values/periods still appear in the new prose. The two
+JSON error branches were deliberately left untouched: confirmed via the
+code's own `is_error` check that they're intercepted and replaced with
+the safe fallback before ever reaching a resident, so rewording them
+would be scope creep with no user-visible effect.
+
 ### feat: Voice I/O sub-phase 1b — STT ingestion + language detection (July 2026)
 
 **Standalone module, no endpoint/translation/TTS/agent wiring yet.** Adds

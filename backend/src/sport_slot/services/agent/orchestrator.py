@@ -889,6 +889,18 @@ def _to_rupees(paise: int | None) -> str:
     return f"₹{(paise or 0) / 100:.2f}"
 
 
+def _format_period(period: str) -> str:
+    """"2026-07" -> "July 2026", for natural-language / TTS-safe replies.
+
+    Returns the input unchanged if it isn't in that shape (e.g. the "?"
+    fallback used when a period is unexpectedly missing) — never raises.
+    """
+    try:
+        return datetime.datetime.strptime(period, "%Y-%m").strftime("%B %Y")
+    except ValueError:
+        return period
+
+
 def _dispatch_readonly(
     ctx: TenantContext,
     client,
@@ -995,12 +1007,18 @@ def _dispatch_readonly(
             )
             log.info("agent_invoices_dispatched", count=len(items))
             if not items:
-                return "user has no generated invoices yet."
-            lines = [f"total_invoices={len(items)}"]
+                return "You don't have any invoices yet."
+            if len(items) == 1:
+                inv = items[0]
+                return (
+                    f"Your most recent invoice is for {_format_period(inv.get('period', '?'))}: "
+                    f"{_to_rupees(inv.get('total_paise'))}."
+                )
+            lines = [f"Here are your {len(items)} most recent invoices:"]
             for inv in items:
                 lines.append(
-                    f"  period={inv.get('period', '?')} "
-                    f"total={_to_rupees(inv.get('total_paise'))}"
+                    f"• {_format_period(inv.get('period', '?'))}: "
+                    f"{_to_rupees(inv.get('total_paise'))}"
                 )
             return "\n".join(lines)
         except Exception as exc:
@@ -1014,16 +1032,17 @@ def _dispatch_readonly(
             )
             count = len(preview.get("line_items", []))
             log.info("agent_current_month_charges_dispatched", count=count)
-            period = preview.get("period", "?")
+            period = _format_period(preview.get("period", "?"))
             total = _to_rupees(preview.get("total_paise"))
             if count == 0:
                 return (
                     f"No bookings charged yet for {period} (in progress) — this is a "
-                    f"LIVE PREVIEW, not a final or official invoice."
+                    f"live preview, not a final or official invoice."
                 )
+            booking_word = "booking" if count == 1 else "bookings"
             return (
-                f"period={period} (in progress — LIVE PREVIEW, not a final invoice) "
-                f"bookings_so_far={count} total_so_far={total}"
+                f"So far in {period} you have {count} {booking_word} totalling {total}. "
+                f"This is a live preview, not a final invoice."
             )
         except Exception as exc:
             log.warning("agent_tool_current_month_charges_error", error=str(exc))
