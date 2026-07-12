@@ -99,11 +99,11 @@ _Last updated: 2026-07-13_
 - **AGENT-INVOICE-FMT · ✓ DONE — Phase Voice/1c-pre / PR #130** —
   Professional prose for agent invoice replies (was raw key=value);
   presentation-only, TTS-safe.
-- **AGENT-UX-01 · ✓ DONE — Phase Voice / PR #TBD** — Up-arrow in the
+- **AGENT-UX-01 · ✓ DONE — Phase Voice / PR #132** — Up-arrow in the
   assistant input recalls the most recent user message for editing/resend.
   Frontend (MessageInput.tsx, Assistant.tsx). Shipped alongside voice
   sub-phase 2 mic capture UI.
-- **AGENT-UX-02 · ✓ DONE — Phase Voice / PR #TBD** — `/clear` slash command
+- **AGENT-UX-02 · ✓ DONE — Phase Voice / PR #132** — `/clear` slash command
   clears the visible thread + sessionStorage instantly, chat-app style, no
   confirm. Verified a cleared thread also drops any live
   `pending_action_id` — it only ever lived as a field on a thread message,
