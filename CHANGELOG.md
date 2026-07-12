@@ -6,6 +6,63 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### feat: Voice I/O sub-phase 1c — POST /agent/voice endpoint, English-only (July 2026)
+
+**Wires the full voice turn end-to-end: audio → STT(en-IN) → [confirm
+guard | run_agent] → TTS(en-IN) → audio.** Feature-flagged, default OFF
+(`SPORTSLOT_VOICE_ENABLED`, unset/false → the endpoint 404s, behaving as
+if it does not exist). English-only for this sub-phase — translation
+(ADR-0036 D1) and per-tenant language configuration (ADR-0037 D3′) are
+staged, not built: every language decision already routes through the
+new `services/voice/languages.py` resolver
+(`resolve_tenant_voice_languages`, returns `["en-IN"]` today), so only
+that one seam changes when the multi-language sub-phase ships.
+
+**Live-verified before any pipeline code was built on it** (the same
+fail-fast discipline that caught the withdrawn `chirp_3` / regional
+`chirp_2` STT issues in 1b): enabled `texttospeech.googleapis.com`,
+enumerated the available `en-IN` Chirp 3 HD voices (30 found), and made
+one real synthesis call — `en-IN-Chirp3-HD-Kore` returned 7,776 bytes of
+valid MP3 audio. Chirp 3 HD runs at the global/eu/us endpoints, not
+asia-southeast1 (the STT endpoint) — the same documented residency
+exception already accepted for STT (ADR-0036 D5 / ADR-0037 D5′), now
+extended to TTS, via the default (global) `TextToSpeechClient` endpoint.
+
+**New modules** (all in `services/voice/`, 100% hermetic coverage,
+`services/voice/` mypy-scoped and clean):
+- `languages.py` — the ADR-0037 D3′ staging seam.
+- `tts.py` — `synthesize(text, language_code) -> (audio_bytes, mime)`,
+  raises a defined `TtsError` on failure; never fed raw tool dispatch
+  output, only the agent's already-prose reply text.
+- `voice_pipeline.py` — `run_voice_turn(...)`, the orchestrator, plus
+  `combine_confirm_decisions` (ADR-0037 D2′): the confirm turn checks
+  the utterance against **all** of the tenant's configured languages'
+  lexicons (today: just English), not only whichever language STT
+  guessed — any AFFIRM and no DENY → AFFIRM; any DENY and no AFFIRM →
+  DENY; both or neither → AMBIGUOUS, fail-closed. AFFIRM calls the
+  existing `run_agent_confirm` unmodified; DENY abandons the pending
+  action with no new delete path (it expires via its existing ADR-0025
+  TTL); AMBIGUOUS re-prompts and keeps the pending action alive. An
+  empty/garbled transcript never guesses — it re-prompts and leaves any
+  in-progress confirmation exactly as it was. `run_agent` /
+  `run_agent_confirm` (the existing text agent) are called exactly as
+  the text endpoint calls them — no new agent behavior, only a new edge
+  in front of the same, unmodified pipeline (ADR-0036 D1). TTS failure
+  degrades to a text-only reply; the turn still succeeds.
+
+**New endpoint:** `api/v1/voice.py`, `POST /agent/voice`, residents-only,
+multipart (`audio` file + optional `pending_action_id` form field), a
+configurable audio size cap (`SPORTSLOT_VOICE_MAX_AUDIO_BYTES`, default
+2 MB, rejects oversized uploads with a new `PAYLOAD_TOO_LARGE` error
+code before any pipeline work runs), and rate-limited via the existing
+app-wide default limiter — the same mechanism `/agent/query` and every
+other authenticated route already use, no bespoke per-route limiter
+added. Registered in `main.py` exactly like the existing agent router;
+`/agent/query` itself is completely unchanged.
+
+Adds `google-cloud-texttospeech` and `python-multipart` (both pinned) as
+new dependencies.
+
 ### fix: professional prose for agent invoice replies (July 2026)
 
 **Presentation only — no value, period, currency, or data-shown change.** The

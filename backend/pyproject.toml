@@ -17,9 +17,11 @@ dependencies = [
   "google-cloud-tasks>=2.16",
   "google-cloud-storage>=2.18",
   "google-cloud-speech>=2.40",
+  "google-cloud-texttospeech>=2.37",
   "google-auth>=2.36",
   "google-genai>=1.0",
   "zxcvbn>=4.5.0",
+  "python-multipart>=0.0.32",
 ]
 
 [dependency-groups]
