@@ -69,12 +69,14 @@ _Last updated: 2026-07-13_
 
 ## Infrastructure & Technical
 
-- **VOICE-IAM-TF · OPEN (before prod / infra rebuild) — HIGH** — The Cloud
-  Run runtime SA (sa-cloud-run@sport-slot-dev) needs `roles/speech.client`
-  (grants speech.recognizers.recognize) for STT. Applied IMPERATIVELY
-  2026-07-13 to fix the voice 403. Must be codified in Terraform alongside
-  the other IAM grants, or it drifts/vanishes on infra rebuild. Root cause
-  of the 2026-07-13 debugging session.
+- **IAM-TF-CODIFY · OPEN (before prod / infra rebuild) — HIGH** — The 4
+  baseline service accounts' roles (sa-cloud-run, sa-firebase-admin,
+  sa-cloud-build, sa-monitoring) are documented only as commented-out
+  resource templates in `terraform/iam.tf` (Phase 1.4.2 Option C) — the
+  SAs themselves and every role binding were granted imperatively via
+  `gcloud iam` in Phase 1.3.2/1.3.3 and are not real Terraform resources.
+  Drifts/vanishes on infra rebuild. Separate from VOICE-IAM-TF (a single
+  feature-scoped grant, now codified) — this covers the baseline set.
 - **VOICE-HARDEN-01 · OPEN (hard gate before prod enablement)** — Enforce a
   30s max-utterance duration cap server-side (ADR-0036 D6). 1c ships only a
   2MB byte cap (~8-11 min at typical bitrates); STT's 60s sync limit is a
@@ -133,6 +135,12 @@ _Last updated: 2026-07-13_
 - **VOICE-STT-403 · ✓ DONE — 2026-07-13 (imperative; see VOICE-IAM-TF to
   codify)** — Granted roles/speech.client to sa-cloud-run@; voice now
   transcribes end-to-end. Full round-trip working.
+- **VOICE-IAM-TF · ✓ DONE — infra/voice-speech-iam (terraform/voice_stt.tf)**
+  — Codified the imperative roles/speech.client grant (VOICE-STT-403) as
+  a real `google_project_iam_member` resource, matching the
+  invoice_export.tf / cloud_tasks.tf pattern. Import/plan/apply is
+  Coordinator-run and not yet applied as of PR open — see PR for the
+  exact commands.
 - **AGENT-MD-TTS · ✓ DONE — Phase Voice / PR #135** — Markdown stripped from
   agent replies (`services/agent/text_format.to_plain_text`), applied once
   at the `run_agent` / `run_agent_confirm` boundary so both `/agent/query`

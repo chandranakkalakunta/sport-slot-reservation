@@ -6,6 +6,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### infra: codify roles/speech.client for sa-cloud-run in Terraform (VOICE-IAM-TF)
+
+The Cloud Run runtime SA's `roles/speech.client` grant (needed for voice
+STT, ADR-0036/0037) was applied imperatively via `gcloud` on 2026-07-13
+to fix a live 403. Added `terraform/voice_stt.tf` — a
+`google_project_iam_member` resource matching the existing
+`invoice_export.tf` / `cloud_tasks.tf` pattern — so the grant is codified
+and replicates to Test/Prod on apply instead of drifting/vanishing on
+infra rebuild. `terraform fmt`/`validate` clean; import/plan/apply is
+Coordinator-run, not yet applied.
+
 ### chore: remove SPORTSLOT_VOICE_ENABLED feature flag
 
 Voice is validated and working; the flag is deleted so `POST /agent/voice`
