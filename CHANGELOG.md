@@ -6,6 +6,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### chore: fix stale STT model probe (VOICE-PROBE)
+
+`scripts/voice/stt_model_probe.py` was a 1b-era diagnostic that always
+400'd ("Maximum number of allowed language codes is 3") because it sent
+its 9-language candidate list on every probe row regardless of model —
+misleading output during the 2026-07-13 debugging session. Replaced the
+hardcoded matrix with a case matrix that validates the shipped config
+first (chirp_2 @ asia-southeast1, en-IN only), plus regional-reachability
+and future-VOICE-ML cases — none exceeding the API's 3-code cap (enforced
+by an assertion on the case dataclass). A missing `--audio` clip
+(including the default, gitignored fixture) now prints clear guidance —
+how to pass an existing clip or record one via `ffmpeg` — instead of a
+bare "file not found". Header docstring updated for current reality
+(chirp_3 withdrawn). Read-only diagnostic, not wired into any app path or
+CI gate.
+
 ### feat: stop TTS playback when mic input starts — barge-in (VOICE-BARGE-IN)
 
 Voice mode could overlap the agent's spoken reply with the resident's own
