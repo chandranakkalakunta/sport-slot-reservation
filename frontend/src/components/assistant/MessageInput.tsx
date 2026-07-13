@@ -1,5 +1,5 @@
 import { Mic, Square } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { useVoiceRecorder } from "../../hooks/useVoiceRecorder";
 
@@ -8,7 +8,7 @@ export function MessageInput({
   onVoice,
   onClear,
   onRecordingChange,
-  lastUserMessage,
+  userMessageHistory,
   disabled,
 }: {
   onSend: (text: string) => void;
@@ -18,15 +18,35 @@ export function MessageInput({
    * parent can pause any in-progress TTS reply playback the moment the
    * mic opens — the user takes priority over the agent's own voice. */
   onRecordingChange?: (isRecording: boolean) => void;
-  lastUserMessage?: string;
+  /** AGENT-UX-01b: the resident's prior user messages, NEWEST-FIRST
+   * (index 0 is the most recent). ArrowUp/ArrowDown walk this list like
+   * shell history — see handleKey for the full cursor contract. */
+  userMessageHistory?: string[];
   disabled: boolean;
 }) {
   const [text, setText] = useState("");
   const { isSupported: micSupported, isRecording, start, stop, error: micError } = useVoiceRecorder();
 
+  // AGENT-UX-01b: history cursor. -1 = not walking history (a fresh draft,
+  // which may be empty or something the resident is actively typing). 0..
+  // history.length-1 = walking, where 0 is the newest prior message.
+  const [historyIndex, setHistoryIndex] = useState(-1);
+  // The draft in progress when the walk started, restored on ArrowDown past
+  // the newest entry. Entering history mode requires an empty input (see
+  // the ArrowUp guard below), so this is always "" today — kept as a ref
+  // set generically at walk-start so it stays correct if that guard ever
+  // loosens, rather than hardcoding "".
+  const draftRef = useRef("");
+  const history = userMessageHistory ?? [];
+
   useEffect(() => {
     onRecordingChange?.(isRecording);
   }, [isRecording, onRecordingChange]);
+
+  function resetHistoryCursor() {
+    setHistoryIndex(-1);
+    draftRef.current = "";
+  }
 
   function handleSend() {
     const trimmed = text.trim();
@@ -34,10 +54,12 @@ export function MessageInput({
     if (trimmed === "/clear") {
       setText("");
       onClear();
+      resetHistoryCursor();
       return;
     }
     onSend(trimmed);
     setText("");
+    resetHistoryCursor();
   }
 
   function handleKey(e: React.KeyboardEvent<HTMLInputElement>) {
@@ -46,11 +68,39 @@ export function MessageInput({
       handleSend();
       return;
     }
-    // AGENT-UX-01: recall the last message only when the input is empty —
-    // never hijack ArrowUp once the resident has started typing/editing.
-    if (e.key === "ArrowUp" && text === "" && lastUserMessage) {
+
+    // AGENT-UX-01b: shell-style multi-level history.
+    //
+    // Entry gate: ArrowUp only STARTS a walk when the input is empty and
+    // we're not already walking (historyIndex === -1) — this is the same
+    // "never hijack a fresh typed draft" rule AGENT-UX-01 shipped with.
+    // Once a walk is underway (historyIndex >= 0), ArrowUp/ArrowDown keep
+    // working no matter what's currently in the box: if the resident
+    // edits a recalled message and presses ArrowUp again, that edit is
+    // DISCARDED and the walk continues further back — shell (bash)
+    // behavior, not "stop at the edited line".
+    if (e.key === "ArrowUp") {
+      if (historyIndex === -1 && text !== "") return; // fresh typed draft — leave it alone
+      if (history.length === 0) return; // nothing to recall
       e.preventDefault();
-      setText(lastUserMessage);
+      if (historyIndex === -1) draftRef.current = text; // save the draft before entering history mode
+      const nextIndex = Math.min(historyIndex + 1, history.length - 1);
+      setHistoryIndex(nextIndex);
+      setText(history[nextIndex]);
+      return;
+    }
+
+    if (e.key === "ArrowDown") {
+      if (historyIndex === -1) return; // not walking history — nothing to do
+      e.preventDefault();
+      const nextIndex = historyIndex - 1;
+      if (nextIndex < 0) {
+        setHistoryIndex(-1);
+        setText(draftRef.current);
+      } else {
+        setHistoryIndex(nextIndex);
+        setText(history[nextIndex]);
+      }
     }
   }
 

@@ -126,7 +126,9 @@ _Last updated: 2026-07-13_
   Professional prose for agent invoice replies (was raw key=value);
   presentation-only, TTS-safe.
 - **AGENT-UX-01 · ✓ DONE — Phase Voice / PR #132** — Up-arrow recalls the
-  previous user message for edit/resend.
+  previous user message for edit/resend. Enhanced to shell-style
+  multi-level history (walk back/forward through all prior messages,
+  draft-restore) in AGENT-UX-01b, PR #140.
 - **AGENT-UX-02 · ✓ DONE — Phase Voice / PR #132** — `/clear` slash command
   clears thread + session state (UI-only).
 - **VOICE-2 · ✓ DONE — Phase Voice / PR #132** — Mic capture + playback UI;

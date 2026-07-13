@@ -71,16 +71,18 @@ describe("MessageInput", () => {
     expect(onSend).not.toHaveBeenCalled();
   });
 
-  // ── AGENT-UX-01: up-arrow recall ────────────────────────────────────────────
+  // ── AGENT-UX-01b: multi-level up/down arrow history ─────────────────────────
 
-  it("recalls the last user message on ArrowUp when input is empty", async () => {
+  const HISTORY = ["book tennis tomorrow", "check availability", "book tennis today"]; // newest-first
+
+  it("recalls the most recent user message on the first ArrowUp", async () => {
     const user = userEvent.setup();
     render(
       <MessageInput
         onSend={vi.fn()}
         onVoice={vi.fn()}
         onClear={vi.fn()}
-        lastUserMessage="book tennis tomorrow"
+        userMessageHistory={HISTORY}
         disabled={false}
       />,
     );
@@ -92,14 +94,138 @@ describe("MessageInput", () => {
     expect(input).toHaveValue("book tennis tomorrow");
   });
 
-  it("does not overwrite existing text on ArrowUp", async () => {
+  it("walks further back through history on repeated ArrowUp", async () => {
     const user = userEvent.setup();
     render(
       <MessageInput
         onSend={vi.fn()}
         onVoice={vi.fn()}
         onClear={vi.fn()}
-        lastUserMessage="book tennis tomorrow"
+        userMessageHistory={HISTORY}
+        disabled={false}
+      />,
+    );
+
+    const input = screen.getByLabelText("Message");
+    input.focus();
+    await user.keyboard("{ArrowUp}");
+    expect(input).toHaveValue("book tennis tomorrow");
+    await user.keyboard("{ArrowUp}");
+    expect(input).toHaveValue("check availability");
+    await user.keyboard("{ArrowUp}");
+    expect(input).toHaveValue("book tennis today");
+  });
+
+  it("stops at the oldest message — further ArrowUp is a no-op", async () => {
+    const user = userEvent.setup();
+    render(
+      <MessageInput
+        onSend={vi.fn()}
+        onVoice={vi.fn()}
+        onClear={vi.fn()}
+        userMessageHistory={HISTORY}
+        disabled={false}
+      />,
+    );
+
+    const input = screen.getByLabelText("Message");
+    input.focus();
+    await user.keyboard("{ArrowUp}{ArrowUp}{ArrowUp}{ArrowUp}{ArrowUp}");
+
+    expect(input).toHaveValue("book tennis today");
+  });
+
+  it("walks back down through history on ArrowDown", async () => {
+    const user = userEvent.setup();
+    render(
+      <MessageInput
+        onSend={vi.fn()}
+        onVoice={vi.fn()}
+        onClear={vi.fn()}
+        userMessageHistory={HISTORY}
+        disabled={false}
+      />,
+    );
+
+    const input = screen.getByLabelText("Message");
+    input.focus();
+    await user.keyboard("{ArrowUp}{ArrowUp}{ArrowUp}"); // at oldest: "book tennis today"
+    await user.keyboard("{ArrowDown}");
+    expect(input).toHaveValue("check availability");
+    await user.keyboard("{ArrowDown}");
+    expect(input).toHaveValue("book tennis tomorrow");
+  });
+
+  it("restores the pre-walk draft when ArrowDown passes the newest entry", async () => {
+    const user = userEvent.setup();
+    render(
+      <MessageInput
+        onSend={vi.fn()}
+        onVoice={vi.fn()}
+        onClear={vi.fn()}
+        userMessageHistory={HISTORY}
+        disabled={false}
+      />,
+    );
+
+    const input = screen.getByLabelText("Message");
+    input.focus();
+    await user.keyboard("{ArrowUp}"); // enters history from an empty draft
+    expect(input).toHaveValue("book tennis tomorrow");
+    await user.keyboard("{ArrowDown}"); // back past the newest — restores the draft ("")
+    expect(input).toHaveValue("");
+  });
+
+  it("ArrowDown is a no-op when not currently walking history", async () => {
+    const user = userEvent.setup();
+    render(
+      <MessageInput
+        onSend={vi.fn()}
+        onVoice={vi.fn()}
+        onClear={vi.fn()}
+        userMessageHistory={HISTORY}
+        disabled={false}
+      />,
+    );
+
+    const input = screen.getByLabelText("Message");
+    input.focus();
+    await user.keyboard("{ArrowDown}");
+
+    expect(input).toHaveValue("");
+  });
+
+  it("further ArrowUp from an edited-recalled message discards the edit and keeps walking (shell behavior)", async () => {
+    const user = userEvent.setup();
+    render(
+      <MessageInput
+        onSend={vi.fn()}
+        onVoice={vi.fn()}
+        onClear={vi.fn()}
+        userMessageHistory={HISTORY}
+        disabled={false}
+      />,
+    );
+
+    const input = screen.getByLabelText("Message");
+    input.focus();
+    await user.keyboard("{ArrowUp}"); // "book tennis tomorrow"
+    await user.type(input, " edited");
+    expect(input).toHaveValue("book tennis tomorrow edited");
+
+    await user.keyboard("{ArrowUp}"); // walks further back, discarding the edit
+
+    expect(input).toHaveValue("check availability");
+  });
+
+  it("does not overwrite a fresh typed draft on ArrowUp", async () => {
+    const user = userEvent.setup();
+    render(
+      <MessageInput
+        onSend={vi.fn()}
+        onVoice={vi.fn()}
+        onClear={vi.fn()}
+        userMessageHistory={HISTORY}
         disabled={false}
       />,
     );
@@ -111,7 +237,7 @@ describe("MessageInput", () => {
     expect(input).toHaveValue("already typing");
   });
 
-  it("is a no-op on ArrowUp when there is no last user message", async () => {
+  it("is a no-op on ArrowUp when there is no message history", async () => {
     const user = userEvent.setup();
     render(<MessageInput onSend={vi.fn()} onVoice={vi.fn()} onClear={vi.fn()} disabled={false} />);
 
@@ -120,6 +246,57 @@ describe("MessageInput", () => {
     await user.keyboard("{ArrowUp}");
 
     expect(input).toHaveValue("");
+  });
+
+  it("resets the history cursor after sending a message", async () => {
+    const user = userEvent.setup();
+    const onSend = vi.fn();
+    render(
+      <MessageInput
+        onSend={onSend}
+        onVoice={vi.fn()}
+        onClear={vi.fn()}
+        userMessageHistory={HISTORY}
+        disabled={false}
+      />,
+    );
+
+    const input = screen.getByLabelText("Message");
+    await user.type(input, "a new message{Enter}");
+    expect(onSend).toHaveBeenCalledWith("a new message");
+    expect(input).toHaveValue("");
+
+    // If the cursor hadn't reset, this first ArrowUp would still be
+    // mid-walk; instead it should behave like a fresh entry into history.
+    input.focus();
+    await user.keyboard("{ArrowUp}");
+    expect(input).toHaveValue("book tennis tomorrow");
+  });
+
+  it("resets the history cursor after /clear", async () => {
+    const user = userEvent.setup();
+    const onClear = vi.fn();
+    render(
+      <MessageInput
+        onSend={vi.fn()}
+        onVoice={vi.fn()}
+        onClear={onClear}
+        userMessageHistory={HISTORY}
+        disabled={false}
+      />,
+    );
+
+    const input = screen.getByLabelText("Message");
+    input.focus();
+    await user.keyboard("{ArrowUp}{ArrowUp}"); // mid-walk: "check availability"
+    await user.clear(input);
+    await user.type(input, "/clear{Enter}");
+    expect(onClear).toHaveBeenCalledOnce();
+    expect(input).toHaveValue("");
+
+    input.focus();
+    await user.keyboard("{ArrowUp}");
+    expect(input).toHaveValue("book tennis tomorrow");
   });
 
   // ── Mic button ───────────────────────────────────────────────────────────
