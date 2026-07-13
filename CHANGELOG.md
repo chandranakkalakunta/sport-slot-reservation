@@ -6,6 +6,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### chore: remove SPORTSLOT_VOICE_ENABLED feature flag
+
+Voice is validated and working; the flag is deleted so `POST /agent/voice`
+is unconditionally available in every environment, with no env var to
+manage per deploy. No pipeline behavior change otherwise. With the flag
+gone, no runtime gate prevents voice reaching prod — see VOICE-PROD-GATE
+in `docs/backlog.md`.
+
 ### fix: strip Markdown from agent replies for clean text + TTS (AGENT-MD-TTS)
 
 Agent replies could carry Markdown emphasis and bullet syntax (e.g.

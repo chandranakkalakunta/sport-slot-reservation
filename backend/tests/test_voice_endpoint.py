@@ -3,8 +3,7 @@
 All external I/O is mocked. `run_voice_turn` itself is mocked for these
 route-level tests — its own logic is exhaustively tested in
 test_voice_pipeline.py; here we test the route's own concerns: the
-feature flag, the size cap, rate limiting, response shape, and the
-residents-only gate.
+size cap, rate limiting, response shape, and the residents-only gate.
 """
 
 from __future__ import annotations
@@ -43,29 +42,6 @@ def _override_deps(app):
 
 
 # ---------------------------------------------------------------------------
-# Feature flag — default off, behaves as if the route does not exist
-# ---------------------------------------------------------------------------
-
-
-async def test_flag_off_by_default_returns_404(make_client):
-    with patch(VERIFY, return_value=RESIDENT_CLAIMS):
-        async with make_client() as client:
-            _override_deps(client._transport.app)
-            resp = await client.post(URL, files=_files(), headers={**AUTH, **HOST})
-
-    assert resp.status_code == 404
-
-
-async def test_flag_explicitly_off_returns_404(make_client):
-    with patch(VERIFY, return_value=RESIDENT_CLAIMS):
-        async with make_client({"SPORTSLOT_VOICE_ENABLED": "false"}) as client:
-            _override_deps(client._transport.app)
-            resp = await client.post(URL, files=_files(), headers={**AUTH, **HOST})
-
-    assert resp.status_code == 404
-
-
-# ---------------------------------------------------------------------------
 # Size cap — 413 before any pipeline work
 # ---------------------------------------------------------------------------
 
@@ -73,9 +49,7 @@ async def test_flag_explicitly_off_returns_404(make_client):
 async def test_oversized_audio_returns_413(make_client):
     oversized = b"x" * 100
     with patch(VERIFY, return_value=RESIDENT_CLAIMS), patch(RUN_VOICE_TURN) as mock_turn:
-        async with make_client(
-            {"SPORTSLOT_VOICE_ENABLED": "true", "SPORTSLOT_VOICE_MAX_AUDIO_BYTES": "10"}
-        ) as client:
+        async with make_client({"SPORTSLOT_VOICE_MAX_AUDIO_BYTES": "10"}) as client:
             _override_deps(client._transport.app)
             resp = await client.post(URL, files=_files(oversized), headers={**AUTH, **HOST})
 
@@ -103,7 +77,7 @@ async def test_happy_path_returns_full_response_shape(make_client):
         patch(VERIFY, return_value=RESIDENT_CLAIMS),
         patch(RUN_VOICE_TURN, new_callable=AsyncMock, return_value=fake_turn),
     ):
-        async with make_client({"SPORTSLOT_VOICE_ENABLED": "true"}) as client:
+        async with make_client() as client:
             _override_deps(client._transport.app)
             resp = await client.post(URL, files=_files(), headers={**AUTH, **HOST})
 
@@ -130,7 +104,7 @@ async def test_happy_path_with_null_audio_encodes_as_null(make_client):
         patch(VERIFY, return_value=RESIDENT_CLAIMS),
         patch(RUN_VOICE_TURN, new_callable=AsyncMock, return_value=fake_turn),
     ):
-        async with make_client({"SPORTSLOT_VOICE_ENABLED": "true"}) as client:
+        async with make_client() as client:
             _override_deps(client._transport.app)
             resp = await client.post(URL, files=_files(), headers={**AUTH, **HOST})
 
@@ -148,7 +122,7 @@ async def test_confirm_turn_passes_pending_action_id_through(make_client):
         patch(VERIFY, return_value=RESIDENT_CLAIMS),
         patch(RUN_VOICE_TURN, new_callable=AsyncMock, return_value=fake_turn) as mock_turn,
     ):
-        async with make_client({"SPORTSLOT_VOICE_ENABLED": "true"}) as client:
+        async with make_client() as client:
             _override_deps(client._transport.app)
             resp = await client.post(
                 URL, files=_files(), data={"pending_action_id": "pa-123"},
@@ -168,7 +142,7 @@ async def test_confirm_turn_passes_pending_action_id_through(make_client):
 
 async def test_non_resident_blocked_with_403(make_client):
     with patch(VERIFY, return_value=ADMIN_CLAIMS):
-        async with make_client({"SPORTSLOT_VOICE_ENABLED": "true"}) as client:
+        async with make_client() as client:
             _override_deps(client._transport.app)
             resp = await client.post(URL, files=_files(), headers={**AUTH, **HOST})
 
@@ -191,9 +165,7 @@ async def test_rate_limit_429(make_client):
         patch(VERIFY, return_value=RESIDENT_CLAIMS),
         patch(RUN_VOICE_TURN, new_callable=AsyncMock, return_value=fake_turn),
     ):
-        async with make_client(
-            {"SPORTSLOT_VOICE_ENABLED": "true", "SPORTSLOT_RATE_LIMIT": "2/minute"}
-        ) as client:
+        async with make_client({"SPORTSLOT_RATE_LIMIT": "2/minute"}) as client:
             _override_deps(client._transport.app)
             r1 = await client.post(URL, files=_files(), headers={**AUTH, **HOST})
             r2 = await client.post(URL, files=_files(), headers={**AUTH, **HOST})

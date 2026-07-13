@@ -4,9 +4,8 @@ Residents-only. English-only for this sub-phase (1c) — translation and
 per-tenant language configuration are staged behind
 services/voice/languages.py for a future multi-language sub-phase.
 
-Feature-flagged, default OFF: when `SPORTSLOT_VOICE_ENABLED` is not set
-(or false), this endpoint behaves as if it does not exist (404) — no
-existing route (`/agent/query`) is changed by this file at all.
+Always available — no feature flag. No existing route (`/agent/query`)
+is changed by this file at all.
 
 Propose:  POST /agent/voice  multipart(audio)
             → { transcript, reply_text, reply_audio, reply_audio_mime,
@@ -57,10 +56,6 @@ async def agent_voice(
     redis=Depends(get_redis_client),
 ) -> VoiceReply:
     settings = get_settings()
-    if not settings.voice_enabled:
-        # Behave as if this route does not exist while the feature is off.
-        raise ApiError(404, error_codes.NOT_FOUND, "Not found")
-
     audio_bytes = await audio.read()
     log.info(
         "voice_request_received",
