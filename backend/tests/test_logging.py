@@ -13,7 +13,9 @@ def test_configure_logging_emits_json_to_stdout(capsys):
     captured = capsys.readouterr()
     assert captured.out != "", "expected a JSON line on stdout"
     parsed = json.loads(captured.out.strip())
-    assert parsed["event"] == "test_stdout_event"
+    # Cloud Logging's summary line reads jsonPayload.message, not .event —
+    # EventRenamer moves the event name there so it isn't rendered blank.
+    assert parsed["message"] == "test_stdout_event"
     assert parsed["canary"] == "ping"
     assert parsed["level"] == "warning"
 

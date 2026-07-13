@@ -41,6 +41,14 @@ def configure_logging(level: str = "INFO") -> None:
             structlog.processors.TimeStamper(fmt="iso", utc=True),
             _bind_request_id,
             _redact,
+            # Cloud Logging's Logs Explorer (and `gcloud ... logs read`) builds
+            # each entry's one-line summary from a top-level "message" field.
+            # structlog's event key is "event" by default, so every line was
+            # being ingested correctly (full JSON present in jsonPayload) but
+            # rendered with a BLANK summary in every view that shows only the
+            # summary line. Renaming event->message makes that summary line
+            # (and log text search) work.
+            structlog.processors.EventRenamer("message"),
             structlog.processors.JSONRenderer(),
         ],
         wrapper_class=structlog.make_filtering_bound_logger(
