@@ -60,13 +60,22 @@ _Last updated: 2026-07-13_
   chirp_2 (shipped) has no auto-detect; chirp_3 STT was withdrawn.
   Needs: pick detection mechanism → wire Gemini translate legs →
   real-speech Indic validation. Re-probe live first
-  (scripts/voice/stt_model_probe.py — but see VOICE-PROBE, it's stale).
+  (scripts/voice/stt_model_probe.py, fixed — see VOICE-PROBE).
   After English E2E. Ref: ADR-0037 D3′.
 - **VOICE-LEX · OPEN (part of VOICE-ML)** — Native-speaker review of the 6
   non-English confirm lexicons (ta/kn/ml/mr/gu/bn); te/hi by Coordinator.
   Fail-closed makes gaps safe, but each needs a pass before that language
   ships.
-
+- **VOICE-BLOB-CLEANUP · OPEN (low)** — Reply-audio object URLs
+  (base64→Blob→createObjectURL) are never revoked; older messages hold
+  stale blob URLs on long sessions — a slow memory leak. Pre-existing
+  (not introduced by barge-in). Add URL.revokeObjectURL on unmount /
+  when audio is replaced. Frontend, MessageBubble/AudioReply.
+- **VOICE-INPUT-LOCK · OPEN (low)** — Nothing prevents a voice/mic
+  recording from starting while a prior /agent/query (text) or
+  /agent/voice request is still in flight — a possible race. Consider
+  disabling the mic while a turn is pending (the text input already
+  disables via inputDisabled). Frontend.
 ## Infrastructure & Technical
 
 - **IAM-TF-CODIFY · OPEN (before prod / infra rebuild) — HIGH** — The 4
@@ -92,12 +101,6 @@ _Last updated: 2026-07-13_
   mimeType feature-detection but is NOT tested on iOS devices. Needs real
   iOS device testing before iOS is a supported target. Android/desktop is
   primary.
-- **VOICE-PROBE · OPEN (low)** — `scripts/voice/stt_model_probe.py` is stale:
-  still carries 1b's 9-language matrix, so it 400s ("max 3 language codes")
-  and can't test the shipped single-language config. Gave misleading output
-  during 2026-07-13 debugging. Update to current design, or clearly mark as
-  a 1b-era artifact. Also: default fixture `synthetic_tone.wav` and the
-  `resources/voice_fixtures/` dir are missing.
 - **INFRA-01 · BLOCKED (revisit if recurs)** — 13.6 CDN cache-fill
   0-byte-response bug. Reproduced once, root cause never confirmed.
 - **INFRA-02 · OPEN (cosmetic)** — Firestore positional-filter deprecation
@@ -151,3 +154,11 @@ _Last updated: 2026-07-13_
   Frontend-only; `isRecording` flows `MessageInput` → `Assistant` →
   `MessageThread` → `MessageBubble`'s `AudioReply`, which pauses its own
   `<audio>` ref on the rising edge.
+- **VOICE-PROBE · ✓ DONE — Phase Voice / PR #139** — Fixed
+  `scripts/voice/stt_model_probe.py`: replaced the 1b 9-language matrix
+  (always 400s, API caps at 3 codes) with a case matrix that validates
+  the shipped config first (chirp_2 @ asia-southeast1, en-IN only) plus
+  regional-reachability and future-VOICE-ML cases, all ≤3 codes; missing
+  --audio (including the default, gitignored fixture) now prints clear
+  guidance instead of a bare "file not found". `resources/voice_fixtures/
+  .gitkeep` already existed (PR #129) — nothing to add there.
