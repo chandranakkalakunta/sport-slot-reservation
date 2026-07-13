@@ -93,8 +93,14 @@ async def run_voice_turn(
     try:
         stt_result = transcribe(audio_bytes, languages)
         transcript = stt_result.transcript
+        log.info(
+            "voice_stt_result",
+            outcome="ok" if transcript.strip() else "empty",
+            transcript_chars=len(transcript),
+            detected_language=stt_result.raw_language,
+        )
     except SttError as exc:
-        log.warning("voice_turn_stt_error", error=str(exc))
+        log.warning("voice_stt_result", outcome="error", error=str(exc))
         transcript = ""
 
     decision: str | None = None

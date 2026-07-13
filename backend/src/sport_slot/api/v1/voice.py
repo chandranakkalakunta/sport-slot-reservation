@@ -62,6 +62,11 @@ async def agent_voice(
         raise ApiError(404, error_codes.NOT_FOUND, "Not found")
 
     audio_bytes = await audio.read()
+    log.info(
+        "voice_request_received",
+        audio_bytes=len(audio_bytes),
+        content_type=audio.content_type,
+    )
     if len(audio_bytes) > settings.voice_max_audio_bytes:
         log.warning(
             "voice_turn_audio_too_large",
