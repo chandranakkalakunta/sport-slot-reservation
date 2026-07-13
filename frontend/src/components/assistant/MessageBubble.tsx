@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import type { AgentMessage } from "../../hooks/agentHooks";
 import { ProposalCard } from "./ProposalCard";
 
-function AudioReply({ url }: { url: string }) {
+function AudioReply({ url, isRecording }: { url: string; isRecording?: boolean }) {
   const audioRef = useRef<HTMLAudioElement>(null);
   const [blocked, setBlocked] = useState(false);
 
@@ -16,6 +16,17 @@ function AudioReply({ url }: { url: string }) {
       playResult.catch(() => setBlocked(true));
     }
   }, [url]);
+
+  // VOICE-BARGE-IN: the user takes priority — stop this reply's playback
+  // (auto-played or manually resumed via the fallback button) the moment
+  // the mic opens, so mic input and TTS never overlap.
+  useEffect(() => {
+    if (!isRecording) return;
+    const audio = audioRef.current;
+    if (!audio) return;
+    audio.pause();
+    audio.currentTime = 0;
+  }, [isRecording]);
 
   function handlePlayClick() {
     audioRef.current?.play().then(
@@ -59,11 +70,14 @@ export function MessageBubble({
   onConfirm,
   onDismiss,
   isConfirming,
+  isRecording,
 }: {
   message: AgentMessage;
   onConfirm: (pendingActionId: string) => void;
   onDismiss: (timestamp: number) => void;
   isConfirming: boolean;
+  /** VOICE-BARGE-IN: when true, stop this bubble's reply audio immediately. */
+  isRecording?: boolean;
 }) {
   const isUser = message.kind === "user";
   return (
@@ -86,7 +100,7 @@ export function MessageBubble({
       }}>
         {message.text}
       </div>
-      {!isUser && message.audioUrl && <AudioReply url={message.audioUrl} />}
+      {!isUser && message.audioUrl && <AudioReply url={message.audioUrl} isRecording={isRecording} />}
       {!isUser && message.pending_action_summary && message.pending_action_id && !message.dismissed && (
         <ProposalCard
           summary={message.pending_action_summary}

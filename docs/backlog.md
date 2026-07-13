@@ -145,3 +145,9 @@ _Last updated: 2026-07-13_
   agent replies (`services/agent/text_format.to_plain_text`), applied once
   at the `run_agent` / `run_agent_confirm` boundary so both `/agent/query`
   and `/agent/voice` get clean prose. Formatting-only.
+- **VOICE-BARGE-IN · ✓ DONE — Phase Voice / PR #138** — User takes
+  priority: starting a recording now stops any in-progress TTS reply
+  playback immediately (auto-played or fallback-button-resumed).
+  Frontend-only; `isRecording` flows `MessageInput` → `Assistant` →
+  `MessageThread` → `MessageBubble`'s `AudioReply`, which pauses its own
+  `<audio>` ref on the rising edge.

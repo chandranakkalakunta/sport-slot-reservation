@@ -220,4 +220,57 @@ describe("MessageInput", () => {
     );
     expect(await axe(container)).toHaveNoViolations();
   });
+
+  // ── VOICE-BARGE-IN: notify parent of recording state ───────────────────────
+
+  it("notifies onRecordingChange with the recorder's current isRecording value", () => {
+    const onRecordingChange = vi.fn();
+    mockRecorder({ isRecording: false });
+    render(
+      <MessageInput
+        onSend={vi.fn()}
+        onVoice={vi.fn()}
+        onClear={vi.fn()}
+        onRecordingChange={onRecordingChange}
+        disabled={false}
+      />,
+    );
+    expect(onRecordingChange).toHaveBeenCalledWith(false);
+  });
+
+  it("notifies onRecordingChange again when the recorder starts recording", () => {
+    const onRecordingChange = vi.fn();
+    mockRecorder({ isRecording: false });
+    const { rerender } = render(
+      <MessageInput
+        onSend={vi.fn()}
+        onVoice={vi.fn()}
+        onClear={vi.fn()}
+        onRecordingChange={onRecordingChange}
+        disabled={false}
+      />,
+    );
+
+    mockRecorder({ isRecording: true });
+    rerender(
+      <MessageInput
+        onSend={vi.fn()}
+        onVoice={vi.fn()}
+        onClear={vi.fn()}
+        onRecordingChange={onRecordingChange}
+        disabled={false}
+      />,
+    );
+
+    expect(onRecordingChange).toHaveBeenCalledWith(true);
+  });
+
+  it("works with no onRecordingChange provided (optional prop)", async () => {
+    const user = userEvent.setup();
+    render(<MessageInput onSend={vi.fn()} onVoice={vi.fn()} onClear={vi.fn()} disabled={false} />);
+
+    const input = screen.getByLabelText("Message");
+    await user.type(input, "book tennis");
+    expect(input).toHaveValue("book tennis");
+  });
 });

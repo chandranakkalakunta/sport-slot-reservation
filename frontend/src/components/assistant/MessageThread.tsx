@@ -10,12 +10,16 @@ export function MessageThread({
   onConfirm,
   onDismiss,
   isConfirming,
+  isRecording,
 }: {
   messages: AgentMessage[];
   isAgentTyping: boolean;
   onConfirm: (pendingActionId: string) => void;
   onDismiss: (timestamp: number) => void;
   isConfirming: boolean;
+  /** VOICE-BARGE-IN: forwarded to each bubble so any in-progress reply
+   * playback stops the moment the mic opens. */
+  isRecording?: boolean;
 }) {
   const bottomRef = useRef<HTMLDivElement>(null);
 
@@ -32,6 +36,7 @@ export function MessageThread({
           onConfirm={onConfirm}
           onDismiss={onDismiss}
           isConfirming={isConfirming}
+          isRecording={isRecording}
         />
       ))}
       {isAgentTyping && <TypingIndicator />}

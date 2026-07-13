@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import type { AgentMessage } from "../../hooks/agentHooks";
@@ -66,5 +66,38 @@ describe("MessageThread", () => {
     />);
     expect(screen.getByText("Book tennis tomorrow")).toBeInTheDocument();
     expect(screen.getByText("Here are available slots")).toBeInTheDocument();
+  });
+
+  // ── VOICE-BARGE-IN: isRecording forwarded to bubbles ────────────────────────
+
+  it("forwards isRecording to each bubble's reply audio", async () => {
+    const play = vi.spyOn(HTMLMediaElement.prototype, "play").mockResolvedValue(undefined);
+    const pause = vi.spyOn(HTMLMediaElement.prototype, "pause").mockImplementation(() => {});
+    const withAudio: AgentMessage = { ...AGENT_MSG, audioUrl: "blob:fake-url" };
+
+    const { rerender } = render(
+      <MessageThread
+        messages={[withAudio]}
+        isAgentTyping={false}
+        onConfirm={noop}
+        onDismiss={noop}
+        isConfirming={false}
+        isRecording={false}
+      />,
+    );
+    await waitFor(() => expect(play).toHaveBeenCalledOnce());
+
+    rerender(
+      <MessageThread
+        messages={[withAudio]}
+        isAgentTyping={false}
+        onConfirm={noop}
+        onDismiss={noop}
+        isConfirming={false}
+        isRecording={true}
+      />,
+    );
+
+    expect(pause).toHaveBeenCalledOnce();
   });
 });
