@@ -22,6 +22,11 @@ _Last updated: 2026-07-13_
   privacy notice + Phase 16 DPDP self-assessment. DPDP default-permits
   transfer absent a notified blacklist, but this was NOT re-verified vs.
   current rules — needs counsel / current check. Ref: ADR-0037 D5′.
+- **VOICE-PROD-GATE · OPEN (before prod/resident-facing deploy) — HIGH** —
+  The `SPORTSLOT_VOICE_ENABLED` flag was removed (2026-07-13); /agent/voice
+  is now unconditionally live with no runtime gate. VOICE-HARDEN-01,
+  VOICE-HARDEN-02, and SEC-01 must be resolved before the deploy pipeline
+  targets a resident-facing prod/test environment.
 
 ## Platform Admin
 
@@ -70,13 +75,6 @@ _Last updated: 2026-07-13_
   2026-07-13 to fix the voice 403. Must be codified in Terraform alongside
   the other IAM grants, or it drifts/vanishes on infra rebuild. Root cause
   of the 2026-07-13 debugging session.
-- **VOICE-FLAG-PERSIST · OPEN (before relying on voice across deploys) — HIGH**
-  — `SPORTSLOT_VOICE_ENABLED` is set imperatively via `gcloud run update`
-  and RESETS TO DEFAULT (off) on every CI deploy, because the deploy
-  pipeline doesn't include it. Bake it into the deploy config
-  (scripts/deploy_cloud_run.sh env args / CI env / Terraform). Until then,
-  voice must be manually re-enabled after each deploy. Cost significant
-  debugging time 2026-07-13.
 - **VOICE-HARDEN-01 · OPEN (hard gate before prod enablement)** — Enforce a
   30s max-utterance duration cap server-side (ADR-0036 D6). 1c ships only a
   2MB byte cap (~8-11 min at typical bitrates); STT's 60s sync limit is a
