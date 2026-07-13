@@ -6,6 +6,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### feat: up/down arrow walks full message history (AGENT-UX-01b)
+
+AGENT-UX-01 (PR #132) only recalled the single most-recent user message
+on ArrowUp, then stopped. Replaced with shell-style multi-level history:
+`Assistant.tsx` now passes `MessageInput` the resident's full prior
+user-message list (newest-first) instead of just the latest one.
+`MessageInput` holds a history cursor — ArrowUp walks back one message
+per press (stopping at the oldest), ArrowDown walks forward, and passing
+back beyond the newest restores the draft that was in the box when the
+walk started. Editing a recalled message and pressing ArrowUp again
+discards the edit and keeps walking further back (shell/bash behavior).
+The existing "never hijack a fresh typed draft" gate is preserved.
+Cursor resets on send and on `/clear`. Frontend-only.
+
 ### chore: fix stale STT model probe (VOICE-PROBE)
 
 `scripts/voice/stt_model_probe.py` was a 1b-era diagnostic that always

@@ -177,7 +177,9 @@ export default function Assistant() {
     setThread([]);
   }
 
-  const lastUserMessage = [...thread].reverse().find((m) => m.kind === "user")?.text;
+  // AGENT-UX-01b: NEWEST-FIRST — index 0 is the most recent user message.
+  // MessageInput's ArrowUp/ArrowDown history cursor walks this list.
+  const userMessageHistory = [...thread].reverse().filter((m) => m.kind === "user").map((m) => m.text);
   const inputDisabled = isTyping || sendMessage.isPending || confirmAction.isPending || voiceMessage.isPending;
 
   return (
@@ -228,7 +230,7 @@ export default function Assistant() {
             onVoice={handleVoice}
             onClear={handleClear}
             onRecordingChange={setIsRecording}
-            lastUserMessage={lastUserMessage}
+            userMessageHistory={userMessageHistory}
             disabled={inputDisabled}
           />
         </div>
