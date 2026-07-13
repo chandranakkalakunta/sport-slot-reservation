@@ -97,3 +97,53 @@ describe("MessageBubble — audio playback", () => {
     expect(document.querySelector("audio")).toBeNull();
   });
 });
+
+describe("MessageBubble — VOICE-BARGE-IN (mic input stops reply playback)", () => {
+  it("pauses in-progress auto-played audio when isRecording flips true", async () => {
+    const play = vi.spyOn(HTMLMediaElement.prototype, "play").mockResolvedValue(undefined);
+    const pause = vi.spyOn(HTMLMediaElement.prototype, "pause").mockImplementation(() => {});
+    const withAudio: AgentMessage = { ...AGENT_MSG, audioUrl: "blob:fake-url" };
+
+    const { rerender } = render(
+      <MessageBubble message={withAudio} onConfirm={noop} onDismiss={noop} isConfirming={false} isRecording={false} />,
+    );
+    await waitFor(() => expect(play).toHaveBeenCalledOnce());
+    expect(pause).not.toHaveBeenCalled();
+
+    rerender(
+      <MessageBubble message={withAudio} onConfirm={noop} onDismiss={noop} isConfirming={false} isRecording={true} />,
+    );
+
+    expect(pause).toHaveBeenCalledOnce();
+  });
+
+  it("pauses fallback (manually resumed) playback when isRecording flips true", async () => {
+    vi.spyOn(HTMLMediaElement.prototype, "play").mockRejectedValue(new Error("NotAllowedError"));
+    const pause = vi.spyOn(HTMLMediaElement.prototype, "pause").mockImplementation(() => {});
+    const withAudio: AgentMessage = { ...AGENT_MSG, audioUrl: "blob:fake-url" };
+
+    const { rerender } = render(
+      <MessageBubble message={withAudio} onConfirm={noop} onDismiss={noop} isConfirming={false} isRecording={false} />,
+    );
+    await screen.findByRole("button", { name: "Play voice reply" });
+
+    rerender(
+      <MessageBubble message={withAudio} onConfirm={noop} onDismiss={noop} isConfirming={false} isRecording={true} />,
+    );
+
+    expect(pause).toHaveBeenCalledOnce();
+  });
+
+  it("does not pause playback when isRecording stays false", async () => {
+    const play = vi.spyOn(HTMLMediaElement.prototype, "play").mockResolvedValue(undefined);
+    const pause = vi.spyOn(HTMLMediaElement.prototype, "pause").mockImplementation(() => {});
+    const withAudio: AgentMessage = { ...AGENT_MSG, audioUrl: "blob:fake-url" };
+
+    render(
+      <MessageBubble message={withAudio} onConfirm={noop} onDismiss={noop} isConfirming={false} isRecording={false} />,
+    );
+    await waitFor(() => expect(play).toHaveBeenCalledOnce());
+
+    expect(pause).not.toHaveBeenCalled();
+  });
+});

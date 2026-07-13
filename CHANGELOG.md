@@ -6,6 +6,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### feat: stop TTS playback when mic input starts — barge-in (VOICE-BARGE-IN)
+
+Voice mode could overlap the agent's spoken reply with the resident's own
+mic input when they tapped to speak again before playback finished. The
+user now takes priority: starting a recording immediately pauses any
+in-progress reply audio (both the auto-played reply and a
+manually-resumed fallback-button playback). Frontend-only —
+`MessageInput` reports its recorder's `isRecording` up through
+`Assistant` and back down through `MessageThread` to each
+`MessageBubble`'s `AudioReply`, which pauses its own `<audio>` ref the
+moment recording starts. No change to the recording pipeline, the voice
+request, confirm routing, or text mode.
+
 ### infra: codify roles/speech.client for sa-cloud-run in Terraform (VOICE-IAM-TF)
 
 The Cloud Run runtime SA's `roles/speech.client` grant (needed for voice

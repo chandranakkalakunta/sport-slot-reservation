@@ -19,6 +19,9 @@ import "../styles/assistant.css";
 export default function Assistant() {
   const [thread, setThread] = useState<AgentMessage[]>(() => loadThread());
   const [isTyping, setIsTyping] = useState(false);
+  // VOICE-BARGE-IN: the user takes priority — starting a recording stops
+  // any in-progress TTS reply playback immediately.
+  const [isRecording, setIsRecording] = useState(false);
   const sendMessage = useAgentSendMessage();
   const confirmAction = useAgentConfirm();
   const voiceMessage = useAgentVoice();
@@ -213,6 +216,7 @@ export default function Assistant() {
             onConfirm={handleConfirm}
             onDismiss={handleDismiss}
             isConfirming={confirmAction.isPending}
+            isRecording={isRecording}
           />
         )}
         <div style={{
@@ -223,6 +227,7 @@ export default function Assistant() {
             onSend={handleSend}
             onVoice={handleVoice}
             onClear={handleClear}
+            onRecordingChange={setIsRecording}
             lastUserMessage={lastUserMessage}
             disabled={inputDisabled}
           />

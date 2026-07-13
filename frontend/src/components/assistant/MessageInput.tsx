@@ -1,5 +1,5 @@
 import { Mic, Square } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { useVoiceRecorder } from "../../hooks/useVoiceRecorder";
 
@@ -7,17 +7,26 @@ export function MessageInput({
   onSend,
   onVoice,
   onClear,
+  onRecordingChange,
   lastUserMessage,
   disabled,
 }: {
   onSend: (text: string) => void;
   onVoice: (blob: Blob) => void;
   onClear: () => void;
+  /** VOICE-BARGE-IN: notified whenever recording starts/stops, so the
+   * parent can pause any in-progress TTS reply playback the moment the
+   * mic opens — the user takes priority over the agent's own voice. */
+  onRecordingChange?: (isRecording: boolean) => void;
   lastUserMessage?: string;
   disabled: boolean;
 }) {
   const [text, setText] = useState("");
   const { isSupported: micSupported, isRecording, start, stop, error: micError } = useVoiceRecorder();
+
+  useEffect(() => {
+    onRecordingChange?.(isRecording);
+  }, [isRecording, onRecordingChange]);
 
   function handleSend() {
     const trimmed = text.trim();
