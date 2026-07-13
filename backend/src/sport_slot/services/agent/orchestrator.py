@@ -34,7 +34,7 @@ import datetime
 import json
 import re
 import zoneinfo
-from typing import NamedTuple
+from typing import Any, NamedTuple
 
 import structlog
 
@@ -47,6 +47,7 @@ from sport_slot.repositories.user_profiles import UserProfileRepository
 from sport_slot.services.agent import vertex_client
 from sport_slot.services.agent.guardrails import output_is_safe
 from sport_slot.services.agent.preferences import get_preferences
+from sport_slot.services.agent.text_format import to_plain_text
 from sport_slot.services.agent.tools import REGISTERED_TOOLS
 from sport_slot.services.agent.vertex_client import AgentResponse
 from sport_slot.services.availability import get_availability
@@ -280,6 +281,23 @@ def _recent_context_text(rc: dict | None) -> str:
 
 async def run_agent(
     ctx: TenantContext,
+    client: Any,
+    store: Any,  # PendingActionStore
+    user_message: str,
+    recent_context: dict | None = None,
+) -> AgentTurn:
+    """Execute one propose turn. Returns AgentTurn(reply, pending_action_id). Never raises.
+
+    Public entry point — the single seam both /agent/query and /agent/voice
+    flow through, so AGENT-MD-TTS Markdown-stripping happens here once
+    rather than at each internal return statement below.
+    """
+    turn = await _run_agent(ctx, client, store, user_message, recent_context)
+    return turn._replace(reply=to_plain_text(turn.reply))
+
+
+async def _run_agent(
+    ctx: TenantContext,
     client,
     store,  # PendingActionStore
     user_message: str,
@@ -464,6 +482,26 @@ async def run_agent(
 
 
 async def run_agent_confirm(
+    ctx: TenantContext,
+    client: Any,
+    lock: LockService,
+    store: Any,  # PendingActionStore
+    pending_action_id: str,
+) -> str:
+    """Execute the confirm turn — consumes the pending action and runs create_booking.
+
+    NO Vertex call. Params are taken verbatim from the consumed pending action.
+    Never raises.
+
+    Public entry point — the single seam both /agent/query and /agent/voice
+    flow through, so AGENT-MD-TTS Markdown-stripping happens here once
+    rather than at each internal return statement below.
+    """
+    reply = await _run_agent_confirm(ctx, client, lock, store, pending_action_id)
+    return to_plain_text(reply)
+
+
+async def _run_agent_confirm(
     ctx: TenantContext,
     client,
     lock: LockService,

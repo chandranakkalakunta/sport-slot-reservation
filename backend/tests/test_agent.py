@@ -165,6 +165,32 @@ async def test_agent_direct_text_reply():
 
 
 @pytest.mark.asyncio
+async def test_agent_reply_markdown_stripped_at_boundary():
+    """AGENT-MD-TTS: run_agent is the single seam — a Gemini reply carrying
+    Markdown (as real Gemini turns often do) comes back as plain prose,
+    covering both /agent/query and /agent/voice since both call run_agent."""
+    text_response = AgentResponse(
+        function_call=None,
+        text="Here are your upcoming bookings:\n\n* **Tennis Court - 1**:\n* Monday at 19:00",
+    )
+
+    with (
+        patch("sport_slot.services.agent.vertex_client.generate",
+              new_callable=AsyncMock, return_value=text_response),
+        patch("sport_slot.services.agent.vertex_client.classify_output",
+              new_callable=AsyncMock, return_value=True),
+    ):
+        reply = await _ra(CTX, _firestore_client(), "Show my bookings")
+
+    assert reply == (
+        "Here are your upcoming bookings:\n\n"
+        "- Tennis Court - 1:\n"
+        "- Monday at 19:00"
+    )
+    assert "*" not in reply
+
+
+@pytest.mark.asyncio
 async def test_agent_list_my_bookings_tool():
     """Vertex returns a list_my_bookings tool call → service called → reply returned."""
     fc_response = AgentResponse(function_call=("list_my_bookings", {}), text=None)

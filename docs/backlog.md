@@ -109,3 +109,7 @@ _Last updated: 2026-07-13_
   `pending_action_id` — it only ever lived as a field on a thread message,
   so clearing the thread necessarily clears it too; no separate cleanup
   path was needed. Frontend (MessageInput.tsx, Assistant.tsx).
+- **AGENT-MD-TTS · ✓ DONE — Phase Voice / PR #135** — Markdown stripped from
+  agent replies (`services/agent/text_format.to_plain_text`), applied once
+  at the `run_agent` / `run_agent_confirm` boundary so both `/agent/query`
+  and `/agent/voice` get clean prose. Formatting-only.

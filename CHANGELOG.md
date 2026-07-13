@@ -6,6 +6,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### fix: strip Markdown from agent replies for clean text + TTS (AGENT-MD-TTS)
+
+Agent replies could carry Markdown emphasis and bullet syntax (e.g.
+`**Tennis Court - 1**`, `* Monday ...`) — harmless as rendered text, but
+read aloud by TTS as "asterisk asterisk" now that voice is live. Added
+`services/agent/text_format.to_plain_text`, a pure formatting-only helper
+that strips bold/italic markers, headings, inline code/fences, and
+normalizes bullet markers (`*`/`-`/`+`) to a consistent `- `, while
+preserving all content, numbers, and line structure verbatim (a hyphen
+inside text like "Court - 1" is never treated as a bullet). Applied once,
+at the single shared boundary both `/agent/query` and `/agent/voice` flow
+through (`run_agent` / `run_agent_confirm` in `orchestrator.py`) — no
+change to any agent/tool logic or the data shown.
+
 ### feat: Voice I/O sub-phase 2 — mic capture + playback UI; AGENT-UX-01/02 (July 2026)
 
 **Adds the resident-facing voice UI to the existing assistant surface.
