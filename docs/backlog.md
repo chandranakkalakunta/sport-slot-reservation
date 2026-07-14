@@ -10,7 +10,7 @@ traceability record.
 **Entry convention:** `[ID] status — one-line what & why. Blocker. Ref.`
 Status ∈ `OPEN` · `BLOCKED` · `IN PROGRESS` · `✓ DONE — Phase X / PR #n`.
 
-_Last updated: 2026-07-13_
+_Last updated: 2026-07-14_
 
 ---
 
@@ -27,6 +27,12 @@ _Last updated: 2026-07-13_
   is now unconditionally live with no runtime gate. VOICE-HARDEN-01,
   VOICE-HARDEN-02, and SEC-01 must be resolved before the deploy pipeline
   targets a resident-facing prod/test environment.
+- **PR-5-SECURITY · OPEN** — Cloud Armor enforce-vs-preview review, CI
+  container/dependency/secret scanning, BinAuthz decision, secret rotation
+  policy.
+- **WIF-LEAST-PRIV · OPEN (into PR-5)** — GitHub WIF principal holds
+  project-level storage.admin + run.admin; tighten. TF-managed already
+  (ci_* bindings).
 
 ## Platform Admin
 
@@ -78,14 +84,33 @@ _Last updated: 2026-07-13_
   disables via inputDisabled). Frontend.
 ## Infrastructure & Technical
 
-- **IAM-TF-CODIFY · OPEN (before prod / infra rebuild) — HIGH** — The 4
-  baseline service accounts' roles (sa-cloud-run, sa-firebase-admin,
+- **IAM-TF-CODIFY · IN PROGRESS (before prod / infra rebuild) — HIGH** —
+  The 4 baseline service accounts' roles (sa-cloud-run, sa-firebase-admin,
   sa-cloud-build, sa-monitoring) are documented only as commented-out
   resource templates in `terraform/iam.tf` (Phase 1.4.2 Option C) — the
   SAs themselves and every role binding were granted imperatively via
   `gcloud iam` in Phase 1.3.2/1.3.3 and are not real Terraform resources.
   Drifts/vanishes on infra rebuild. Separate from VOICE-IAM-TF (a single
   feature-scoped grant, now codified) — this covers the baseline set.
+  Ref: ADR-0038 Layer 3; scheduled as PR-1b.
+- **PR-2-OBSERVABILITY · OPEN (next after PR-1)** — Uptime checks,
+  alerting policies (error rate, p95, availability), log-based metrics,
+  Error Reporting. Ref: phase plan.
+- **PR-3-AVAILABILITY · OPEN** — 99% SLO formalization, maxScale 10–15,
+  liveness/startup probes, Redis SPOF decision.
+- **PR-4-COST · OPEN** — Billing budget + thresholds per ADR-0005, incl.
+  voice per-turn surface.
+- **BACKUP-ALERT · OPEN (into PR-2)** — Alert on Firestore backup failure.
+  Ref: ADR-0038.
+- **AUTH-EXPORT-AUTO · OPEN (low)** — Automate weekly Firebase Auth
+  export to GCS. Manual runbook procedure until then. Ref: ADR-0038
+  Layer 6.
+- **SLO-LOAD-TEST · OPEN (follow-on to PR-3)** — Load/perf test to
+  validate the 99% SLO; the proof, not part of the PR-3 ADR.
+- **PROJECT-ASSESSMENT · OPEN (after PR-2)** — Broad artifact-reading
+  assessment (production-maturity + architectural-quality +
+  portfolio-signal), structured to force critical evidence-cited
+  findings.
 - **VOICE-HARDEN-01 · OPEN (hard gate before prod enablement)** — Enforce a
   30s max-utterance duration cap server-side (ADR-0036 D6). 1c ships only a
   2MB byte cap (~8-11 min at typical bitrates); STT's 60s sync limit is a
