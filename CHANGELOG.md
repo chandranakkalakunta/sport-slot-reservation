@@ -6,6 +6,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### infra(dr): Production Readiness PR-1a — Firestore backup/PITR, bucket versioning, secret shells; DR runbook skeleton (ADR-0038)
+
+The 2026-07-13 baseline audit found zero Firestore recovery capability
+(PITR disabled, no backup schedules), unversioned `tfstate`/invoice
+buckets, and an incomplete Terraform rebuild path — unbounded RPO, no
+credible 4h RTO. ADR-0038 (Backup & Disaster Recovery Strategy,
+Accepted 2026-07-14) fixes RTO/RPO at 4h across six recovery layers.
+This PR codifies the Layer 1 stop-gap (PITR + delete protection,
+enabled imperatively on 2026-07-14 ahead of this ADR) plus a daily
+backup schedule: new `terraform/backup_dr.tf` adds the
+`google_firestore_database` resource, `google_firestore_backup_schedule`
+(7-day retention), the `tfstate` bucket (imported, not created), and
+secret shells for `redis-auth`/`resend-api-key` (metadata only — no
+values, per protocol §2.6). `invoice_export.tf` gains versioning plus a
+30-day noncurrent-version lifecycle rule. All four resources carry
+`prevent_destroy`. Terraform is written to match live state
+field-for-field so import produces a clean plan, not changes —
+including a CONTEXT correction found during verification:
+`sport-slot-dev-tfstate` already had versioning and a 30-version
+lifecycle rule live, contrary to the original audit premise that no
+bucket was versioned. `terraform fmt`/`validate` are clean; import,
+plan, and apply are Coordinator-run and not yet executed. Added a
+skeleton DR runbook (`docs/runbooks/disaster-recovery.md`) covering all
+six ADR-0038 layers, a DNS rebuild chapter, and a timed-drill plan.
+`docs/backlog.md` gains 7 entries for the rest of the phase (PR-2
+Observability, PR-3 Availability, PR-4 Cost, PR-5 Security,
+BACKUP-ALERT, AUTH-EXPORT-AUTO, SLO-LOAD-TEST, PROJECT-ASSESSMENT) and
+elevates IAM-TF-CODIFY to IN PROGRESS as PR-1b.
+
+**Production Readiness phase progress:** PR-1a ✓ (this entry) →
+PR-1b (Terraform rebuild codification / IAM-TF-CODIFY, next) → PR-2
+(Observability) → PR-3 (Availability) → PR-4 (Cost) → PR-5 (Security).
+Tracked in `docs/backlog.md`.
+
 ### feat: up/down arrow walks full message history (AGENT-UX-01b)
 
 AGENT-UX-01 (PR #132) only recalled the single most-recent user message

@@ -17,6 +17,28 @@ resource "google_storage_bucket" "invoice_exports" {
   uniform_bucket_level_access = true
 
   labels = var.default_labels
+
+  # ADR-0038 Layer 4: protects against overwrite/deletion, not edits —
+  # invoices are immutable by design (ADR-0035). Noncurrent versions are
+  # purged after 30 days so versioning cannot accrete unbounded storage
+  # cost.
+  versioning {
+    enabled = true
+  }
+
+  lifecycle_rule {
+    action {
+      type = "Delete"
+    }
+    condition {
+      days_since_noncurrent_time = 30
+      with_state                 = "ARCHIVED"
+    }
+  }
+
+  lifecycle {
+    prevent_destroy = true
+  }
 }
 
 # Explicit, bucket-scoped grant — sa-cloud-run had ONLY the signing
