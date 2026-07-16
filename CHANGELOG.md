@@ -6,6 +6,65 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### feat(infra): Production Readiness PR-1b — codify SAs, IAM bindings, Cloud Run service, Redis, Artifact Registry (ADR-0038 Layer 3)
+
+Completes ADR-0038 Layer 3 (IAM-TF-CODIFY): the four baseline service
+accounts (`sa-cloud-run`, `sa-cloud-build`, `sa-firebase-admin`,
+`sa-monitoring`) were only commented-out resource templates in
+`terraform/iam.tf` (Phase 1.4.2 Option C) with active references held
+as `data` sources — the SAs and every role binding were granted
+imperatively via `gcloud iam` and would vanish on an infra rebuild.
+They're now `google_service_account` resources; all 15 cross-file
+references (`cloud_tasks.tf`, `invoice_export.tf`, `outputs.tf`,
+`voice_stt.tf`, `wif_iam.tf`) are repointed from
+`data.google_service_account.*` to `google_service_account.*`. Adds 16
+`google_project_iam_member` resources (one per binding, audit-trail
+style) for the six custom SAs' project-level roles, verified against
+the live IAM policy with zero delta; the 3 bindings on
+`firebase-adminsdk-fbsvc@` are Firebase-provisioned and documented as
+an intentional D8 exclusion, not codified.
+
+New `terraform/cloud_run.tf` brings `sport-slot-api` under management
+as `google_cloud_run_v2_service`, authored field-for-field from the
+live export (scaling ceiling **2**, matching live — raising it is
+PR-3 scope, not this PR). Per the ADR-0038 D7 ownership model,
+`lifecycle.ignore_changes` covers the image and the deploy-client
+annotations/labels CI's `gcloud run deploy` rewrites every release, so
+Terraform owns existence/shape while CI continues to own revisions.
+`terraform/cloud_scheduler.tf`'s Cloud Run data source is removed in
+favor of the new managed resource.
+
+New `terraform/base_infra.tf` codifies the Memorystore Redis instance
+(`sport-slot-redis`, BASIC tier, 1GB, `REDIS_7_0`) and the Artifact
+Registry repository (`sport-slot-repo`, DOCKER), both previously
+absent from state, matching live field-for-field. All new resources
+carry `prevent_destroy`.
+
+A completeness check (per-service `gcloud list`/`describe`, since
+`cloudasset.googleapis.com` is not enabled and enabling it would be a
+live project change out of this PR's zero-live-change scope) produced
+a "Managed vs excluded inventory" appendix in
+`docs/runbooks/disaster-recovery.md` §4.2, classifying every live
+asset type as Terraform-managed, runbook-covered, or explicitly
+excluded with a reason. The runbook's Layer 3 chapter now has the
+ordered rebuild procedure for a new project, including the
+Firebase-provisioning and Cloud-Run-image-bootstrap ordering gotchas
+this PR's authoring surfaced. `docs/backlog.md` gains a
+`ROADMAP-STALE` (cosmetic) entry — `docs/roadmap.md`'s phase tracker
+predates the Voice and Production Readiness workstreams.
+
+**Correction:** the PR-1a entry below states `docs/backlog.md` gained
+7 entries; the correct count was 9. Noted here rather than edited into
+that entry, per this project's no-history-editing convention.
+
+`terraform fmt`/`validate` are clean; import, plan, and apply are
+Coordinator-run and not yet executed.
+
+**Production Readiness phase progress:** PR-1a ✓ → PR-1b ✓ (this
+entry, pending Coordinator apply) → PR-2 (Observability) → PR-3
+(Availability) → PR-4 (Cost) → PR-5 (Security). Tracked in
+`docs/backlog.md`.
+
 ### infra(dr): Production Readiness PR-1a — Firestore backup/PITR, bucket versioning, secret shells; DR runbook skeleton (ADR-0038)
 
 The 2026-07-13 baseline audit found zero Firestore recovery capability

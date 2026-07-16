@@ -9,8 +9,8 @@
 # Import-only resources below are written to match live state
 # field-for-field so `terraform import` + `terraform plan` produces a
 # clean plan, not changes. See PR description for the import commands
-# (Coordinator-run only — see terraform/firestore.tf and ADR-0038 §Layer 3
-# for the Worker/Coordinator division of labor).
+# and ADR-0038 §Layer 3 for the Worker/Coordinator division of labor
+# (Coordinator-run only).
 
 # ─── Layer 1: Firestore — database + daily backup schedule ───
 

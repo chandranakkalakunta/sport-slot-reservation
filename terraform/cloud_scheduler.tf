@@ -19,15 +19,10 @@
 # cloudscheduler.googleapis.com is already enabled — see apis.tf's
 # operational_apis list — no API-enablement resource needed here.
 
-# Cloud Run (sport-slot-api) is gcloud-deployed, not Terraform-managed
-# (ADR-0018) — read its live URL via a data source rather than a
-# managed resource reference, mirroring how cloud_tasks.tf grants IAM
-# by service name/location rather than a resource reference.
-data "google_cloud_run_v2_service" "sport_slot_api" {
-  name     = "sport-slot-api"
-  project  = var.project_id
-  location = var.region
-}
+# Cloud Run (sport-slot-api) is now Terraform-managed as
+# google_cloud_run_v2_service.sport_slot_api (terraform/cloud_run.tf,
+# ADR-0038 Layer 3 / PR-1b) — its URL is read from that resource
+# rather than a data source.
 
 # Dedicated identity for Cloud Scheduler's OIDC tokens — a distinct
 # trust boundary from sa-tasks-invoker (different caller: Cloud
@@ -76,11 +71,11 @@ resource "google_cloud_scheduler_job" "invoice_generation" {
 
   http_target {
     http_method = "POST"
-    uri         = "${data.google_cloud_run_v2_service.sport_slot_api.uri}/internal/invoicing/generate"
+    uri         = "${google_cloud_run_v2_service.sport_slot_api.uri}/internal/invoicing/generate"
 
     oidc_token {
       service_account_email = google_service_account.scheduler_invoker.email
-      audience              = data.google_cloud_run_v2_service.sport_slot_api.uri
+      audience              = google_cloud_run_v2_service.sport_slot_api.uri
     }
   }
 

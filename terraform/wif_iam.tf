@@ -76,7 +76,7 @@ resource "google_project_iam_member" "ci_redis_viewer" {
 # a real OAuth2 access token for the Firebase Hosting REST API
 # (direct-WIF federated tokens are not accepted by that API).
 resource "google_service_account_iam_member" "ci_token_creator_firebase" {
-  service_account_id = data.google_service_account.firebase_admin.name
+  service_account_id = google_service_account.firebase_admin.name
   role               = "roles/iam.serviceAccountTokenCreator"
   member             = local.github_principal_set
 }
@@ -89,7 +89,7 @@ resource "google_service_account_iam_member" "ci_token_creator_firebase" {
 resource "google_project_iam_member" "firebase_admin_service_usage_consumer" {
   project = var.project_id
   role    = "roles/serviceusage.serviceUsageConsumer"
-  member  = "serviceAccount:${data.google_service_account.firebase_admin.email}"
+  member  = "serviceAccount:${google_service_account.firebase_admin.email}"
 }
 
 # CI must deploy a Cloud Run service that RUNS AS the runtime SA
@@ -97,7 +97,7 @@ resource "google_project_iam_member" "firebase_admin_service_usage_consumer" {
 # is rejected. Least privilege preserved: CI deploys; sa-cloud-run
 # is the narrow runtime identity.
 resource "google_service_account_iam_member" "ci_act_as_runtime" {
-  service_account_id = data.google_service_account.cloud_run.name
+  service_account_id = google_service_account.cloud_run.name
   role               = "roles/iam.serviceAccountUser"
   member             = local.github_principal_set
 }
@@ -107,7 +107,7 @@ resource "google_service_account_iam_member" "ci_act_as_runtime" {
 # binding is required; if the build runs under the WIF principal's
 # own identity (--service-account not set), remove this block.
 resource "google_service_account_iam_member" "ci_act_as_cloud_build" {
-  service_account_id = data.google_service_account.cloud_build.name
+  service_account_id = google_service_account.cloud_build.name
   role               = "roles/iam.serviceAccountUser"
   member             = local.github_principal_set
 }

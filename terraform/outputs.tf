@@ -28,22 +28,22 @@ output "environment" {
 # Service Account Emails (from data sources)
 output "service_account_cloud_run_email" {
   description = "Email of sa-cloud-run (Cloud Run runtime SA)"
-  value       = data.google_service_account.cloud_run.email
+  value       = google_service_account.cloud_run.email
 }
 
 output "service_account_firebase_admin_email" {
   description = "Email of sa-firebase-admin (Firebase Admin SDK SA)"
-  value       = data.google_service_account.firebase_admin.email
+  value       = google_service_account.firebase_admin.email
 }
 
 output "service_account_cloud_build_email" {
   description = "Email of sa-cloud-build (CI/CD SA)"
-  value       = data.google_service_account.cloud_build.email
+  value       = google_service_account.cloud_build.email
 }
 
 output "service_account_monitoring_email" {
   description = "Email of sa-monitoring (Observability SA)"
-  value       = data.google_service_account.monitoring.email
+  value       = google_service_account.monitoring.email
 }
 
 # Workload Identity Federation (managed resources since Phase 6.1)

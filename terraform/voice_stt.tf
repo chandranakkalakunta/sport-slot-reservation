@@ -11,5 +11,5 @@
 resource "google_project_iam_member" "cloud_run_speech_client" {
   project = var.project_id
   role    = "roles/speech.client"
-  member  = "serviceAccount:${data.google_service_account.cloud_run.email}"
+  member  = "serviceAccount:${google_service_account.cloud_run.email}"
 }
