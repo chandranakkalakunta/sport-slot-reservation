@@ -153,6 +153,7 @@ resource "google_cloud_run_v2_service" "sport_slot_api" {
       client,
       client_version,
       template[0].containers[0].image,
+      template[0].containers[0].env,
       template[0].annotations,
       template[0].labels,
       annotations,
