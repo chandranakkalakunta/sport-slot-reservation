@@ -58,7 +58,7 @@ resource "google_cloud_run_v2_service" "sport_slot_api" {
           memory = "512Mi"
         }
         startup_cpu_boost = true
-        cpu_idle	  = true # live default: CPU allocated only during request processing
+        cpu_idle          = true # live default: CPU allocated only during request processing
       }
 
       startup_probe {

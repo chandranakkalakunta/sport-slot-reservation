@@ -84,7 +84,7 @@ _Last updated: 2026-07-16_
   disables via inputDisabled). Frontend.
 ## Infrastructure & Technical
 
-- **IAM-TF-CODIFY · IN PROGRESS (before prod / infra rebuild) — HIGH** —
+- **IAM-TF-CODIFY · ✓ DONE — Phase 17 / PR #142** —
   The 4 baseline service accounts' roles (sa-cloud-run, sa-firebase-admin,
   sa-cloud-build, sa-monitoring) are documented only as commented-out
   resource templates in `terraform/iam.tf` (Phase 1.4.2 Option C) — the
@@ -92,12 +92,12 @@ _Last updated: 2026-07-16_
   `gcloud iam` in Phase 1.3.2/1.3.3 and are not real Terraform resources.
   Drifts/vanishes on infra rebuild. Separate from VOICE-IAM-TF (a single
   feature-scoped grant, now codified) — this covers the baseline set.
-  Ref: ADR-0038 Layer 3; scheduled as PR-1b.
-- **ROADMAP-STALE · OPEN (cosmetic)** — `docs/roadmap.md`'s phase
-  tracker predates the Voice and Production Readiness workstreams
-  (last touched before Phase 8+ voice work and the PR-1a/PR-1b infra
-  hardening); its phase table and status column no longer reflect
-  current work. Needs a refresh pass, not urgent.
+  Ref: ADR-0038 Layer 3. Closed by PR-1b (#142): SAs converted to managed
+  resources, ~14 IAM bindings imported, Cloud Run service/Redis/Artifact
+  Registry codified.
+- **ROADMAP-STALE · ✓ DONE — Phase 17 / DOC-TRUTH** — `docs/roadmap.md`
+  archived to `docs/archive/roadmap-2026-06.md`; a stub now points to
+  `docs/backlog.md` (canonical) and `CHANGELOG.md` (phase progress).
 - **PR-2-OBSERVABILITY · OPEN (next after PR-1)** — Uptime checks,
   alerting policies (error rate, p95, availability), log-based metrics,
   Error Reporting. Ref: phase plan.
@@ -112,10 +112,22 @@ _Last updated: 2026-07-16_
   Layer 6.
 - **SLO-LOAD-TEST · OPEN (follow-on to PR-3)** — Load/perf test to
   validate the 99% SLO; the proof, not part of the PR-3 ADR.
-- **PROJECT-ASSESSMENT · OPEN (after PR-2)** — Broad artifact-reading
-  assessment (production-maturity + architectural-quality +
-  portfolio-signal), structured to force critical evidence-cited
-  findings.
+- **PROJECT-ASSESSMENT · ✓ DONE — Phase 17 / third-party review
+  2026-07-15 + Strategist validation 2026-07-16; artifacts:
+  docs/reviews/**.
+- **HARDENING-RESIDUALS · DEFERRED (ADR-0039)** — CMEK, VPC/NAT, admin
+  MFA, pen test; revisit triggers in the ADR.
+- **CI-AUDIT-RATCHET · OPEN (low)** — Flip pip-audit to blocking after
+  first triage. Ref: DOC-TRUTH.
+- **SMOKE-E2E · OPEN** — Playwright (or similar) deploy smoke: sign-in
+  → availability → book → cancel. Ref: review P2.3.
+- **CONTAINERREGISTRY-CLEANUP · OPEN (low)** — Legacy
+  containerregistry.googleapis.com API enabled, no images; disable
+  during PR-5.
+- **SEC-HEADERS · OPEN** — Server-side security headers (HSTS, CSP,
+  X-Frame-Options, X-Content-Type-Options) claimed in the security
+  charter but absent from app middleware (confirmed via grep,
+  2026-07-16 DOC-TRUTH). Ref: Phase 17 PR-5.
 - **VOICE-HARDEN-01 · OPEN (hard gate before prod enablement)** — Enforce a
   30s max-utterance duration cap server-side (ADR-0036 D6). 1c ships only a
   2MB byte cap (~8-11 min at typical bitrates); STT's 60s sync limit is a

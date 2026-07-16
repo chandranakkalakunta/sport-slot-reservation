@@ -180,17 +180,26 @@ Identity Federation
 | 2 | Backend API foundation | ✓ Complete |
 | 3 | Booking engine | ✓ Complete |
 | 4 | Frontend foundation | ✓ Complete |
-| 5 | Binary Auth + supply-chain security | ✓ Complete |
+| 5 | Admin & Provisioning | ✓ Complete |
 | 6 | CI/CD + WIF + branch protection | ✓ Complete |
 | 7 | Notifications (7.1) + Auth/password reset (7.2) | ◐ Partial (7.3–7.6 deferred) |
 | 8b | Production networking (LB, wildcard TLS, Cloud Armor, ingress) | ✓ Complete |
 | 9 | AI Booking Agent (SlotSense) | ✓ Complete |
 | 10 | UI redesign + PWA + accessibility audit | ✓ Complete |
-| 11 | TBD — push notifications, voice mode, or other | — Planned |
+| 13 | Entity lifecycle management (delete/deactivate, DPDP erasure) | ✓ Complete |
+| 15 | Billing & invoicing | ✓ Complete |
+| 16 | Voice I/O for the AI Booking Assistant | ✓ Complete |
+| 17 | Production Readiness (backup/DR, Terraform rebuild path, doc/CI truth) | In progress: PR-1a ✓, PR-1b ✓, DOC-TRUTH (this PR, pending merge), PR-2..5 open |
 
 Phase 8b (production networking) shipped the GCP load balancer stack
-replacing Firebase Hosting's implicit infrastructure. Phase 8c
-(remaining hardening: CMEK, VPC, pen test) remains deferred.
+replacing Firebase Hosting's implicit infrastructure. Row 5's original
+"Binary Auth + supply-chain security" scope never shipped in that slot
+— it's the deferred hardening work now underway as Phase 17 (see
+ADR-0039). Phases 12 and 14 are gaps in this table, not typos — see
+[`docs/adr/README.md`](docs/adr/README.md) for the ADR-indexed phase
+mapping, which is more current and granular than this table (status
+corrected 2026-07-16, DOC-TRUTH). `docs/backlog.md` is the canonical
+tracked-work record; this table is a coarse overview only.
 
 Phase retrospectives document the build process, lessons learned, and
 process improvements adopted:

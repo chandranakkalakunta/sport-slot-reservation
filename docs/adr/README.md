@@ -125,6 +125,29 @@ order.*
 |-----|-------|--------|---------|
 | [0035](0035-billing-invoicing-architecture.md) | Billing & Invoicing Architecture | Accepted | Optional flat-rate per-facility pricing (integer paise); postpaid monthly billing, fixed day, admin-configurable time only; immutable create-only invoices with deterministic IDs for idempotent re-runs; payment status fully external, never tracked; household-level billing resolved directly from bookings, with flat_number/resident_name denormalized at generation time; keyless GCS export (summary-level only, not the system of record) via self-impersonated signed URLs; two independent manual recovery triggers; tenant-admin visibility evolved from latest-only to history + live current-month preview; read-only agent invoice tools with deterministic pre-Vertex routing (extends ADR-0026) after a live-reproduced Gemini tool-selection reliability bug; implements ADR-0034's invoice-exclusion carve-out via dynamic subcollection enumeration |
 
+## Phase 16 — Voice I/O
+
+*Note (added 2026-07-16, DOC-TRUTH): the CHANGELOG tracks this work as
+unprefixed "Voice I/O sub-phase 1a/1b/1c/2" entries, not literally
+"Phase 16.x" — the phase number here is inferred from three
+independent forward-references to "Phase 16 DPDP self-assessment" in
+ADR-0036, ADR-0037, and `docs/backlog.md`, plus the Phase 13
+retrospective naming Voice I/O as the second of "two new phases...
+locked in sequence" after Phase 13. Flagged, not asserted as
+certain — correct this note if the Strategist's records show
+otherwise.*
+
+| ADR | Title | Status | Summary |
+|-----|-------|--------|---------|
+| [0036](0036-voice-io-for-ai-booking-assistant.md) | Voice I/O for the AI Booking Assistant | Approved | Speech-to-text/text-to-speech at the edges of the existing text agent (ADR-0021), zero changes to the agent core; translate-at-the-edges design; deterministic confirm/deny guard extends ADR-0026 |
+| [0037](0037-voice-language-detection-per-tenant.md) | Voice Language Detection — Per-Tenant Candidate Set | Accepted | Supersedes ADR-0036 §D3 (full 9-language auto-detect) after `chirp_3` STT model GA-revocation discovered live; per-tenant candidate set instead; revises ADR-0036 §D5 residency, carrying a residency exception into the Phase 16 DPDP self-assessment |
+
+## Phase 17 — Production Readiness
+
+| ADR | Title | Status | Summary |
+|-----|-------|--------|---------|
+| [0038](ADR-0038-backup-and-disaster-recovery.md) | Backup & Disaster Recovery Strategy | Accepted | Six-layer DR runbook (Firestore, Secrets, Terraform rebuild, GCS, container images, Firebase Auth) at 4h RTO/RPO; Firestore PITR + delete protection; daily backup schedule; Terraform codification of previously-imperative SAs/IAM/Cloud Run/Redis/Artifact Registry (PR-1a, PR-1b) |
+| [0039](ADR-0039-accepted-production-hardening-residuals.md) | Accepted Production-Hardening Residuals | Accepted | CMEK, VPC+NAT for Cloud Run, admin MFA, and penetration testing deferred as a single dated accepted-residual decision (not four silent open items), with explicit revisit triggers |
 
 ## Reading Order
 

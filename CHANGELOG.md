@@ -6,6 +6,67 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### docs/ci(DOC-TRUTH): reconcile claims with enforcement (pip-audit warn, gitleaks blocking), ADR-0039 accepted residuals, Phase 16/17 numbering, roadmap archived, review snapshots, backlog closures (IAM-TF-CODIFY, PROJECT-ASSESSMENT)
+
+A 2026-07-15 third-party project review found the project's worst
+credibility risk was doc drift: the security charter and README
+claimed CI/infra controls (Binary Authorization, container scanning,
+security headers, a "Phase 8 Production Readiness" that never shipped
+in that slot) that neither CI nor infra actually enforced. This
+sub-phase makes docs match reality, closes the review loop in the
+canonical backlog, and formalizes phase numbering.
+
+- **CI gates:** added `pip-audit` (non-blocking, `continue-on-error`,
+  ratchets to blocking per backlog `CI-AUDIT-RATCHET`) and `gitleaks`
+  (blocking, new `secret-scan` job) to `.github/workflows/pr-gates.yml`.
+- **Doc reconciliation:** security charter and README/REQUIREMENTS
+  claims for Binary Authorization, KMS signing, pnpm audit, container
+  scanning, and security headers (confirmed absent from app middleware
+  via grep — no HSTS/CSP/X-Frame-Options in `main.py`) downgraded to
+  "Planned — Phase 17 PR-5", each dated "(status corrected 2026-07-16,
+  DOC-TRUTH)"; CMEK/VPC+NAT/admin MFA/pen test claims now point to
+  ADR-0039 instead of a stale "Phase 8" framing.
+- **Roadmap archived:** `docs/roadmap.md` moved to
+  `docs/archive/roadmap-2026-06.md` (frozen snapshot); a stub now
+  points to `docs/backlog.md` (canonical) and this changelog (phase
+  progress).
+- **Phase numbering formalized:** verified via three independent
+  forward-references to "Phase 16 DPDP self-assessment" (ADR-0036,
+  ADR-0037, backlog) plus the Phase 13 retrospective's "two new
+  phases locked in sequence" — Phase 16 = Voice I/O, Phase 17 =
+  Production Readiness. Reflected in README's phase table,
+  `docs/REQUIREMENTS.md`, and a new Phase 16/17 section in
+  `docs/adr/README.md`.
+- **ADR-0039** (Accepted Production-Hardening Residuals): CMEK,
+  VPC+NAT for Cloud Run, admin MFA, and penetration testing deferred
+  as one dated accepted-residual decision with explicit revisit
+  triggers, replacing four silent open items.
+- **Review snapshots:** the three `PROJECT_REVIEW*.md` files (sitting
+  untracked at repo root) committed as dated snapshots under
+  `docs/reviews/2026-07-15-*`, with a status-lives-in-backlog header
+  and cross-reference links fixed for their new paths.
+- **Backlog:** `IAM-TF-CODIFY` closed (✓ DONE — Phase 17 / PR #142);
+  `PROJECT-ASSESSMENT` closed (✓ DONE — Phase 17 / third-party review
+  + Strategist validation); `ROADMAP-STALE` closed (resolved by the
+  archival above); added `HARDENING-RESIDUALS` (deferred, ADR-0039),
+  `CI-AUDIT-RATCHET`, `SMOKE-E2E`, `CONTAINERREGISTRY-CLEANUP`, and
+  `SEC-HEADERS`.
+- **`terraform/firestore.tf` hygiene:** removed the stale commented-out
+  `google_firestore_database` template (superseded by
+  `terraform/backup_dr.tf`, ADR-0038); kept the `locals` block, since
+  `terraform/outputs.tf` references both `local.firestore_database_name`
+  and `local.firestore_location`. `terraform fmt`/`validate` clean
+  (local-only, `-backend=false`; no state/backend touch — no other
+  terraform commands run).
+- **Protocol v3.8:** skipped this pass — `Protocol_v3_8_AMENDMENT.md`
+  was not present in the repo and no base protocol document exists
+  in-repo to amend either. Coordinator direction: ignore for now.
+
+**Production Readiness phase progress:** PR-1a ✓ → PR-1b ✓ →
+DOC-TRUTH (this entry, pending merge) → PR-2 (Observability) → PR-3
+(Availability) → PR-4 (Cost) → PR-5 (Security). Tracked in
+`docs/backlog.md`.
+
 ### feat(infra): Production Readiness PR-1b — codify SAs, IAM bindings, Cloud Run service, Redis, Artifact Registry (ADR-0038 Layer 3)
 
 Completes ADR-0038 Layer 3 (IAM-TF-CODIFY): the four baseline service
