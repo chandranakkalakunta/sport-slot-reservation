@@ -58,6 +58,7 @@ resource "google_cloud_run_v2_service" "sport_slot_api" {
           memory = "512Mi"
         }
         startup_cpu_boost = true
+        cpu_idle	  = true # live default: CPU allocated only during request processing
       }
 
       startup_probe {
@@ -157,6 +158,7 @@ resource "google_cloud_run_v2_service" "sport_slot_api" {
       template[0].annotations,
       template[0].labels,
       annotations,
+      scaling, # service-level scaling block is API-populated defaults; template-level scaling (maxScale) remains managed 
       labels,
     ]
   }
