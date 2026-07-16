@@ -1,10 +1,10 @@
 # Disaster Recovery Runbook
 
-- **Status:** Skeleton (PR-1a) — procedures below are complete where
-  facts are known; drill execution and TODO-Coordinator items are
-  outstanding.
+- **Status:** Layers 1–6 complete (PR-1a, PR-1b) — procedures below
+  are complete where facts are known; drill execution and
+  TODO-Coordinator items are outstanding.
 - **Governing ADR:** [ADR-0038](../adr/ADR-0038-backup-and-disaster-recovery.md)
-- **Last updated:** 2026-07-14
+- **Last updated:** 2026-07-16
 
 ## 1. Scope, RTO/RPO, disaster classes
 
@@ -112,16 +112,126 @@ itself justify revisiting the no-value-backup decision).
 
 ## 4. Layer 3 — Terraform rebuild
 
-**Placeholder — completed in PR-1b (IAM-TF-CODIFY).**
-
 PR-1b codifies the remaining imperative-only resources (four service
-accounts, ~14 project-level IAM bindings, the Cloud Run service, the
+accounts, 16 project-level IAM bindings, the Cloud Run service, the
 Memorystore Redis instance, the Artifact Registry repository) so that
-`terraform apply` becomes a credible from-scratch rebuild path. Until
-PR-1b lands, a project-loss recovery requires manually recreating
-those resources before `terraform apply` can complete the rebuild.
-See ADR-0038 §Layer 3 for the full inventory and the Worker/Coordinator
-division of labor for that sub-phase.
+`terraform apply` is a credible from-scratch rebuild path into a new
+project. See ADR-0038 §Layer 3 for the design rationale.
+
+### 4.1 Rebuild procedure (new project)
+
+Order matters — several steps have a bootstrapping dependency on the
+step before them.
+
+1. **Create the project and link billing.**
+   ```
+   gcloud projects create <new-project-id> --organization=<org-id>
+   gcloud billing projects link <new-project-id> --billing-account=<billing-account-id>
+   gcloud config set project <new-project-id>
+   ```
+2. **Enable the APIs `terraform/apis.tf` expects to already be on**
+   (the `google_project_service` resources in that file assume the
+   API-enablement API itself and a few bootstrap APIs are already
+   active):
+   ```
+   gcloud services enable cloudresourcemanager.googleapis.com serviceusage.googleapis.com iam.googleapis.com
+   ```
+3. **Create the Terraform state bucket manually** — the backend
+   (`terraform/backend.tf`, GCS) cannot bootstrap the bucket it
+   stores its own state in:
+   ```
+   gcloud storage buckets create gs://<new-project-id>-tfstate \
+     --location=asia-south1 --uniform-bucket-level-access
+   gcloud storage buckets update gs://<new-project-id>-tfstate --versioning
+   ```
+   Update `terraform/backend.tf`'s bucket name (or pass `-backend-config`)
+   to point at it, then `terraform init`.
+4. **Add Firebase to the project** before any `terraform apply` that
+   touches Firebase-adjacent IAM — this is what provisions the
+   `firebase-adminsdk-fbsvc@` service account and its 3 bindings (D8
+   exclusion; see §4.2), which Terraform does not and cannot create:
+   ```
+   firebase projects:addfirebase <new-project-id>
+   ```
+   Also enable the Firebase Authentication providers needed
+   (email/password, etc.) via the Firebase Console or `firebase`
+   CLI — provider configuration is not Terraform-managed (see
+   `terraform/firestore.tf`'s note that security rules/indexes are
+   Firebase CLI-managed, and Layer 6 above for Auth).
+5. **First `terraform apply` pass, excluding Cloud Run:**
+   ```
+   terraform apply -target=<every resource except google_cloud_run_v2_service.sport_slot_api>
+   ```
+   This is required because `google_cloud_run_v2_service.sport_slot_api`
+   references a container image
+   (`asia-south1-docker.pkg.dev/.../sport-slot-repo/sport-slot-api:<tag>`)
+   that cannot exist yet in a brand-new Artifact Registry repo — the
+   repo itself is created in this same apply pass. Terraform cannot
+   create a Cloud Run revision pointing at an image that doesn't
+   exist.
+6. **Build and push at least one image** into the newly created
+   `sport-slot-repo`, e.g. via a manual `gcloud builds submit --tag
+   asia-south1-docker.pkg.dev/<new-project-id>/sport-slot-repo/sport-slot-api:bootstrap`,
+   or by pointing CI (once its WIF federation is live from step 5) at
+   the new project and letting the normal pipeline deploy.
+7. **Second `terraform apply` pass**, with `google_cloud_run_v2_service.sport_slot_api`
+   included, now that its image exists. Per the D7 ownership model
+   (`terraform/cloud_run.tf`), Terraform only needs *an* image to
+   exist at this point — CI owns which image is live from then on.
+8. **Manual post-apply steps:**
+   - Populate Secret Manager secret **versions** (Terraform creates
+     shells only, never values) — see §3 for each secret's re-issue
+     procedure.
+   - Grant `roles/iam.serviceAccountUser` on `sa-scheduler-invoker` to
+     whichever principal is running `terraform apply`, if the apply
+     fails on an actAs-style permission error (see the NOTE in
+     `terraform/cloud_scheduler.tf`).
+   - Restore Firestore data (Layer 1) and Firebase Auth identities
+     (Layer 6) into the new project.
+   - Repoint DNS (§8) at the new Load Balancer's static IP once
+     `terraform apply` has created it.
+9. **Verify:** `terraform plan` shows no changes, the Cloud Run
+   service serves traffic, and CI can deploy a new revision
+   end-to-end.
+
+### 4.2 Managed vs excluded inventory
+
+Every asset type live in `sport-slot-dev` as of the 2026-07-16
+completeness check (PR-1b Step 6), classified as Terraform-managed,
+runbook-covered, or explicitly excluded:
+
+| Asset | Classification | Note |
+|---|---|---|
+| `google_service_account`: sa-cloud-run, sa-cloud-build, sa-firebase-admin, sa-monitoring | TF-managed | `terraform/iam.tf` (PR-1b) |
+| `google_service_account`: sa-scheduler-invoker, sa-tasks-invoker | TF-managed | `terraform/cloud_scheduler.tf`, `terraform/cloud_tasks.tf` (pre-existing) |
+| 16 project IAM bindings on the 6 custom SAs above | TF-managed | `terraform/iam.tf` (PR-1b) |
+| `firebase-adminsdk-fbsvc@` service account | **Excluded** | Firebase-provisioned automatically by `firebase projects:addfirebase` — no Terraform resource can create it; recreated by rebuild step 4.1.4 |
+| 3 bindings on `firebase-adminsdk-fbsvc@` (`firebase.sdkAdminServiceAgent`, `firebaseauth.admin`, `iam.serviceAccountTokenCreator`) | **Excluded (D8)** | Firebase-provisioned alongside the SA above; not codified per Coordinator-approved D8 scope decision |
+| `707808711911-compute@developer.gserviceaccount.com` (default Compute Engine SA) | **Excluded** | GCP-default per-project SA, auto-created, unused by any workload in this project |
+| All `service-*@gcp-sa-*.iam.gserviceaccount.com` / `*.gserviceaccount.com` service agents (cloudbuild, cloudservices, cloud-redis, compute-system, container-engine-robot, containerregistry, firebase-rules, aiplatform, artifactregistry, cloudscheduler, cloudtasks, firebase, firestore, pubsub, serverless-robot-prod) | **Excluded** | Google-provisioned service agents, created automatically when the corresponding API is enabled; no Terraform resource represents them; reappear automatically on API enablement during rebuild |
+| `google_cloud_run_v2_service.sport_slot_api` | TF-managed | `terraform/cloud_run.tf` (PR-1b); existence/shape only — see D7 |
+| Cloud Run **revisions** | **Excluded** | CI-owned per D7; ephemeral, not individually tracked; ignored via `lifecycle.ignore_changes` on the image/client fields |
+| `google_redis_instance.sport_slot_redis` | TF-managed | `terraform/base_infra.tf` (PR-1b) |
+| `google_artifact_registry_repository.sport_slot_repo` | TF-managed | `terraform/base_infra.tf` (PR-1b) |
+| `google_firestore_database.default` + daily backup schedule | TF-managed | `terraform/backup_dr.tf` (PR-1a) |
+| `google_secret_manager_secret`: redis-auth, resend-api-key (shells) | TF-managed | `terraform/backup_dr.tf` (PR-1a); values are runbook-covered, see §3 |
+| GCS: `sport-slot-dev-tfstate`, `sport-slot-dev-invoices`, `sport-slot-dev-frontend` | TF-managed | `backup_dr.tf`, `invoice_export.tf`, `load_balancer_backends.tf` |
+| GCS: `sport-slot-dev-cloudbuild` | **Excluded** | Auto-created Cloud Build staging bucket; rebuildable CI artifact, no recovery value (see §5) |
+| `google_cloud_scheduler_job.invoice_generation` | TF-managed | `terraform/cloud_scheduler.tf` (pre-existing) |
+| `google_cloud_tasks_queue` (notifications) | TF-managed | `terraform/cloud_tasks.tf` (pre-existing) |
+| Load Balancer, Cloud Armor, networking | TF-managed | `load_balancer_*.tf`, `cloud_armor.tf` (pre-existing) |
+| WIF pool/provider (GitHub Actions OIDC) | TF-managed | `wif.tf`, `wif_iam.tf` (pre-existing) |
+| Firebase project config, Hosting, Identity Platform / Auth providers | **Runbook-covered** | Managed via Firebase CLI/Console, not Terraform (see step 4.1.4, Layer 6, and `terraform/firestore.tf`'s note on security rules) |
+| Firebase Auth user identities | **Runbook-covered** | See §7 |
+| DNS records (Namecheap) | **Runbook-covered** | External registrar, not a GCP asset; see §8 |
+
+> Compiled by reasoning over the repo's `.tf` files against a live
+> per-service inventory (`gcloud storage/secrets/iam/run/scheduler/
+> tasks/firestore/artifacts/redis list`), since `gcloud asset
+> search-all-resources` requires enabling `cloudasset.googleapis.com`,
+> which this PR does not do (zero-live-change scope; enabling it is a
+> live project change left for the Coordinator if a full asset-graph
+> view is wanted later).
 
 ## 5. Layer 4 — GCS buckets
 

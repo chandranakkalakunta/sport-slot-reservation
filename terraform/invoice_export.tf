@@ -51,7 +51,7 @@ resource "google_storage_bucket" "invoice_exports" {
 resource "google_storage_bucket_iam_member" "invoice_exports_cloud_run_access" {
   bucket = google_storage_bucket.invoice_exports.name
   role   = "roles/storage.objectAdmin"
-  member = "serviceAccount:${data.google_service_account.cloud_run.email}"
+  member = "serviceAccount:${google_service_account.cloud_run.email}"
 }
 
 # Self-impersonation for signed URLs (keyless architecture): Cloud Run's
@@ -64,7 +64,7 @@ resource "google_storage_bucket_iam_member" "invoice_exports_cloud_run_access" {
 # generate_signed_url can then sign with via the IAM SignBlob API.
 # Self-referential this time (sa-cloud-run on itself), not cross-SA.
 resource "google_service_account_iam_member" "cloud_run_self_token_creator" {
-  service_account_id = data.google_service_account.cloud_run.name
+  service_account_id = google_service_account.cloud_run.name
   role               = "roles/iam.serviceAccountTokenCreator"
-  member             = "serviceAccount:${data.google_service_account.cloud_run.email}"
+  member             = "serviceAccount:${google_service_account.cloud_run.email}"
 }

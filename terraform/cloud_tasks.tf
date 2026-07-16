@@ -56,7 +56,7 @@ resource "google_cloud_tasks_queue_iam_member" "cloud_run_tasks_enqueuer" {
   location = var.region
   name     = google_cloud_tasks_queue.notifications.name
   role     = "roles/cloudtasks.enqueuer"
-  member   = "serviceAccount:${data.google_service_account.cloud_run.email}"
+  member   = "serviceAccount:${google_service_account.cloud_run.email}"
 }
 
 # Cloud Tasks requires the enqueuing caller to be able to act as the
@@ -66,7 +66,7 @@ resource "google_cloud_tasks_queue_iam_member" "cloud_run_tasks_enqueuer" {
 resource "google_service_account_iam_member" "cloud_run_act_as_tasks_invoker" {
   service_account_id = google_service_account.tasks_invoker.name
   role               = "roles/iam.serviceAccountUser"
-  member             = "serviceAccount:${data.google_service_account.cloud_run.email}"
+  member             = "serviceAccount:${google_service_account.cloud_run.email}"
 }
 
 # Resend API key secret access (ADR-0019 Decision 4). Secret
@@ -77,5 +77,5 @@ resource "google_secret_manager_secret_iam_member" "cloud_run_resend_secret_acce
   project   = var.project_id
   secret_id = "resend-api-key"
   role      = "roles/secretmanager.secretAccessor"
-  member    = "serviceAccount:${data.google_service_account.cloud_run.email}"
+  member    = "serviceAccount:${google_service_account.cloud_run.email}"
 }

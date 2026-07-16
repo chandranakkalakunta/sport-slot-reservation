@@ -10,7 +10,7 @@ traceability record.
 **Entry convention:** `[ID] status — one-line what & why. Blocker. Ref.`
 Status ∈ `OPEN` · `BLOCKED` · `IN PROGRESS` · `✓ DONE — Phase X / PR #n`.
 
-_Last updated: 2026-07-14_
+_Last updated: 2026-07-16_
 
 ---
 
@@ -93,6 +93,11 @@ _Last updated: 2026-07-14_
   Drifts/vanishes on infra rebuild. Separate from VOICE-IAM-TF (a single
   feature-scoped grant, now codified) — this covers the baseline set.
   Ref: ADR-0038 Layer 3; scheduled as PR-1b.
+- **ROADMAP-STALE · OPEN (cosmetic)** — `docs/roadmap.md`'s phase
+  tracker predates the Voice and Production Readiness workstreams
+  (last touched before Phase 8+ voice work and the PR-1a/PR-1b infra
+  hardening); its phase table and status column no longer reflect
+  current work. Needs a refresh pass, not urgent.
 - **PR-2-OBSERVABILITY · OPEN (next after PR-1)** — Uptime checks,
   alerting policies (error rate, p95, availability), log-based metrics,
   Error Reporting. Ref: phase plan.
