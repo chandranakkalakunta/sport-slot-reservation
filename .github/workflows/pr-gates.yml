@@ -31,6 +31,13 @@ jobs:
         run: uv run mypy src/sport_slot/services/voice
       - name: Pytest (coverage gate >=90%)
         run: uv run pytest --cov=src --cov-fail-under=90 -q
+      # warn-only until first triage pass; ratchet to blocking is backlog
+      # item CI-AUDIT-RATCHET (measured gates over aspirational thresholds)
+      - name: pip-audit (dependency vulnerability scan, non-blocking)
+        continue-on-error: true
+        run: |
+          uv export --frozen --all-extras --dev --no-hashes -o requirements-audit.txt
+          uvx pip-audit -r requirements-audit.txt
 
   frontend-gates:
     runs-on: ubuntu-latest
@@ -57,3 +64,14 @@ jobs:
         run: pnpm test
       - name: Build
         run: pnpm build
+
+  secret-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Gitleaks (blocking secret scan)
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

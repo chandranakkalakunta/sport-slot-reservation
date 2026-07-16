@@ -199,11 +199,15 @@ Production-ready conversational agent for natural-language booking operations.
 - **Phase 1 (done):** Zero JSON keys, 4 SAs, WIF, deny-all Firestore
 - **Phase 2 (done):** Security headers, CORS, rate limiting, PII redaction
 - **Phase 3 (done):** Booking quotas, anti-abuse patterns
-- **Phase 5 (done):** Binary Auth, KMS signing, Bandit, pip-audit, scanning
+- **Phase 5 (partial, status corrected 2026-07-16 DOC-TRUTH):** Bandit
+  (implemented), pip-audit (implemented, warn-only — CI-AUDIT-RATCHET
+  ratchets to blocking), Gitleaks secret scanning (implemented,
+  blocking); Binary Auth, KMS signing, container scanning, pnpm audit
+  — planned, Phase 17 PR-5
 - **Phase 6 (done):** CI/CD pipeline hardening, WIF main-branch-only
 - **Phase 7 (done; auth):** Password policy (zxcvbn+HIBP), self-service password reset, forced-password gate
 - **Phase 7 (partial; notifications):** 7.1 done (email via Resend); 7.3-7.6 deferred (SMS/WhatsApp, in-app, push, analytics)
-- **Phase 8 (deferred):** CMEK, VPC service controls, MFA for admins, pen testing, DPDP formalization
+- **Phase 8 (deferred):** CMEK, VPC service controls, MFA for admins, pen testing, DPDP formalization — this work is actually landing as Phase 17 (ADR-0038, ADR-0039), not Phase 8; the four hardening items are accepted residuals with revisit triggers, see ADR-0039 (status corrected 2026-07-16, DOC-TRUTH)
 - **Phase 9 (done):** Agent guardrails (ADR-0022) — output classifier, propose-confirm gate, hallucination prevention, per-tenant scoping
 
 ## Compliance: DPDP Act (India)
@@ -245,14 +249,28 @@ Phase 1:  Workspace Bootstrap                                ✓ COMPLETE
 Phase 2:  Backend API Foundation                             ✓ COMPLETE
 Phase 3:  Booking Engine                                     ✓ COMPLETE
 Phase 4:  Frontend Foundation                                ✓ COMPLETE
-Phase 5:  Binary Authorization + Supply-Chain Security       ✓ COMPLETE
+Phase 5:  Admin & Provisioning                                ✓ COMPLETE
 Phase 6:  CI/CD Pipeline + WIF + Branch Protection           ✓ COMPLETE
 Phase 7:  Notifications (7.1) + Auth/Password Reset (7.2)    ◐ PARTIAL
           7.3-7.6 (SMS/WhatsApp, in-app, push, analytics)    — DEFERRED
-Phase 8:  Production Readiness (CMEK, VPC, MFA, pen test)    — DEFERRED
+Phase 8:  Production Networking (LB, wildcard TLS, Armor)    ✓ COMPLETE
 Phase 9:  AI Booking Agent (SlotSense)                       ✓ COMPLETE
-Phase 10: (TBD — voice mode, push notifications, or other)   — PLANNED
+Phase 10: UI Redesign + PWA Mobile Validation                ✓ COMPLETE
+Phase 13: Entity Lifecycle Management                        ✓ COMPLETE
+Phase 15: Billing & Invoicing                                ✓ COMPLETE
+Phase 16: Voice I/O for the AI Booking Assistant              ✓ COMPLETE
+Phase 17: Production Readiness (CMEK, VPC, MFA, pen test —
+          now ADR-0039 accepted residuals; backup/DR + TF
+          rebuild path shipped, PR-1a/PR-1b)                 IN PROGRESS
 ```
+
+**STALE (2026-06-28 snapshot, corrected 2026-07-16 DOC-TRUTH):** this
+roadmap predates Phases 13/15/16/17 and originally mislabeled Phase 5
+as "Binary Authorization + Supply-Chain Security" and Phase 8 as
+"Production Readiness" — neither shipped in that slot. See
+[`docs/adr/README.md`](adr/README.md) for the current ADR-indexed
+phase mapping and `docs/backlog.md` for the canonical tracked-work
+record; this file is not actively maintained phase-by-phase.
 
 **Note on phase ordering:** Phases 8 and 9 are intentionally out of numerical
 sequence. Phase 9 (the AI agent) was prioritized over Phase 8 (production

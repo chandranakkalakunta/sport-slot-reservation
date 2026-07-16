@@ -1,6 +1,6 @@
 # Security Charter — SportSlot Reservation
 
-**Version:** 1.4 | **Date:** 2026-06-14 | **Author:** Chandra Nakkalakunta
+**Version:** 1.5 | **Date:** 2026-07-16 | **Author:** Chandra Nakkalakunta
 
 ## Principles
 
@@ -16,7 +16,7 @@ When principles conflict: Privacy > Fail Closed > Defense-in-Depth > Zero Creden
 
 ## Identity & Credential Model
 
-- **admin@chandraailabs.com** — sole human cloud-management identity (gcloud, GCP Console, org administration). MFA hardening in Phase 8.
+- **admin@chandraailabs.com** — sole human cloud-management identity (gcloud, GCP Console, org administration). MFA hardening is a Phase 17 accepted residual — see [ADR-0039](../adr/ADR-0039-accepted-production-hardening-residuals.md) (status corrected 2026-07-16, DOC-TRUTH; was "Phase 8").
 - **chandra.n@chandraailabs.com** — email and git identity (commits, correspondence). No cloud credentials.
 - **Application credentials** — never a human identity. Local development uses ADC via service account impersonation (sa-firebase-admin); CI/CD uses WIF (sa-cloud-build); runtime uses the attached service account (sa-cloud-run). A development server never holds org-admin powers.
 
@@ -24,11 +24,11 @@ When principles conflict: Privacy > Fail Closed > Defense-in-Depth > Zero Creden
 
 **In scope (Tier 1+2):** Curious residents manipulating URLs, disgruntled users hoarding slots, tenant admins trying cross-tenant access, credential stuffing, API scraping, OWASP Top 10, compromised dependencies, DDoS during peak booking.
 
-**Noted but not exhaustively defended (Tier 3):** Organized cybercrime, supply chain attacks (mitigated by scanning + Binary Auth).
+**Noted but not exhaustively defended (Tier 3):** Organized cybercrime, supply chain attacks (mitigated by Bandit SAST + pip-audit [warn-only] + Gitleaks secret scanning [blocking]; Binary Authorization planned — Phase 17 PR-5) (status corrected 2026-07-16, DOC-TRUTH).
 
 **Out of scope (Tier 4):** Nation-state / APT. SportSlot is residential community SaaS, not critical infrastructure.
 
-**Acceptable risks:** Google-managed encryption until CMEK in Phase 8. No VPC-SC in DEV. No MFA for residents in v1 (required for admins in Phase 8). No dedicated SOC (alerts + runbooks are proportionate). Up-to-1-hour stale JWT custom claims on non-sensitive endpoints (ADR-0007, Decision 3).
+**Acceptable risks:** Google-managed encryption. CMEK, VPC + Cloud NAT for Cloud Run, and admin MFA are deferred as accepted residual risk — see [ADR-0039](../adr/ADR-0039-accepted-production-hardening-residuals.md) (status corrected 2026-07-16, DOC-TRUTH; supersedes this section's prior "Phase 8" framing). No MFA for residents in v1. No dedicated SOC (alerts + runbooks are proportionate). Up-to-1-hour stale JWT custom claims on non-sensitive endpoints (ADR-0007, Decision 3).
 
 ## Security Controls by Phase
 
@@ -42,6 +42,8 @@ When principles conflict: Privacy > Fail Closed > Defense-in-Depth > Zero Creden
 
 ### Phase 2 — Backend Foundation
 - Security headers (HSTS, CSP, X-Frame-Options, X-Content-Type-Options)
+  — **Planned** (not present in app middleware today; see backlog
+  `SEC-HEADERS`) (status corrected 2026-07-16, DOC-TRUTH)
 - CORS strict policy (subdomain-aware)
 - Rate limiting (per-user, per-IP, per-tenant)
 - JWT validation middleware with tenant cross-check
@@ -58,14 +60,22 @@ When principles conflict: Privacy > Fail Closed > Defense-in-Depth > Zero Creden
 - Audit logging for all booking mutations
 
 ### Phase 5 — CI/CD
-- Binary Authorization (deploy-time image verification)
-- KMS signing in Cloud Build pipeline
-- Bandit SAST for Python
-- pip-audit for Python CVE scanning
-- pnpm audit for Node CVE scanning
-- Container vulnerability scanning (gate before deploy)
-- Secret scanning (Gitleaks/TruffleHog)
-- All scans must PASS before deployment proceeds
+
+Status corrected 2026-07-16 (DOC-TRUTH) — this section previously
+claimed all items below as a single undifferentiated "Phase 5" plan;
+only some have actually been built:
+
+- Bandit SAST for Python — **Implemented** (`.github/workflows/pr-gates.yml`)
+- pip-audit for Python CVE scanning — **Implemented, warn-only** (`continue-on-error`; ratchets to blocking per backlog `CI-AUDIT-RATCHET`)
+- Secret scanning (Gitleaks) — **Implemented, blocking**
+- Binary Authorization (deploy-time image verification) — Planned — Phase 17 PR-5
+- KMS signing in Cloud Build pipeline — Planned — Phase 17 PR-5
+- pnpm audit for Node CVE scanning — Planned — Phase 17 PR-5
+- Container vulnerability scanning (gate before deploy) — Planned — Phase 17 PR-5
+
+PASS-before-merge applies today to the implemented gates above
+(Bandit, Gitleaks); pip-audit is warn-only and the remaining planned
+scans are not yet deploy-blocking.
 
 ### Phase 7 — Performance
 - Cloud Armor Standard (DDoS protection)
@@ -74,14 +84,16 @@ When principles conflict: Privacy > Fail Closed > Defense-in-Depth > Zero Creden
 - Edge rate limiting
 
 ### Phase 8 — Production Readiness
-- CMEK for Firestore, Secret Manager, Cloud Storage (Cloud KMS, RSA-4096)
-- VPC for Cloud Run services + Cloud NAT
-- MFA required for tenant_admin and platform_admin roles
-- Penetration testing
-- Incident response runbook
-- DPDP Act compliance formalization
-- Delete protection enabled on production Firestore
-- Point-in-time recovery enabled
+
+Status corrected 2026-07-16 (DOC-TRUTH) — "Production Readiness" work
+did not land at Phase 8 as originally planned; it is actually
+underway now as Phase 17 (ADR-0038, ADR-0039):
+
+- Delete protection enabled on Firestore — **Implemented** (ADR-0038, PR-1a)
+- Point-in-time recovery enabled — **Implemented** (ADR-0038, PR-1a)
+- CMEK for Firestore, Secret Manager, Cloud Storage; VPC for Cloud Run + Cloud NAT; MFA for tenant_admin/platform_admin; penetration testing — **Deferred accepted residuals**, see [ADR-0039](../adr/ADR-0039-accepted-production-hardening-residuals.md)
+- Incident response runbook — not yet written (see this charter's own Incident Response section for the interim process)
+- DPDP Act compliance formalization — pending (Phase 16 DPDP self-assessment, backlog `SEC-01`)
 
 ## DPDP Act Compliance
 
@@ -112,7 +124,7 @@ When principles conflict: Privacy > Fail Closed > Defense-in-Depth > Zero Creden
 
 | Constraint | Scope | Setting | Rationale | Review |
 |------------|-------|---------|-----------|--------|
-| iam.allowedPolicyMemberDomains | project sport-slot-dev only | allowAll | Public booking API requires allUsers run.invoker; app-layer JWT auth + deny-all Firestore stand behind it | At PROD setup (Phase 8): PROD project decides fresh, with Cloud Armor fronting |
+| iam.allowedPolicyMemberDomains | project sport-slot-dev only | allowAll | Public booking API requires allUsers run.invoker; app-layer JWT auth + deny-all Firestore stand behind it | At PROD setup: PROD project decides fresh, with Cloud Armor fronting (status corrected 2026-07-16, DOC-TRUTH; was "Phase 8") |
 
 Org default remains restrictive for all other projects. Granting
 roles/orgpolicy.policyAdmin to admin@ (org-level, 2026-06-11) is
@@ -143,6 +155,17 @@ recorded as part of the identity model.
 
 ## Changelog
 
+- **1.5 (2026-07-16, DOC-TRUTH):** Reconciled Phase 5/8 control claims
+  with actual CI/infra enforcement — Bandit, pip-audit (warn-only),
+  and Gitleaks (blocking) are implemented; Binary Auth, KMS signing,
+  pnpm audit, and container scanning downgraded to "Planned — Phase
+  17 PR-5"; CMEK/VPC+NAT/admin MFA/pen test point to ADR-0039
+  (accepted residuals) instead of a stale "Phase 8" claim; Firestore
+  delete protection + PITR marked implemented (ADR-0038, PR-1a).
+  Phase 2's "security headers" claim downgraded to Planned — grepped
+  the app middleware stack (`backend/src/sport_slot/main.py`) and
+  found no HSTS/CSP/X-Frame-Options implementation; tracked as
+  backlog `SEC-HEADERS`.
 - **1.4 (2026-06-14):** Accepted Exposures — admin-host segregation deferred to Phase 9; route+role gating (require_platform_admin) is the DEV authorization layer per ADR-0014 §1.
 - **1.3 (2026-06-13):** Accepted Exposures section — Cloud Run direct ingress logged; Phase 7 LB closure path documented.
 - **1.2 (2026-06-12):** Org-policy exceptions section (domain-restricted-sharing override for sport-slot-dev); corrects fabricated v1.2 content from interrupted session.
