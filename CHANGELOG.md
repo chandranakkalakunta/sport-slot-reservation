@@ -16,15 +16,18 @@ gap entirely in Terraform — no console-created resources, all
 creates, no imports.
 
 - **`terraform/observability.tf`** (new): two notification channels
-  (email to `admin@chandraailabs.com`, native SMS with a
-  `+91XXXXXXXXXX` placeholder the Coordinator must replace before
-  apply); two uptime checks (edge path via
-  `rvrg.slotsense.chandraailabs.com/health`, service path via the
-  Cloud Run URI directly — deliberately redundant so one red/one green
-  localizes the fault layer); four alert policies wired to both
-  channels (5xx rate > 5%/5min, p95 latency > 2500ms/15min, uptime
-  check failure from ≥2 regions, Firestore backup failure); three
-  log-based metrics (`firestore_backup_failures`, `voice_turns`,
+  (email to `admin@chandraailabs.com`, native SMS via
+  `var.alert_sms_number` — declared `sensitive`, no default, supplied
+  through gitignored `terraform/terraform.tfvars` so the number never
+  reaches git); two uptime checks (edge path via the reserved,
+  tenant-independent `probe.slotsense.chandraailabs.com/health` —
+  chosen over a real tenant subdomain since an unauthenticated
+  `/health` probe never exercises tenant resolution anyway; service
+  path via the Cloud Run URI directly — deliberately redundant so one
+  red/one green localizes the fault layer); four alert policies wired
+  to both channels (5xx rate > 5%/5min, p95 latency > 2500ms/15min,
+  uptime check failure from ≥2 regions, Firestore backup failure);
+  three log-based metrics (`firestore_backup_failures`, `voice_turns`,
   `agent_text_turns`); `google_project_service` for
   `clouderrorreporting.googleapis.com` (the one API the audit
   predicted would be missing — `monitoring.googleapis.com` was

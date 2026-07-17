@@ -72,3 +72,9 @@ variable "default_labels" {
     owner      = "chandra-ai-labs"
   }
 }
+
+variable "alert_sms_number" {
+  description = "SMS notification channel number (E.164). Coordinator-supplied via terraform.tfvars (gitignored) — never committed."
+  type        = string
+  sensitive   = true
+}

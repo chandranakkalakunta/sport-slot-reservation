@@ -11,3 +11,7 @@ region             = "asia-south1"
 zone               = "asia-south1-a"
 environment        = "dev"
 github_repository  = "chandranakkalakunta/sport-slot-reservation"
+
+# ADR-0040 (PR-2): SMS alert notification channel number, E.164 format.
+# Coordinator-supplied; never a real number in this example file.
+alert_sms_number = "+91XXXXXXXXXX"

@@ -4,7 +4,7 @@
   are complete where facts are known; drill execution and
   TODO-Coordinator items are outstanding.
 - **Governing ADR:** [ADR-0038](../adr/ADR-0038-backup-and-disaster-recovery.md)
-- **Last updated:** 2026-07-16
+- **Last updated:** 2026-07-17
 
 ## 1. Scope, RTO/RPO, disaster classes
 
@@ -190,6 +190,14 @@ step before them.
      (Layer 6) into the new project.
    - Repoint DNS (§8) at the new Load Balancer's static IP once
      `terraform apply` has created it.
+   - **Recreate `terraform/terraform.tfvars`**, including
+     `alert_sms_number` (ADR-0040, PR-2) — this file is Coordinator-
+     supplied local state, gitignored by design, so a project-loss
+     disaster takes it with the old project. The SMS number is not
+     recoverable from git; it lives in the Coordinator's head/phone,
+     same as the GCP credentials themselves. `terraform plan` fails
+     loudly (no default on `var.alert_sms_number`) as a reminder if
+     this step is skipped.
 9. **Verify:** `terraform plan` shows no changes, the Cloud Run
    service serves traffic, and CI can deploy a new revision
    end-to-end.

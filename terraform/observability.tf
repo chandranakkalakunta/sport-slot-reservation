@@ -36,18 +36,17 @@ resource "google_monitoring_notification_channel" "email" {
   }
 }
 
-# COORDINATOR MUST REPLACE "+91XXXXXXXXXX" WITH THE REAL NUMBER BEFORE
-# APPLY. Left as a placeholder deliberately — Worker does not invent
-# phone numbers. SMS also requires a one-time console verification
-# step after apply (ADR-0040 D9); see the runbook's Alerting section
-# for that step.
+# Number comes from var.alert_sms_number (terraform.tfvars, gitignored
+# — never committed; see docs/runbooks/observability.md). SMS also
+# requires a one-time console verification step after apply
+# (ADR-0040 D9); see the runbook's Alerting section for that step.
 resource "google_monitoring_notification_channel" "sms" {
   project      = var.project_id
   display_name = "Coordinator SMS"
   type         = "sms"
 
   labels = {
-    number = "+91XXXXXXXXXX" # PLACEHOLDER — Coordinator replaces before apply
+    number = var.alert_sms_number
   }
 }
 
@@ -60,17 +59,23 @@ locals {
 
 # ─── D10: Uptime checks (two deliberately redundant paths) ───
 #
-# Edge path exercises DNS, cert, Cloud Armor, LB, and backend together
-# (the real resident path). Service path isolates app health from edge
-# health — one red / one green localizes the fault layer immediately.
-# Route verified live 2026-07-17: GET /health returned 200
+# Edge path uses probe.slotsense.chandraailabs.com — a reserved,
+# tenant-independent host (wildcard DNS + wildcard cert already cover
+# it) rather than a real tenant subdomain like rvrg. Rationale: an
+# unauthenticated /health probe never exercises tenant resolution
+# anyway, so probing a real tenant host would buy nothing; tenant-
+# routing verification is SMOKE-E2E's job, not an uptime check's.
+# Still exercises DNS, cert, Cloud Armor, LB, and backend together.
+# Service path isolates app health from edge health — one red / one
+# green localizes the fault layer immediately. Route verified live
+# 2026-07-17: GET /health returned 200 on both hosts
 # (backend/src/sport_slot/health.py:14 — pure liveness, no dependency
 # calls, per ADR-0006 Decision 4; deliberately not /readyz, which
 # pings Firestore and would conflate app health with a Firestore blip).
 
 resource "google_monitoring_uptime_check_config" "edge_health" {
   project      = var.project_id
-  display_name = "Edge health — rvrg.slotsense.chandraailabs.com"
+  display_name = "Edge health — probe.slotsense.chandraailabs.com"
   timeout      = "10s"
   period       = "300s"
 
@@ -85,7 +90,7 @@ resource "google_monitoring_uptime_check_config" "edge_health" {
     type = "uptime_url"
     labels = {
       project_id = var.project_id
-      host       = "rvrg.slotsense.chandraailabs.com"
+      host       = "probe.slotsense.chandraailabs.com"
     }
   }
 }

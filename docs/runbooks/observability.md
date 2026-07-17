@@ -22,8 +22,13 @@ and two counting-only log-based metrics (`voice_turns`,
 billing-budget thresholds, not paging.
 
 **Uptime checks (two, deliberately redundant):**
-- **Edge path:** `https://rvrg.slotsense.chandraailabs.com/health` —
-  exercises DNS, cert, Cloud Armor, LB, and backend together.
+- **Edge path:** `https://probe.slotsense.chandraailabs.com/health` —
+  a reserved, tenant-independent host (wildcard DNS + wildcard cert
+  already cover it), not a real tenant subdomain like `rvrg`: an
+  unauthenticated `/health` probe never exercises tenant resolution
+  anyway, so tenant-routing verification belongs to `SMOKE-E2E`, not
+  an uptime check. Still exercises DNS, cert, Cloud Armor, LB, and
+  backend together.
 - **Service path:** the Cloud Run service URL's `/health` directly —
   isolates app health from edge health. One red / one green localizes
   the fault layer immediately.
@@ -49,9 +54,15 @@ the DR drill or the first real failure**, whichever comes first.
 Two notification channels, both wired to all four alert policies:
 
 - **Email** — `admin@chandraailabs.com`
-- **SMS** — Coordinator's number. **The Terraform ships a placeholder
-  (`+91XXXXXXXXXX`) — the Coordinator must replace it with the real
-  number before apply.** Worker does not invent phone numbers.
+- **SMS** — Coordinator's number, supplied via `var.alert_sms_number`
+  (declared `sensitive`, no default — plan fails loudly if unsupplied).
+  **The number itself lives only in `terraform/terraform.tfvars`
+  (gitignored — `git check-ignore -v terraform/terraform.tfvars`
+  confirms it), never in git.** Add `alert_sms_number = "+91..."` to
+  that file locally before running `terraform plan`/`apply`. This is
+  Coordinator-supplied local state, same category as the GCP
+  credentials themselves — see the DR runbook's §4.1 rebuild
+  procedure for what that means on a from-scratch rebuild.
 
 ## Post-apply steps (Coordinator)
 

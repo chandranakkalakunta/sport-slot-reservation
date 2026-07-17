@@ -37,9 +37,14 @@ use of `sa-monitoring`'s purpose.
 ### D10 — Uptime checks (two, deliberately redundant paths)
 
 1. **Edge path:** HTTPS check against
-   `https://rvrg.slotsense.chandraailabs.com/<health-route>` —
-   exercises DNS, certificate, Cloud Armor, LB, and backend together
-   (the real resident path).
+   `https://probe.slotsense.chandraailabs.com/<health-route>` — a
+   reserved, tenant-independent host (not a real tenant subdomain like
+   `rvrg`), by design: an unauthenticated `/health` probe never
+   exercises tenant resolution anyway, so probing a real tenant host
+   buys nothing; tenant-routing verification is SMOKE-E2E's scope, not
+   an uptime check's job. Still exercises DNS, certificate, Cloud
+   Armor, LB, and backend together (the real resident path, minus
+   tenant routing).
 2. **Service path:** HTTPS check against the Cloud Run service URL's
    health route directly — isolates app health from edge health.
    One red / one green localizes the fault layer immediately.
