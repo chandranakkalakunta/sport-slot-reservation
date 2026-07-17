@@ -211,18 +211,14 @@ resource "google_monitoring_alert_policy" "error_rate" {
 
     condition_monitoring_query_language {
       duration = "300s"
-
-      query = <<-EOT
-        fetch cloud_run_revision
-        | metric 'run.googleapis.com/request_count'
+      query    = <<-EOT
+        fetch cloud_run_revision::run.googleapis.com/request_count
         | filter resource.service_name == 'sport-slot-api'
-        | group_by 5m, [ratio: ratio(
-            sum(if(metric.response_code_class == '5xx', val, 0)),
-            sum(val)
-          )]
-        | condition ratio > 0.05
-      EOT
-
+        | group_by 5m,
+            [err_ratio: sum(if(metric.response_code_class == '5xx', val(), 0)) / sum(val())]
+        | every 1m
+        | condition val() > 0.05
+      EOT 
       trigger {
         count = 1
       }
@@ -367,8 +363,6 @@ resource "google_monitoring_alert_policy" "firestore_backup_failure" {
   }
 
   alert_strategy {
-    notification_rate_limit {
-      period = "300s" # avoid alert storms if the schedule retries fast
-    }
+    auto_close = "1800s"
   }
 }
