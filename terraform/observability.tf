@@ -72,6 +72,9 @@ locals {
 # (backend/src/sport_slot/health.py:14 — pure liveness, no dependency
 # calls, per ADR-0006 Decision 4; deliberately not /readyz, which
 # pings Firestore and would conflate app health with a Firestore blip).
+# Sole uptime probe by design: Cloud Run ingress
+# (internal-and-cloud-load-balancing, Phase 8b) rejects direct *.run.app
+# probes. App-vs-edge localization: edge check + platform 5xx/latency alerts.
 
 resource "google_monitoring_uptime_check_config" "edge_health" {
   project      = var.project_id
@@ -95,27 +98,6 @@ resource "google_monitoring_uptime_check_config" "edge_health" {
   }
 }
 
-resource "google_monitoring_uptime_check_config" "service_health" {
-  project      = var.project_id
-  display_name = "Service health — Cloud Run sport-slot-api"
-  timeout      = "10s"
-  period       = "300s"
-
-  http_check {
-    path         = "/health"
-    port         = 443
-    use_ssl      = true
-    validate_ssl = true
-  }
-
-  monitored_resource {
-    type = "uptime_url"
-    labels = {
-      project_id = var.project_id
-      host       = replace(replace(google_cloud_run_v2_service.sport_slot_api.uri, "https://", ""), "http://", "")
-    }
-  }
-}
 
 # ─── Log-based metrics ───
 #
@@ -299,34 +281,6 @@ resource "google_monitoring_alert_policy" "uptime_failure" {
       }
     }
   }
-
-  conditions {
-    display_name = "Service uptime check failing from >=2 regions"
-
-    condition_threshold {
-      filter = <<-EOT
-        resource.type = "uptime_url"
-        AND metric.type = "monitoring.googleapis.com/uptime_check/check_passed"
-        AND metric.labels.check_id = "${google_monitoring_uptime_check_config.service_health.uptime_check_id}"
-      EOT
-
-      comparison      = "COMPARISON_LT"
-      threshold_value = 1
-      duration        = "60s"
-
-      aggregations {
-        alignment_period     = "60s"
-        per_series_aligner   = "ALIGN_NEXT_OLDER"
-        cross_series_reducer = "REDUCE_COUNT_FALSE"
-        group_by_fields      = ["resource.label.host"]
-      }
-
-      trigger {
-        count = 2 # standard 2+ region condition per ADR-0040 D11
-      }
-    }
-  }
-
   alert_strategy {
     auto_close = "1800s"
   }
