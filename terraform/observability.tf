@@ -339,30 +339,22 @@ resource "google_monitoring_alert_policy" "firestore_backup_failure" {
   notification_channels = local.observability_channels
 
   conditions {
-    display_name = "Any firestore_backup_failures event"
+    display_name = "Any Firestore backup failure log event"
 
-    condition_threshold {
+    condition_matched_log {
       filter = <<-EOT
-        resource.type = "global"
-        AND metric.type = "logging.googleapis.com/user/${google_logging_metric.firestore_backup_failures.name}"
+        resource.type="audited_resource"
+        protoPayload.serviceName="firestore.googleapis.com"
+        protoPayload.methodName:"Backup"
+        severity>=ERROR
       EOT
-
-      comparison      = "COMPARISON_GT"
-      threshold_value = 0
-      duration        = "0s"
-
-      aggregations {
-        alignment_period   = "60s"
-        per_series_aligner = "ALIGN_COUNT"
-      }
-
-      trigger {
-        count = 1
-      }
     }
   }
 
   alert_strategy {
+    notification_rate_limit {
+      period = "300s"
+    }
     auto_close = "1800s"
   }
 }
