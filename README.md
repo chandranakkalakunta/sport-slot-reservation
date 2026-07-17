@@ -189,7 +189,7 @@ Identity Federation
 | 13 | Entity lifecycle management (delete/deactivate, DPDP erasure) | ✓ Complete |
 | 15 | Billing & invoicing | ✓ Complete |
 | 16 | Voice I/O for the AI Booking Assistant | ✓ Complete |
-| 17 | Production Readiness (backup/DR, Terraform rebuild path, doc/CI truth) | In progress: PR-1a ✓, PR-1b ✓, DOC-TRUTH (this PR, pending merge), PR-2..5 open |
+| 17 | Production Readiness (backup/DR, Terraform rebuild path, doc/CI truth, observability) | In progress: PR-1a ✓, PR-1b ✓, DOC-TRUTH ✓, PR-2 (this PR, pending apply), PR-3..5 open |
 
 Phase 8b (production networking) shipped the GCP load balancer stack
 replacing Firebase Hosting's implicit infrastructure. Row 5's original

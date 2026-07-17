@@ -10,7 +10,7 @@ traceability record.
 **Entry convention:** `[ID] status — one-line what & why. Blocker. Ref.`
 Status ∈ `OPEN` · `BLOCKED` · `IN PROGRESS` · `✓ DONE — Phase X / PR #n`.
 
-_Last updated: 2026-07-16_
+_Last updated: 2026-07-17_
 
 ---
 
@@ -98,15 +98,39 @@ _Last updated: 2026-07-16_
 - **ROADMAP-STALE · ✓ DONE — Phase 17 / DOC-TRUTH** — `docs/roadmap.md`
   archived to `docs/archive/roadmap-2026-06.md`; a stub now points to
   `docs/backlog.md` (canonical) and `CHANGELOG.md` (phase progress).
-- **PR-2-OBSERVABILITY · OPEN (next after PR-1)** — Uptime checks,
-  alerting policies (error rate, p95, availability), log-based metrics,
-  Error Reporting. Ref: phase plan.
+- **PR-2-OBSERVABILITY · IMPLEMENTED, PENDING APPLY/VALIDATION** —
+  Uptime checks (edge + service path), 4 alert policies (5xx rate,
+  p95 latency, uptime failure, backup failure), 2 email+SMS
+  notification channels, Error Reporting, voice/agent turn-counter
+  metrics — all in `terraform/observability.tf` (ADR-0040). Awaiting
+  Coordinator SMS-number substitution, plan/apply, and the post-apply
+  validation list in `docs/runbooks/observability.md`. Ref: ADR-0040,
+  PR-2.
 - **PR-3-AVAILABILITY · OPEN** — 99% SLO formalization, maxScale 10–15,
   liveness/startup probes, Redis SPOF decision.
 - **PR-4-COST · OPEN** — Billing budget + thresholds per ADR-0005, incl.
   voice per-turn surface.
-- **BACKUP-ALERT · OPEN (into PR-2)** — Alert on Firestore backup failure.
-  Ref: ADR-0038.
+- **BACKUP-ALERT · IMPLEMENTED, PENDING APPLY/VALIDATION** — Alert on
+  Firestore backup failure shipped as
+  `google_monitoring_alert_policy.firestore_backup_failure` (PR-2,
+  ADR-0040); log filter is defensive/provisional — validate at drill
+  or first real failure. Ref: ADR-0038.
+- **BACKUP-ABSENCE-ALERT · OPEN (low)** — The PR-2 backup alert detects
+  *failed* backup operations, not a schedule that silently never runs.
+  A "no successful backup in 36h" absence-detection condition is a
+  named refinement, not shipped in PR-2. Ref: ADR-0040 D11.
+- **ALERT-THRESHOLD-TUNE · OPEN (after SLO-LOAD-TEST)** — PR-2's alert
+  thresholds (5xx > 5%/5min, p95 > 2500ms/15min) are provisional,
+  set loose per the measured-gates principle. Tighten once
+  SLO-LOAD-TEST produces real traffic distributions. Ref: ADR-0040.
+- **AGENT-TURN-EVENT · OPEN (low)** — PR-2's `voice_turns` /
+  `agent_text_turns` counters are built on Cloud Run platform request
+  logs, not application logs, because `/agent/query` has no
+  unconditional per-turn structured log event (unlike `/agent/voice`'s
+  `voice_request_received`). Add one inside `run_agent`
+  (tenant/latency/model dimensions) for per-tenant cost attribution
+  when PR-4 wants it; platform request logs remain the volume-counter
+  of record until then. Ref: ADR-0040 D12, PR-2.
 - **AUTH-EXPORT-AUTO · OPEN (low)** — Automate weekly Firebase Auth
   export to GCS. Manual runbook procedure until then. Ref: ADR-0038
   Layer 6.
@@ -127,7 +151,10 @@ _Last updated: 2026-07-16_
 - **SEC-HEADERS · OPEN** — Server-side security headers (HSTS, CSP,
   X-Frame-Options, X-Content-Type-Options) claimed in the security
   charter but absent from app middleware (confirmed via grep,
-  2026-07-16 DOC-TRUTH). Ref: Phase 17 PR-5.
+  2026-07-16 DOC-TRUTH). Ref: Phase 17 PR-5. Scope amended 2026-07-17
+  (PR-2): also audit the charter's CORS-strict-policy claim — flagged
+  during DOC-TRUTH as noticed-but-out-of-scope (that pass only grepped
+  for security headers, not CORS).
 - **VOICE-HARDEN-01 · OPEN (hard gate before prod enablement)** — Enforce a
   30s max-utterance duration cap server-side (ADR-0036 D6). 1c ships only a
   2MB byte cap (~8-11 min at typical bitrates); STT's 60s sync limit is a
