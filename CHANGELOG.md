@@ -15,23 +15,27 @@ unmeasurable. ADR-0040 (Observability & Alerting Baseline) closes this
 gap entirely in Terraform — no console-created resources, all
 creates, no imports.
 
-- **`terraform/observability.tf`** (new): two notification channels
-  (email to `admin@chandraailabs.com`, native SMS via
-  `var.alert_sms_number` — declared `sensitive`, no default, supplied
-  through gitignored `terraform/terraform.tfvars` so the number never
-  reaches git); two uptime checks (edge path via the reserved,
-  tenant-independent `probe.slotsense.chandraailabs.com/health` —
-  chosen over a real tenant subdomain since an unauthenticated
-  `/health` probe never exercises tenant resolution anyway; service
-  path via the Cloud Run URI directly — deliberately redundant so one
-  red/one green localizes the fault layer); four alert policies wired
-  to both channels (5xx rate > 5%/5min, p95 latency > 2500ms/15min,
-  uptime check failure from ≥2 regions, Firestore backup failure);
-  three log-based metrics (`firestore_backup_failures`, `voice_turns`,
-  `agent_text_turns`); `google_project_service` for
-  `clouderrorreporting.googleapis.com` (the one API the audit
-  predicted would be missing — `monitoring.googleapis.com` was
-  already enabled).
+- **`terraform/observability.tf`** (new): two notification channels —
+  email to `admin@chandraailabs.com` (Terraform-managed) and native
+  SMS to the Coordinator's number (**console-owned operator config,
+  Terraform-referenced read-only** via a `data
+  "google_monitoring_notification_channel"` lookup on display name
+  `"Coordinator SMS"` — mirrors ADR-0038's secret shells-vs-values
+  pattern; the number never appears in the repo, in state, or in
+  tfvars; creating the channel is a documented pre-apply step, and the
+  data source fails plan loudly if it's missing, by design); two
+  uptime checks (edge path via the reserved, tenant-independent
+  `probe.slotsense.chandraailabs.com/health` — chosen over a real
+  tenant subdomain since an unauthenticated `/health` probe never
+  exercises tenant resolution anyway; service path via the Cloud Run
+  URI directly — deliberately redundant so one red/one green localizes
+  the fault layer); four alert policies wired to both channels (5xx
+  rate > 5%/5min, p95 latency > 2500ms/15min, uptime check failure
+  from ≥2 regions, Firestore backup failure); three log-based metrics
+  (`firestore_backup_failures`, `voice_turns`, `agent_text_turns`);
+  `google_project_service` for `clouderrorreporting.googleapis.com`
+  (the one API the audit predicted would be missing —
+  `monitoring.googleapis.com` was already enabled).
 - **Health route verified from code, not assumed:**
   `backend/src/sport_slot/health.py:14` (`GET /health`, pure liveness,
   no dependency calls) — curled live against the edge host, returned
@@ -52,8 +56,10 @@ creates, no imports.
   attempt entirely, confirming no backend contact was made). Import,
   plan, and apply are Coordinator-run and not yet executed.
 - New runbook `docs/runbooks/observability.md`: what alerts exist,
-  where they go, and the SMS-verification + validation steps for the
-  Coordinator to run post-apply.
+  where they go, the SMS-channel pre-apply step (console creation +
+  verification), and post-apply validation steps for the Coordinator.
+  DR runbook §4.1 rebuild procedure updated to create the SMS channel
+  before the first `terraform apply` pass.
 - Backlog: `PR-2-OBSERVABILITY` and `BACKUP-ALERT` marked implemented
   pending apply/validation; added `BACKUP-ABSENCE-ALERT`,
   `ALERT-THRESHOLD-TUNE`, `AGENT-TURN-EVENT`; amended `SEC-HEADERS` to

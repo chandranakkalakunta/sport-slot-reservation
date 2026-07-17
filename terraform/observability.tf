@@ -36,24 +36,24 @@ resource "google_monitoring_notification_channel" "email" {
   }
 }
 
-# Number comes from var.alert_sms_number (terraform.tfvars, gitignored
-# — never committed; see docs/runbooks/observability.md). SMS also
-# requires a one-time console verification step after apply
-# (ADR-0040 D9); see the runbook's Alerting section for that step.
-resource "google_monitoring_notification_channel" "sms" {
+# SMS is console-owned operator config, TF-referenced read-only —
+# mirrors ADR-0038's secret shells-vs-values pattern (contact info as
+# operator config, not a Terraform-managed value). The number never
+# appears in the repo or in tfvars. This data source FAILS PLAN LOUDLY
+# if the channel doesn't exist yet — creation + one-time verification
+# is a documented PRE-apply step (docs/runbooks/observability.md);
+# the exact display name "Coordinator SMS" is the contract this data
+# source depends on.
+data "google_monitoring_notification_channel" "sms" {
   project      = var.project_id
   display_name = "Coordinator SMS"
   type         = "sms"
-
-  labels = {
-    number = var.alert_sms_number
-  }
 }
 
 locals {
   observability_channels = [
     google_monitoring_notification_channel.email.id,
-    google_monitoring_notification_channel.sms.id,
+    data.google_monitoring_notification_channel.sms.name,
   ]
 }
 

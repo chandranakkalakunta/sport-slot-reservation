@@ -24,15 +24,40 @@ use of `sa-monitoring`'s purpose.
 
 ### D9 — Notification channels
 
-- **Email** to admin@chandraailabs.com and **native SMS** to the
-  Coordinator's number, both as `google_monitoring_notification_channel`
-  resources. SMS requires a one-time console verification after apply.
+- **Email** to admin@chandraailabs.com — a
+  `google_monitoring_notification_channel` resource, Terraform-managed
+  like everything else in this ADR.
+- **Native SMS** to the Coordinator's number — **console-owned
+  operator config, Terraform-referenced read-only** via a
+  `data "google_monitoring_notification_channel"` lookup on its
+  display name, not a managed resource. This mirrors ADR-0038's
+  secret shells-vs-values pattern: contact information (like a secret
+  value) is operator config that Terraform reads, not something it
+  creates or stores. The number never appears in the repo, in state,
+  or in tfvars. Creating the channel (console) and completing its
+  one-time verification are documented PRE-apply steps — the data
+  source fails plan loudly if the channel doesn't exist yet, which is
+  the intended guardrail, not a bug to work around.
 - Optional free third leg: Google Cloud mobile-app push (console-side,
   not TF; Coordinator discretion).
 - **Rejected: WhatsApp** — not a native channel; requires a third-party
   webhook integration (Twilio/Meta), a new secret (ADR-0038 Layer 2
   inventory obligation), and per-message cost, duplicating what native
   SMS provides. Revisit only if SMS delivery proves unreliable.
+- **Rejected: hardcoded number in `.tf`** — a phone number is PII-
+  adjacent contact info, not infrastructure shape; committing it
+  couples every future number change to a Terraform apply and puts it
+  in git history permanently.
+- **Rejected: number via `terraform.tfvars`** — an earlier revision of
+  this ADR took this approach (gitignored, `sensitive` variable). Still
+  rejected on reflection: it still couples a contact-info change to
+  running `apply`, and gitignored-but-locally-required state is an
+  easy-to-miss rebuild step (see DR runbook history). Console-owned
+  config needs no apply at all to update.
+- **Rejected: dummy placeholder number, console-edited after apply** —
+  the earliest revision's approach. Rejected: the next `terraform
+  apply` reverts the console edit back to the placeholder — a drift
+  trap that silently breaks SMS delivery until someone notices.
 
 ### D10 — Uptime checks (two, deliberately redundant paths)
 

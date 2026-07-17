@@ -53,31 +53,41 @@ the DR drill or the first real failure**, whichever comes first.
 
 Two notification channels, both wired to all four alert policies:
 
-- **Email** — `admin@chandraailabs.com`
-- **SMS** — Coordinator's number, supplied via `var.alert_sms_number`
-  (declared `sensitive`, no default — plan fails loudly if unsupplied).
-  **The number itself lives only in `terraform/terraform.tfvars`
-  (gitignored — `git check-ignore -v terraform/terraform.tfvars`
-  confirms it), never in git.** Add `alert_sms_number = "+91..."` to
-  that file locally before running `terraform plan`/`apply`. This is
-  Coordinator-supplied local state, same category as the GCP
-  credentials themselves — see the DR runbook's §4.1 rebuild
-  procedure for what that means on a from-scratch rebuild.
+- **Email** — `admin@chandraailabs.com`, Terraform-managed.
+- **SMS** — Coordinator's number. **Console-owned operator config,
+  Terraform-referenced read-only** (`data
+  "google_monitoring_notification_channel"` on display name
+  `"Coordinator SMS"` — mirrors ADR-0038's secret shells-vs-values
+  pattern). The number never appears in the repo, in Terraform state,
+  or in tfvars. Creating the channel is a **PRE-apply step**, below.
+
+## Pre-apply step (Coordinator) — create the SMS channel
+
+Before running `terraform plan`/`apply` on this PR for the first time:
+
+1. In the console: Monitoring → Alerting → Notification Channels →
+   Add SMS. Set the display name to **exactly** `Coordinator SMS` —
+   this is the contract `terraform/observability.tf`'s data source
+   depends on; a mismatch fails plan loudly (by design — that's the
+   guardrail, not a bug).
+2. Enter the Coordinator's number and complete the one-time
+   verification code sent to it. An unverified channel still exists
+   (satisfying the data source) but won't actually deliver — verify it
+   now, not after apply.
+
+To change the number later: edit it in the console. No Terraform
+apply needed, and none will revert it — unlike a hardcoded value or a
+tfvars-supplied one, there's nothing in this repo to drift back to.
 
 ## Post-apply steps (Coordinator)
 
-1. **Verify the SMS channel.** Google Cloud Monitoring requires a
-   one-time verification code sent to the number after the channel is
-   created — check the console (Monitoring → Alerting → Notification
-   Channels) and complete verification, or the SMS channel stays
-   unverified and alerts silently won't deliver to it.
-2. Confirm both uptime checks go green within ~5 minutes of apply.
-3. Send a test notification from one alert policy (console "Test
+1. Confirm both uptime checks go green within ~5 minutes of apply.
+2. Send a test notification from one alert policy (console "Test
    Notification" button) — confirm **both** email and SMS actually
    arrive, not just that the channel shows as configured.
-4. Check Metrics Explorer: trigger one live voice turn in the app and
+3. Check Metrics Explorer: trigger one live voice turn in the app and
    confirm `voice_turns` increments.
-5. `terraform plan` from `main` post-apply → expect **No changes**.
+4. `terraform plan` from `main` post-apply → expect **No changes**.
 
 ## Known gap, tracked
 
