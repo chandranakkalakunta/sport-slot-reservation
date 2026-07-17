@@ -6,6 +6,70 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### feat(obs): observability & alerting baseline — channels, uptime checks, alert policies, cost counters (ADR-0040, PR-2)
+
+The 2026-07-13 baseline audit found zero alerting and zero uptime
+checks — an outage, error storm, latency collapse, or failed backup
+would go undetected indefinitely, and the 99% availability SLO was
+unmeasurable. ADR-0040 (Observability & Alerting Baseline) closes this
+gap entirely in Terraform — no console-created resources, all
+creates, no imports.
+
+- **`terraform/observability.tf`** (new): two notification channels —
+  email to `admin@chandraailabs.com` (Terraform-managed) and native
+  SMS to the Coordinator's number (**console-owned operator config,
+  Terraform-referenced read-only** via a `data
+  "google_monitoring_notification_channel"` lookup on display name
+  `"Coordinator SMS"` — mirrors ADR-0038's secret shells-vs-values
+  pattern; the number never appears in the repo, in state, or in
+  tfvars; creating the channel is a documented pre-apply step, and the
+  data source fails plan loudly if it's missing, by design); two
+  uptime checks (edge path via the reserved, tenant-independent
+  `probe.slotsense.chandraailabs.com/health` — chosen over a real
+  tenant subdomain since an unauthenticated `/health` probe never
+  exercises tenant resolution anyway; service path via the Cloud Run
+  URI directly — deliberately redundant so one red/one green localizes
+  the fault layer); four alert policies wired to both channels (5xx
+  rate > 5%/5min, p95 latency > 2500ms/15min, uptime check failure
+  from ≥2 regions, Firestore backup failure); three log-based metrics
+  (`firestore_backup_failures`, `voice_turns`, `agent_text_turns`);
+  `google_project_service` for `clouderrorreporting.googleapis.com`
+  (the one API the audit predicted would be missing —
+  `monitoring.googleapis.com` was already enabled).
+- **Health route verified from code, not assumed:**
+  `backend/src/sport_slot/health.py:14` (`GET /health`, pure liveness,
+  no dependency calls) — curled live against the edge host, returned
+  200.
+- **Turn counters built on Cloud Run platform request logs**, not
+  application logs: verified against a real `/agent/query` log entry
+  via `gcloud logging read`. The app's own structured logging has no
+  unconditional per-turn event for text-agent turns (`voice.py` logs
+  `voice_request_received` unconditionally; `agent.py`'s `/query`
+  router and `orchestrator.run_agent` don't have an equivalent) — see
+  backlog `AGENT-TURN-EVENT` for the follow-up.
+- **`firestore_backup_failures` filter is defensive/provisional** — no
+  real backup failure has occurred yet to observe the actual Cloud
+  Audit Log shape; flagged for validation at the DR drill or first
+  real failure.
+- `terraform fmt`/`validate` clean (`init -backend=false`, local-only;
+  a stale/expired credential cache blocked the backend-state read
+  attempt entirely, confirming no backend contact was made). Import,
+  plan, and apply are Coordinator-run and not yet executed.
+- New runbook `docs/runbooks/observability.md`: what alerts exist,
+  where they go, the SMS-channel pre-apply step (console creation +
+  verification), and post-apply validation steps for the Coordinator.
+  DR runbook §4.1 rebuild procedure updated to create the SMS channel
+  before the first `terraform apply` pass.
+- Backlog: `PR-2-OBSERVABILITY` and `BACKUP-ALERT` marked implemented
+  pending apply/validation; added `BACKUP-ABSENCE-ALERT`,
+  `ALERT-THRESHOLD-TUNE`, `AGENT-TURN-EVENT`; amended `SEC-HEADERS` to
+  include the charter's CORS claim (noticed but out of scope during
+  DOC-TRUTH).
+
+**Production Readiness phase progress:** PR-1a ✓ → PR-1b ✓ →
+DOC-TRUTH ✓ → PR-2 (this entry, pending apply) → PR-3 (Availability) →
+PR-4 (Cost) → PR-5 (Security). Tracked in `docs/backlog.md`.
+
 ### docs/ci(DOC-TRUTH): reconcile claims with enforcement (pip-audit warn, gitleaks blocking), ADR-0039 accepted residuals, Phase 16/17 numbering, roadmap archived, review snapshots, backlog closures (IAM-TF-CODIFY, PROJECT-ASSESSMENT)
 
 A 2026-07-15 third-party project review found the project's worst

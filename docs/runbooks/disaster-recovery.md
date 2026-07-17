@@ -4,7 +4,7 @@
   are complete where facts are known; drill execution and
   TODO-Coordinator items are outstanding.
 - **Governing ADR:** [ADR-0038](../adr/ADR-0038-backup-and-disaster-recovery.md)
-- **Last updated:** 2026-07-16
+- **Last updated:** 2026-07-17
 
 ## 1. Scope, RTO/RPO, disaster classes
 
@@ -158,7 +158,19 @@ step before them.
    CLI — provider configuration is not Terraform-managed (see
    `terraform/firestore.tf`'s note that security rules/indexes are
    Firebase CLI-managed, and Layer 6 above for Auth).
-5. **First `terraform apply` pass, excluding Cloud Run:**
+5. **Create the SMS notification channel in console** (ADR-0040, PR-2)
+   — BEFORE any `terraform apply` below. `terraform/observability.tf`
+   references it read-only via a `data
+   "google_monitoring_notification_channel"` lookup on display name
+   `"Coordinator SMS"`; that lookup — and therefore any plan/apply
+   that includes it — fails loudly if the channel doesn't exist yet.
+   Console: Monitoring → Alerting → Notification Channels → Add SMS,
+   display name exactly `Coordinator SMS`, then complete the one-time
+   verification code. See `docs/runbooks/observability.md`'s pre-apply
+   step for detail. (The email channel and everything else in
+   `observability.tf` is Terraform-managed — nothing else to
+   pre-create.)
+6. **First `terraform apply` pass, excluding Cloud Run:**
    ```
    terraform apply -target=<every resource except google_cloud_run_v2_service.sport_slot_api>
    ```
@@ -169,16 +181,16 @@ step before them.
    repo itself is created in this same apply pass. Terraform cannot
    create a Cloud Run revision pointing at an image that doesn't
    exist.
-6. **Build and push at least one image** into the newly created
+7. **Build and push at least one image** into the newly created
    `sport-slot-repo`, e.g. via a manual `gcloud builds submit --tag
    asia-south1-docker.pkg.dev/<new-project-id>/sport-slot-repo/sport-slot-api:bootstrap`,
-   or by pointing CI (once its WIF federation is live from step 5) at
+   or by pointing CI (once its WIF federation is live from step 6) at
    the new project and letting the normal pipeline deploy.
-7. **Second `terraform apply` pass**, with `google_cloud_run_v2_service.sport_slot_api`
+8. **Second `terraform apply` pass**, with `google_cloud_run_v2_service.sport_slot_api`
    included, now that its image exists. Per the D7 ownership model
    (`terraform/cloud_run.tf`), Terraform only needs *an* image to
    exist at this point — CI owns which image is live from then on.
-8. **Manual post-apply steps:**
+9. **Manual post-apply steps:**
    - Populate Secret Manager secret **versions** (Terraform creates
      shells only, never values) — see §3 for each secret's re-issue
      procedure.
@@ -190,9 +202,9 @@ step before them.
      (Layer 6) into the new project.
    - Repoint DNS (§8) at the new Load Balancer's static IP once
      `terraform apply` has created it.
-9. **Verify:** `terraform plan` shows no changes, the Cloud Run
-   service serves traffic, and CI can deploy a new revision
-   end-to-end.
+10. **Verify:** `terraform plan` shows no changes, the Cloud Run
+    service serves traffic, and CI can deploy a new revision
+    end-to-end.
 
 ### 4.2 Managed vs excluded inventory
 
