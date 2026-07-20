@@ -1,8 +1,54 @@
 # Observability & Alerting Runbook
 
-- **Status:** Baseline shipped (PR-2, pending Coordinator apply)
-- **Governing ADR:** [ADR-0040](../adr/ADR-0040-observability-and-alerting.md)
-- **Last updated:** 2026-07-17
+- **Status:** Baseline shipped (PR-2, pending Coordinator apply);
+  SLO definition + ops dashboard added (PR-3, pending Coordinator
+  apply)
+- **Governing ADR:** [ADR-0040](../adr/ADR-0040-observability-and-alerting.md),
+  [ADR-0041](../adr/ADR-0041-availability-slo-redis.md)
+- **Last updated:** 2026-07-20
+
+## SLO definition (ADR-0041 D14)
+
+**99% monthly availability, measured not modeled.** Availability holds
+only when **both** of the following hold over the calendar month:
+
+1. The edge uptime check
+   (`probe.slotsense.chandraailabs.com/health`) success rate ≥ 99%.
+2. The 5xx ratio stays under the ADR-0040 alert threshold (>5%/5min
+   triggers the `error_rate` alert policy above).
+
+Error budget: **~7.3 hours/month**. This is deliberately a doc-level
+definition, reviewable from the "SlotSense Ops" dashboard (below) —
+Monitoring SLO / error-budget burn-rate API resources are **not**
+created yet. Burn-rate alerting without measured traffic distributions
+is theater (same reasoning as ADR-0040's provisional thresholds); that
+upgrade is explicitly gated behind backlog `SLO-LOAD-TEST`.
+
+## Cloud Run headroom and probes (ADR-0041 D15)
+
+`terraform/cloud_run.tf`, `google_cloud_run_v2_service.sport_slot_api`:
+
+- `maxScale`: 2 → 10 — a cap, not a floor; `minScale` stays 0 (cold
+  starts accepted at dev-stage traffic within a 99% SLO; an always-on
+  instance is pure ceiling burn for a latency concern the SLO doesn't
+  require solving).
+- Startup probe: TCP → **HTTP GET `/health`**.
+- **Liveness probe added: HTTP GET `/health`.** `/health`
+  (`backend/src/sport_slot/health.py:14`) is pure liveness by design —
+  a dependency-checking endpoint (e.g. `/readyz`) would wrongly
+  restart the container on a transient Redis/Firestore blip.
+- This apply mints the first Terraform-driven Cloud Run revision since
+  PR-1b adoption; live image/env are untouched (D7 `ignore_changes`
+  model). See the PR-3 PR body for the Coordinator post-apply
+  watchlist.
+
+## "SlotSense Ops" dashboard (ADR-0041 D17)
+
+`terraform/dashboard.tf`, `google_monitoring_dashboard.slotsense_ops`
+— one bookmarkable URL instead of Metrics Explorer archaeology: voice
+turns/day, agent text turns/day, 5xx error ratio, p95 latency, edge
+uptime (check passed), Cloud Run instance count. This is an ops
+convenience panel, not the deferred SLO-burn-rate dashboard (D14).
 
 ## What exists
 

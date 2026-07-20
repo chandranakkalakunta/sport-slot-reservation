@@ -106,8 +106,14 @@ _Last updated: 2026-07-17_
   Coordinator SMS-number substitution, plan/apply, and the post-apply
   validation list in `docs/runbooks/observability.md`. Ref: ADR-0040,
   PR-2.
-- **PR-3-AVAILABILITY · OPEN** — 99% SLO formalization, maxScale 10–15,
-  liveness/startup probes, Redis SPOF decision.
+- **PR-3-AVAILABILITY · IMPLEMENTED, PENDING APPLY** — maxScale 2→10,
+  HTTP startup + liveness probes on `/health`, "SlotSense Ops"
+  dashboard — `terraform/cloud_run.tf` / `terraform/dashboard.tf`
+  (ADR-0041 D15/D17). SLO defined at doc-level only (D14 — no
+  Monitoring SLO API resources yet). Redis SPOF decision: BASIC tier
+  accepted with triggers (see `REDIS-HA-TRIGGERS`). Awaiting
+  Coordinator plan/apply and the post-apply revision watchlist in the
+  PR body. Ref: ADR-0041, PR-3.
 - **PR-4-COST · OPEN** — Billing budget + thresholds per ADR-0005, incl.
   voice per-turn surface.
 - **BACKUP-ALERT · IMPLEMENTED, PENDING APPLY/VALIDATION** — Alert on
@@ -135,7 +141,20 @@ _Last updated: 2026-07-17_
   export to GCS. Manual runbook procedure until then. Ref: ADR-0038
   Layer 6.
 - **SLO-LOAD-TEST · OPEN (follow-on to PR-3)** — Load/perf test to
-  validate the 99% SLO; the proof, not part of the PR-3 ADR.
+  validate the 99% SLO; the proof, not part of the PR-3 ADR. Also
+  re-validates D15's probe/scale settings under real traffic and gates
+  D14's SLO-API upgrade (Monitoring SLO / error-budget burn-rate
+  resources, deferred until real traffic distributions exist). Ref:
+  ADR-0041.
+- **REDIS-HA-TRIGGERS · DEFERRED (ADR-0041 D16)** — BASIC tier Redis
+  accepted as a documented residual; STANDARD_HA rejected at this
+  stage (roughly doubles Redis cost against the ₹5K ceiling to protect
+  an SLO that already tolerates ~7.3h/month, for a dev-stage system
+  with no paying tenants). Revisit triggers (any one reopens the
+  decision): first paying tenant / Phase 18 production launch gate; a
+  measured Redis-attributed SLO breach or repeated Redis incidents;
+  Memorystore maintenance windows observed impacting bookings. Ref:
+  ADR-0041 D16.
 - **PROJECT-ASSESSMENT · ✓ DONE — Phase 17 / third-party review
   2026-07-15 + Strategist validation 2026-07-16; artifacts:
   docs/reviews/**.

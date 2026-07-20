@@ -19,6 +19,17 @@
 # export view). Any diff the staged plan reveals gets reported back
 # verbatim and fixed in this file to match live — never by changing
 # live.
+#
+# PR-3 (ADR-0041 D15): maxScale raised 2 -> 10 (cap, not floor; zero
+# cost until traffic scales instances) and the startup probe moved
+# from TCP to HTTP GET /health, plus a new liveness probe on the same
+# path. /health is pure liveness (no dependency calls) by design —
+# see backend/src/sport_slot/health.py and ADR-0040's uptime-check
+# rationale — so it is exactly correct for both probe roles; a
+# dependency-checking endpoint would wrongly restart the container on
+# a Redis/Firestore blip. This mints the first Terraform-driven Cloud
+# Run revision since PR-1b adoption; live image/env remain untouched
+# (ignore_changes below, D7 model).
 
 resource "google_cloud_run_v2_service" "sport_slot_api" {
   name     = "sport-slot-api"
@@ -33,7 +44,7 @@ resource "google_cloud_run_v2_service" "sport_slot_api" {
     max_instance_request_concurrency = 80
 
     scaling {
-      max_instance_count = 2 # live value — do not raise here, see PR-3
+      max_instance_count = 10 # ADR-0041 D15: cap not floor; minScale stays 0
     }
 
     vpc_access {
@@ -61,11 +72,33 @@ resource "google_cloud_run_v2_service" "sport_slot_api" {
         cpu_idle          = true # live default: CPU allocated only during request processing
       }
 
+      # ADR-0041 D15: HTTP GET replaces the live TCP startup probe.
+      # period_seconds kept at the live/max value (240s) to preserve
+      # the same startup grace window; timeout_seconds must be lower
+      # than period_seconds per provider schema, so it is tuned down
+      # from the live 240s to 10s — ample for a pure-liveness endpoint
+      # with no dependency calls.
       startup_probe {
         failure_threshold = 1
         period_seconds    = 240
-        timeout_seconds   = 240
-        tcp_socket {
+        timeout_seconds   = 10
+        http_get {
+          path = "/health"
+          port = 8080
+        }
+      }
+
+      # ADR-0041 D15: new. /health is pure liveness by design — a
+      # dependency-checking endpoint here would cause wrong restarts
+      # on a transient Redis/Firestore blip. failure_threshold=3 at
+      # period_seconds=30 requires ~90s of sustained failure before a
+      # restart, tolerant of brief hiccups.
+      liveness_probe {
+        failure_threshold = 3
+        period_seconds    = 30
+        timeout_seconds   = 10
+        http_get {
+          path = "/health"
           port = 8080
         }
       }

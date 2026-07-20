@@ -6,6 +6,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### feat(availability): maxScale 10, health probes, SLO definition, ops dashboard (ADR-0041, PR-3)
+
+The 2026-07-13 baseline audit found thin Cloud Run headroom
+(`maxScale=2`, shallow TCP startup probe, no liveness probe), an
+unformalized/unmeasured 99% availability SLO, and Redis named a hard
+single point of failure. ADR-0041 closes the first two and accepts the
+third as a documented, triggered residual.
+
+- **`terraform/cloud_run.tf`**: `maxScale` 2 → 10 (cap, not floor;
+  `minScale` stays 0). Startup probe TCP → HTTP GET `/health`.
+  Liveness probe added, HTTP GET `/health` — pure-liveness semantics
+  is exactly what a liveness probe needs (a dependency-checking
+  endpoint would wrongly restart the container on a Redis/Firestore
+  blip). This mints the first Terraform-driven Cloud Run revision
+  since PR-1b adoption; live image/env remain untouched
+  (`ignore_changes`, D7 model).
+- **`terraform/dashboard.tf`** (new): `google_monitoring_dashboard`
+  "SlotSense Ops" — voice turns/day, agent text turns/day, 5xx error
+  ratio, p95 latency, edge uptime (check passed), Cloud Run instance
+  count. 5xx ratio widget uses the native `timeSeriesFilterRatio`
+  numerator/denominator construct (not MQL) to keep every widget in
+  plain-filter form, avoiding the plan/validate-doesn't-validate-MQL
+  gap PR-2 hit at apply.
+- **SLO formalized at doc level (ADR-0041 D14)**: 99% monthly
+  availability = edge uptime ≥99% AND 5xx ratio under the ADR-0040
+  threshold, ~7.3h/month error budget. Deliberately no Monitoring SLO
+  / burn-rate API resources yet — gated behind backlog
+  `SLO-LOAD-TEST`. New section in `docs/runbooks/observability.md`.
+- **Redis SPOF accepted as documented residual (ADR-0041 D16)**:
+  BASIC tier affirmed over STANDARD_HA at this stage (cost vs. an SLO
+  that already tolerates the risk, dev-stage, no paying tenants), with
+  three explicit revisit triggers. Cross-referenced from
+  `docs/runbooks/disaster-recovery.md`'s Redis non-goal section.
+  Backlog: new `REDIS-HA-TRIGGERS · DEFERRED` entry.
+- `terraform fmt`/`validate` clean (`init -backend=false`, local-only).
+  Plan and apply are Coordinator-run and not yet executed.
+
 ### feat(obs): observability & alerting baseline — channels, uptime checks, alert policies, cost counters (ADR-0040, PR-2)
 
 The 2026-07-13 baseline audit found zero alerting and zero uptime
