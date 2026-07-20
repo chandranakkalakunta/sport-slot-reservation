@@ -4,7 +4,7 @@
   are complete where facts are known; drill execution and
   TODO-Coordinator items are outstanding.
 - **Governing ADR:** [ADR-0038](../adr/ADR-0038-backup-and-disaster-recovery.md)
-- **Last updated:** 2026-07-17
+- **Last updated:** 2026-07-20
 
 ## 1. Scope, RTO/RPO, disaster classes
 
@@ -29,6 +29,11 @@ yields a non-functional app.
 Memorystore Redis (ephemeral locks/tokens) is **out of scope** —
 restoring stale locks or expired tokens is wrong behavior, not missing
 behavior. See ADR-0038 "Explicit non-goal — Redis."
+
+The BASIC-tier (single-node, no persistence) SPOF this implies is a
+**documented, accepted residual with revisit triggers**, not an
+unexamined risk — see [ADR-0041 D16](../adr/ADR-0041-availability-slo-redis.md#d16--redis-basic-tier-accepted-as-documented-residual)
+and backlog `REDIS-HA-TRIGGERS`.
 
 ## 2. Layer 1 — Firestore
 
