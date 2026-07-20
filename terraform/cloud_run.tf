@@ -79,9 +79,9 @@ resource "google_cloud_run_v2_service" "sport_slot_api" {
       # from the live 240s to 10s — ample for a pure-liveness endpoint
       # with no dependency calls.
       startup_probe {
-        failure_threshold = 1
-        period_seconds    = 240
-        timeout_seconds   = 10
+        failure_threshold = 6
+        period_seconds    = 10
+        timeout_seconds   = 5
         http_get {
           path = "/health"
           port = 8080
