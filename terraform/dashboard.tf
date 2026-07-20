@@ -30,12 +30,13 @@ resource "google_monitoring_dashboard" "slotsense_ops" {
       columns = 48
       tiles = [
         {
-          xPos = 0, yPos = 0, width = 24, height = 16
+          width = 24, height = 16
           widget = {
             title = "Voice turns/day"
             xyChart = {
               dataSets = [{
-                plotType = "STACKED_BAR"
+                plotType   = "STACKED_BAR"
+                targetAxis = "Y1"
                 timeSeriesQuery = {
                   timeSeriesFilter = {
                     filter = "metric.type=\"logging.googleapis.com/user/${google_logging_metric.voice_turns.name}\" AND resource.type=\"cloud_run_revision\""
@@ -51,12 +52,13 @@ resource "google_monitoring_dashboard" "slotsense_ops" {
           }
         },
         {
-          xPos = 24, yPos = 0, width = 24, height = 16
+          xPos = 24, width = 24, height = 16
           widget = {
             title = "Agent text turns/day"
             xyChart = {
               dataSets = [{
-                plotType = "STACKED_BAR"
+                plotType   = "STACKED_BAR"
+                targetAxis = "Y1"
                 timeSeriesQuery = {
                   timeSeriesFilter = {
                     filter = "metric.type=\"logging.googleapis.com/user/${google_logging_metric.agent_text_turns.name}\" AND resource.type=\"cloud_run_revision\""
@@ -72,12 +74,13 @@ resource "google_monitoring_dashboard" "slotsense_ops" {
           }
         },
         {
-          xPos = 0, yPos = 16, width = 24, height = 16
+          yPos = 16, width = 24, height = 16
           widget = {
             title = "5xx error ratio"
             xyChart = {
               dataSets = [{
-                plotType = "LINE"
+                plotType   = "LINE"
+                targetAxis = "Y1"
                 timeSeriesQuery = {
                   timeSeriesFilterRatio = {
                     numerator = {
@@ -108,7 +111,8 @@ resource "google_monitoring_dashboard" "slotsense_ops" {
             title = "p95 latency (ms)"
             xyChart = {
               dataSets = [{
-                plotType = "LINE"
+                plotType   = "LINE"
+                targetAxis = "Y1"
                 timeSeriesQuery = {
                   timeSeriesFilter = {
                     filter = "resource.type=\"cloud_run_revision\" AND resource.labels.service_name=\"sport-slot-api\" AND metric.type=\"run.googleapis.com/request_latencies\""
@@ -124,12 +128,13 @@ resource "google_monitoring_dashboard" "slotsense_ops" {
           }
         },
         {
-          xPos = 0, yPos = 32, width = 24, height = 16
+          yPos = 32, width = 24, height = 16
           widget = {
             title = "Edge uptime (check passed)"
             xyChart = {
               dataSets = [{
-                plotType = "LINE"
+                plotType   = "LINE"
+                targetAxis = "Y1"
                 timeSeriesQuery = {
                   timeSeriesFilter = {
                     filter = "resource.type=\"uptime_url\" AND metric.type=\"monitoring.googleapis.com/uptime_check/check_passed\" AND metric.labels.check_id=\"${google_monitoring_uptime_check_config.edge_health.uptime_check_id}\""
@@ -151,7 +156,8 @@ resource "google_monitoring_dashboard" "slotsense_ops" {
             title = "Cloud Run instance count"
             xyChart = {
               dataSets = [{
-                plotType = "STACKED_AREA"
+                plotType   = "STACKED_AREA"
+                targetAxis = "Y1"
                 timeSeriesQuery = {
                   timeSeriesFilter = {
                     filter = "resource.type=\"cloud_run_revision\" AND resource.labels.service_name=\"sport-slot-api\" AND metric.type=\"run.googleapis.com/container/instance_count\""
