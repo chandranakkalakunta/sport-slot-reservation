@@ -6,6 +6,52 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### feat(security): Cloud Armor API WAF enforce with voice-path exemption (ADR-0043, option 2; finding #7)
+
+Closes the last of the ten 2026-07-13 baseline audit findings. Builds
+directly on PR-5b's preview-log review, which found (complete 14-day
+window) that 100% of preview-flagged-but-accepted traffic on the API
+Armor policy was legitimate `/api/v1/agent/voice` traffic — large
+base64-audio payloads false-positiving on the generic OWASP CRS
+SQLi/XSS body-inspection signatures. Coordinator decision: option 2.
+
+- **`terraform/cloud_armor.tf`**: added one new rule to
+  `google_compute_security_policy.api` — `priority = 900`, `action =
+  "allow"`, matching `request.path.matches('/api/v1/agent/voice')` —
+  at a lower priority number (= higher precedence) than the SQLi rule
+  (1000) and XSS rule (2000). Cloud Armor evaluates rules in priority
+  order and stops at the first match, so voice-path requests never
+  reach the WAF rules. Those two rules then flip `preview = true` →
+  enforcing; their match expressions, priorities, and actions are
+  byte-for-byte unchanged — only the exemption is new, only the mode
+  flips. Every other path now gets real SQLi/XSS enforcement.
+  `frontend_edge` is untouched: confirmed (PR-5b) that
+  `CLOUD_ARMOR_EDGE` structurally cannot hold `evaluatePreconfiguredWaf`
+  rules, so its zero-rule pass-through was never a gap to close, only
+  a constraint to document — now stated explicitly as intentional in
+  the resource's own comment.
+- **Accepted residual, documented not silent**: the voice path's
+  SQLi/XSS defense is now field-level input validation and safe sinks
+  (Firestore is non-SQL; transcribed text validated in code; frontend
+  escapes agent output), not the WAF. Tracked as new backlog item
+  `VOICE-INPUT-VALIDATION`, scoped to the Phase 18 launch gate — the
+  durable fix for the exempt path, not attempted in this PR.
+- **`docs/adr/ADR-0043-security-hardening.md`** amended in place
+  (matching this project's inline-annotation convention for
+  post-hoc decision outcomes, not a superseding ADR — this decision
+  was already scoped as PR-5b item 1's own follow-through): the Armor
+  section now records the preview-log finding, the option-2 decision,
+  and the accepted-residual paragraph; Consequences updated to reflect
+  finding #7 fully closing.
+- `terraform fmt`/`validate` clean (`init -backend=false`,
+  scratch-copy, local-only — validate does not prove Armor expression
+  acceptance; the Coordinator's live apply + verification, below, is
+  the real gate). Plan and apply are Coordinator-run and not yet
+  executed.
+- Backlog: `ARMOR-ENFORCE-GATE` → resolved (option 2, this PR); new
+  `VOICE-INPUT-VALIDATION · OPEN (Phase 18)`; `PR-5-SECURITY` →
+  all sub-PRs shipped.
+
 ### feat(security): WIF least-privilege — bucket-scoped storage, run.developer + minimal custom role (ADR-0043, PR-5b)
 
 PR-5b is the risk-sensitive half of ADR-0043's security-hardening

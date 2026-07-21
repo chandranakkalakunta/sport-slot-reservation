@@ -27,17 +27,18 @@ _Last updated: 2026-07-21_
   is now unconditionally live with no runtime gate. VOICE-HARDEN-01,
   VOICE-HARDEN-02, and SEC-01 must be resolved before the deploy pipeline
   targets a resident-facing prod/test environment.
-- **PR-5-SECURITY · SPLIT (ADR-0043)** — Split by blast radius into
-  PR-5a (low-risk, ✓ merged — `PR-5a-SECURITY`) and PR-5b
-  (risk-sensitive: Cloud Armor enforce + WIF least-privilege). PR-5b
-  itself split further: `WIF-LEAST-PRIV` implemented/pending-apply;
-  Cloud Armor enforce **gated** — see `ARMOR-ENFORCE-GATE` below.
-  BinAuthz explicitly deferred to Phase 18 (ADR-0043, not PR-5 at all).
+- **PR-5-SECURITY · ✓ DONE (all sub-PRs shipped) — Phase 17** — Split
+  by blast radius into PR-5a (low-risk, ✓ merged #153), PR-5b (WIF
+  least-privilege, ✓ merged #154; Armor enforce gated pending
+  Coordinator decision), and PR-5c (Armor enforce, option 2 —
+  implemented, pending merge, see `ARMOR-ENFORCE-GATE` below). BinAuthz
+  explicitly deferred to Phase 18 (ADR-0043, not PR-5 at all). Closes
+  the last of the ten 2026-07-13 baseline audit findings (#7).
 - **PR-5a-SECURITY · ✓ DONE — Phase 17 / PR #153** — Security headers
   middleware, charter CORS/headers claims corrected, Trivy image scan
   + pnpm audit added to CI (warn-only), legacy containerregistry API
   disabled, secret rotation policy documented. Ref: ADR-0043, PR-5a.
-- **WIF-LEAST-PRIV · IMPLEMENTED, PENDING APPLY** — GitHub WIF
+- **WIF-LEAST-PRIV · ✓ DONE — Phase 17 / PR #154** — GitHub WIF
   principal's project-level `roles/storage.admin` tightened to two
   bucket-scoped `storage.objectAdmin` grants (the only two buckets CI
   actually touches — Cloud Build source staging, frontend static
@@ -47,21 +48,35 @@ _Last updated: 2026-07-21_
   alone lacks the permission `--allow-unauthenticated` needs, so a
   blind swap would have broken every deploy. `terraform/wif_iam.tf`.
   Ref: ADR-0043, PR-5b.
-- **ARMOR-ENFORCE-GATE · BLOCKED (Coordinator decision)** — The
-  `slotsense-api-armor` policy's preview→enforce flip (ADR-0043
-  PR-5b) did NOT ship: the 14-day preview-log review
-  (`docs/reviews/2026-07-21-armor-preview-log-review.md`) found 100%
-  of preview-flagged-but-accepted requests (75/75) are legitimate
-  `/api/v1/agent/voice` traffic from a real tenant, false-positiving
-  on the generic SQLi/XSS CRS rules against large voice-audio payload
-  bodies. Enforcing as-is would 403 real users. Needs a Coordinator
-  call: tune (exclude the voice path from WAF body inspection) then
-  re-observe, or enforce with an explicit higher-priority allow rule
-  for that path, or extend the observation window. `frontend_edge`
-  Armor policy also untouched this PR (see PR-5b PR body for why a
-  baseline ruleset there isn't even possible — `CLOUD_ARMOR_EDGE`
-  doesn't support `evaluatePreconfiguredWaf`, confirmed via a prior
-  API error already documented in `terraform/cloud_armor.tf`).
+- **ARMOR-ENFORCE-GATE · ✓ RESOLVED — Coordinator decision: option 2,
+  implemented in PR-5c, pending merge** — The 14-day preview-log
+  review (`docs/reviews/2026-07-21-armor-preview-log-review.md`)
+  found 100% of preview-flagged-but-accepted requests (75/75) were
+  legitimate `/api/v1/agent/voice` traffic false-positiving on the
+  generic SQLi/XSS CRS rules against large voice-audio payload
+  bodies. Resolution: a higher-priority `allow` rule
+  (`priority = 900`) exempts that one path from WAF inspection, ahead
+  of the SQLi (1000) and XSS (2000) rules, which then flip
+  preview→enforce for every other path. `terraform/cloud_armor.tf`.
+  Accepted residual tracked as `VOICE-INPUT-VALIDATION` below.
+  `frontend_edge` confirmed intentional pass-through (structurally
+  cannot hold WAF rules — `CLOUD_ARMOR_EDGE` type constraint).
+  Ref: ADR-0043, PR-5c.
+- **VOICE-INPUT-VALIDATION · OPEN (Phase 18 launch-gate, security)** —
+  `/api/v1/agent/voice` is exempted from Cloud Armor's SQLi/XSS WAF
+  inspection (ADR-0043 PR-5c, `ARMOR-ENFORCE-GATE`) because its
+  base64 audio payloads are indistinguishable from attack signatures
+  to a generic pattern-match WAF. The WAF is therefore NOT this
+  path's SQLi/XSS defense — field-level input validation and safe
+  sinks are. Audit the full voice→STT→agent path before Phase 18
+  launch: confirm transcribed text is validated/sanitized before use,
+  confirm every downstream sink is safe (Firestore is non-SQL, so
+  classic SQLi doesn't apply, but injection-adjacent risks in
+  query construction or Cloud Tasks payloads should be checked), and
+  confirm the frontend escapes agent output before rendering (no
+  `dangerouslySetInnerHTML`-style sinks on agent-produced text). This
+  is the durable fix for the exempt path; the Armor exemption is an
+  accepted interim posture, not the destination. Ref: ADR-0043 PR-5c.
 
 ## Platform Admin
 
