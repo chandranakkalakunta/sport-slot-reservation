@@ -2,10 +2,11 @@
 
 - **Status:** Baseline shipped (PR-2, pending Coordinator apply);
   SLO definition + ops dashboard added (PR-3, pending Coordinator
-  apply)
+  apply); cost guardrails added (PR-4, pending Coordinator apply)
 - **Governing ADR:** [ADR-0040](../adr/ADR-0040-observability-and-alerting.md),
-  [ADR-0041](../adr/ADR-0041-availability-slo-redis.md)
-- **Last updated:** 2026-07-20
+  [ADR-0041](../adr/ADR-0041-availability-slo-redis.md),
+  [ADR-0042](../adr/ADR-0042-cost-guardrails.md)
+- **Last updated:** 2026-07-21
 
 ## SLO definition (ADR-0041 D14)
 
@@ -49,6 +50,40 @@ upgrade is explicitly gated behind backlog `SLO-LOAD-TEST`.
 turns/day, agent text turns/day, 5xx error ratio, p95 latency, edge
 uptime (check passed), Cloud Run instance count. This is an ops
 convenience panel, not the deferred SLO-burn-rate dashboard (D14).
+
+## Cost alerts (ADR-0042 D18)
+
+`terraform/cost.tf`, `google_billing_budget.slotsense_dev_ceiling` — one
+budget on the billing account, filtered to `sport-slot-dev` only, amount
+₹5,000/month (ADR-0005 dev ceiling). Five graduated thresholds, all
+routed to the **same two channels as outage alerts** (Email + SMS,
+`local.observability_channels`):
+
+| Threshold | Basis | Meaning |
+|---|---|---|
+| 50% | Current spend | Early signal — normal-month awareness |
+| 80% | Current spend | Attention — on pace to breach |
+| 100% | Current spend | Ceiling reached |
+| 120% | Current spend | Breach escalation |
+| 100% | Forecasted spend | Google's projection says the month will breach — earliest actionable runaway warning |
+
+**Alert-only by design (D18):** no automated response (billing disable,
+service caps) is wired to any threshold — billing-disable would destroy
+serving ability as collateral damage, and every automated actuator is a
+new outage mode. The human is the actuator; a threshold firing means
+**go look**, not "something already happened automatically."
+
+**What to check first when a cost alert fires:** the "SlotSense Ops"
+dashboard's turn-volume widgets — **Voice turns/day** and **Agent text
+turns/day** (`terraform/dashboard.tf`, ADR-0041 D17). Voice is the
+highest per-unit-cost surface (≈₹1/turn); a spend spike with no
+corresponding turn-count spike points elsewhere (scaling incident, a
+forgotten drill environment, a non-voice service) rather than organic
+usage growth.
+
+Billing-admin default recipients stay enabled as backup
+(`disable_default_iam_recipients = false`) — the two ADR-0040 channels
+are the primary path, not the only one.
 
 ## What exists
 

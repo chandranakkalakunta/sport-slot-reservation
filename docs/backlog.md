@@ -10,7 +10,7 @@ traceability record.
 **Entry convention:** `[ID] status — one-line what & why. Blocker. Ref.`
 Status ∈ `OPEN` · `BLOCKED` · `IN PROGRESS` · `✓ DONE — Phase X / PR #n`.
 
-_Last updated: 2026-07-17_
+_Last updated: 2026-07-21_
 
 ---
 
@@ -114,8 +114,21 @@ _Last updated: 2026-07-17_
   accepted with triggers (see `REDIS-HA-TRIGGERS`). Awaiting
   Coordinator plan/apply and the post-apply revision watchlist in the
   PR body. Ref: ADR-0041, PR-3.
-- **PR-4-COST · OPEN** — Billing budget + thresholds per ADR-0005, incl.
-  voice per-turn surface.
+- **PR-4-COST · IMPLEMENTED, PENDING APPLY/VALIDATION** — Billing budget
+  + five graduated thresholds (50/80/100/120% actual + 100% forecasted)
+  per ADR-0005's ₹5K/mo dev ceiling, incl. the voice per-turn surface —
+  `terraform/cost.tf` (new), `billingbudgets.googleapis.com` enabled via
+  Terraform for the first time. Project-filtered to `sport-slot-dev`
+  only; notifications reuse the existing ADR-0040 channels. Alert-only
+  by design (ADR-0042 D18) — no automated billing-disable/service-cap
+  actuator. Awaiting Coordinator plan/apply and the post-apply
+  validation list in the PR body. Ref: ADR-0042, PR-4.
+- **TEST-PROJECT-BUDGET · OPEN (Phase 18)** — `slot-sense-test` has no
+  billing budget yet because the project doesn't exist yet (ADR-0042
+  D19 scopes PR-4's budget to `sport-slot-dev` only, by project filter,
+  precisely so a future TEST project doesn't muddy the dev signal).
+  Add an equivalent `google_billing_budget` once `slot-sense-test` is
+  provisioned. Ref: ADR-0042 D19.
 - **BACKUP-ALERT · IMPLEMENTED, PENDING APPLY/VALIDATION** — Alert on
   Firestore backup failure shipped as
   `google_monitoring_alert_policy.firestore_backup_failure` (PR-2,

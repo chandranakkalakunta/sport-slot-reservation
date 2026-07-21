@@ -20,6 +20,11 @@ variable "organization_id" {
 }
 
 variable "billing_account_id" {
+  # Default verified read-only, ADR-0042/PR-4 Step 1:
+  #   gcloud billing projects describe sport-slot-dev \
+  #     --format='value(billingAccountName,billingEnabled)'
+  # Not a secret — it IS config (used by terraform/cost.tf's
+  # google_billing_budget, which is billing-account-scoped).
   description = "GCP billing account ID"
   type        = string
   default     = "014A8C-586310-DE4575"

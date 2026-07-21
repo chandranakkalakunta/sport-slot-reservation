@@ -6,6 +6,50 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### feat(cost): billing budget + graduated threshold alerts to ops channels (ADR-0042, PR-4)
+
+The 2026-07-13 baseline audit found zero cost guardrails (finding #5):
+no budget existed, `billingbudgets.googleapis.com` had never been
+enabled, and the ADR-0005 ₹5K/mo dev ceiling was enforced by nothing
+but attention. ADR-0042 closes this with one Terraform-managed,
+alert-only budget.
+
+- **`terraform/cost.tf`** (new): `google_project_service` enables
+  `billingbudgets.googleapis.com` for the first time.
+  `google_billing_budget.slotsense_dev_ceiling` — billing-account-scoped
+  resource, filtered by project to `sport-slot-dev` only (ADR-0042
+  D19), amount ₹5,000/month (verified INR, the billing account's
+  currency). Five graduated `threshold_rules`: 50/80/100/120% current
+  spend + 100% forecasted spend — the forecasted rule is the earliest
+  actionable warning of a runaway, ahead of an invoice surprise.
+  Notifications reuse the existing ADR-0040 channels
+  (`local.observability_channels` — Email + SMS) via
+  `all_updates_rule`; billing-admin default recipients stay enabled as
+  backup (`disable_default_iam_recipients = false`).
+- **Alert-only is a decision, not an omission (D18):** automated
+  responses (billing disable, service caps) are explicitly rejected —
+  billing-disable would destroy the project's serving ability as
+  collateral, and every automated actuator is a new outage mode. The
+  human is the actuator.
+- **`terraform/variables.tf`**: pre-existing `billing_account_id`
+  variable (default already matched the live account) annotated with
+  the Step 1 discovery command that verified it — not a secret, it IS
+  config.
+- **API-shape lesson applied proactively**: `budget_filter.calendar_period`
+  and `credit_types_treatment` are set explicitly rather than left to
+  implicit API defaults, following the same defaulted-but-omitted-field
+  lesson PR-3's dashboard perma-diff fix (#150) just demonstrated.
+- New "Cost alerts" section in `docs/runbooks/observability.md`:
+  threshold table, alert-only rationale, and what to check first when
+  a cost alert fires (the "SlotSense Ops" dashboard's voice/agent
+  turn-volume widgets — voice is the highest per-unit-cost surface).
+- `terraform fmt`/`validate` clean (`init -backend=false`, local-only,
+  scratch-copy to avoid touching the live GCS backend). Plan and apply
+  are Coordinator-run and not yet executed.
+- Backlog: `PR-4-COST` → implemented-pending-apply; new
+  `TEST-PROJECT-BUDGET · OPEN (Phase 18)` — an equivalent budget for
+  `slot-sense-test` once that project exists.
+
 ### feat(availability): maxScale 10, health probes, SLO definition, ops dashboard (ADR-0041, PR-3)
 
 The 2026-07-13 baseline audit found thin Cloud Run headroom

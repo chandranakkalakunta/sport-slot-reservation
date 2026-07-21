@@ -148,6 +148,7 @@ otherwise.*
 |-----|-------|--------|---------|
 | [0038](ADR-0038-backup-and-disaster-recovery.md) | Backup & Disaster Recovery Strategy | Accepted | Six-layer DR runbook (Firestore, Secrets, Terraform rebuild, GCS, container images, Firebase Auth) at 4h RTO/RPO; Firestore PITR + delete protection; daily backup schedule; Terraform codification of previously-imperative SAs/IAM/Cloud Run/Redis/Artifact Registry (PR-1a, PR-1b) |
 | [0039](ADR-0039-accepted-production-hardening-residuals.md) | Accepted Production-Hardening Residuals | Accepted | CMEK, VPC+NAT for Cloud Run, admin MFA, and penetration testing deferred as a single dated accepted-residual decision (not four silent open items), with explicit revisit triggers |
+| [0042](ADR-0042-cost-guardrails.md) | Cost Guardrails — Billing Budget & Thresholds | Accepted | One Terraform-managed, alert-only `google_billing_budget` for `sport-slot-dev`, ₹5K/mo ceiling (ADR-0005) with five graduated thresholds (50/80/100/120% actual + 100% forecasted), routed to the existing ADR-0040 channels; automated billing-disable/service-cap response explicitly rejected (PR-4) |
 
 ## Reading Order
 
