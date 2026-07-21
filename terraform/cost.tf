@@ -75,10 +75,17 @@ resource "google_billing_budget" "slotsense_dev_ceiling" {
     spend_basis       = "FORECASTED_SPEND"
   }
 
+  # Billing Budgets API accepts Monitoring *email* channels only — SMS
+  # (and other non-email types) return 400 INVALID_ARGUMENT. Verified live
+  # 2026-07-21: email channel PATCH succeeds; email+SMS fails. Ops SMS
+  # still covers uptime/error/latency policies via observability.tf.
   all_updates_rule {
-    monitoring_notification_channels = local.observability_channels
-    # Billing-admin default emails stay as backup per ADR-0042.
-    disable_default_iam_recipients = false
+    monitoring_notification_channels = [
+      google_monitoring_notification_channel.email.id,
+    ]
+    # Only the Admin Email channel — not billing-account IAM default
+    # recipients. Flip to false if you want those as backup.
+    disable_default_iam_recipients = true
   }
 
   depends_on = [google_project_service.billingbudgets]
