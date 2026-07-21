@@ -27,10 +27,18 @@ _Last updated: 2026-07-21_
   is now unconditionally live with no runtime gate. VOICE-HARDEN-01,
   VOICE-HARDEN-02, and SEC-01 must be resolved before the deploy pipeline
   targets a resident-facing prod/test environment.
-- **PR-5-SECURITY · OPEN** — Cloud Armor enforce-vs-preview review, CI
-  container/dependency/secret scanning, BinAuthz decision, secret rotation
-  policy.
-- **WIF-LEAST-PRIV · OPEN (into PR-5)** — GitHub WIF principal holds
+- **PR-5-SECURITY · SPLIT (ADR-0043)** — Split by blast radius into
+  PR-5a (low-risk: headers, CI scanning, registry cleanup, rotation
+  policy — see `PR-5a-SECURITY`, implemented/pending-merge) and PR-5b
+  (risk-sensitive: Cloud Armor enforce, WIF least-privilege — still
+  `OPEN`, tracked via `WIF-LEAST-PRIV` below). BinAuthz explicitly
+  deferred to Phase 18 (ADR-0043, not PR-5 at all).
+- **PR-5a-SECURITY · IMPLEMENTED, PENDING MERGE** — Security headers
+  middleware, charter CORS/headers claims corrected, Trivy image scan
+  + pnpm audit added to CI (warn-only), legacy containerregistry API
+  disable prepared (not run), secret rotation policy documented.
+  `terraform/`-free — code, CI, docs only. Ref: ADR-0043, PR-5a.
+- **WIF-LEAST-PRIV · OPEN (into PR-5b)** — GitHub WIF principal holds
   project-level storage.admin + run.admin; tighten. TF-managed already
   (ci_* bindings).
 
@@ -174,19 +182,39 @@ _Last updated: 2026-07-21_
 - **HARDENING-RESIDUALS · DEFERRED (ADR-0039)** — CMEK, VPC/NAT, admin
   MFA, pen test; revisit triggers in the ADR.
 - **CI-AUDIT-RATCHET · OPEN (low)** — Flip pip-audit to blocking after
-  first triage. Ref: DOC-TRUTH.
+  first triage. Extended 2026-07-21 (PR-5a): also covers the new
+  Trivy image scan and `pnpm audit` steps (both warn-only,
+  `.github/workflows/pr-gates.yml`) — same measured-gates ratchet,
+  one triage pass, all three flip together or as individually
+  triaged. `pnpm audit --audit-level=high` already found 11 real
+  findings (6 high, 1 critical) in frontend devDependencies
+  (`eslint`'s `js-yaml` transitive chain) at PR-5a time — untriaged,
+  noted for the ratchet pass, not fixed in PR-5a (out of scope: code/
+  CI/docs only, no dependency upgrades). Ref: DOC-TRUTH, ADR-0043.
 - **SMOKE-E2E · OPEN** — Playwright (or similar) deploy smoke: sign-in
   → availability → book → cancel. Ref: review P2.3.
-- **CONTAINERREGISTRY-CLEANUP · OPEN (low)** — Legacy
-  containerregistry.googleapis.com API enabled, no images; disable
-  during PR-5.
-- **SEC-HEADERS · OPEN** — Server-side security headers (HSTS, CSP,
-  X-Frame-Options, X-Content-Type-Options) claimed in the security
-  charter but absent from app middleware (confirmed via grep,
-  2026-07-16 DOC-TRUTH). Ref: Phase 17 PR-5. Scope amended 2026-07-17
-  (PR-2): also audit the charter's CORS-strict-policy claim — flagged
-  during DOC-TRUTH as noticed-but-out-of-scope (that pass only grepped
-  for security headers, not CORS).
+- **CONTAINERREGISTRY-CLEANUP · PENDING COORDINATOR DISABLE** — Legacy
+  `containerregistry.googleapis.com` API enabled, verified empty
+  2026-07-21 (PR-5a, read-only: `gcloud container images list
+  --repository=gcr.io/sport-slot-dev` → 404 NAME_UNKNOWN; backing
+  bucket `gs://artifacts.sport-slot-dev.appspot.com` → 404 not found —
+  two independent confirmations, no legacy images exist). Disable
+  command prepared in the PR-5a PR body; not run (live mutation,
+  Coordinator-only). Ref: ADR-0043, PR-5a.
+- **SEC-HEADERS · ✓ DONE — pending merge, PR-5a** — Server-side
+  security headers (HSTS, X-Content-Type-Options, X-Frame-Options,
+  Referrer-Policy, baseline CSP) implemented:
+  `SecurityHeadersMiddleware`
+  (`backend/src/sport_slot/middleware/security_headers.py`), wired in
+  `main.py`, verified by test
+  (`test_security_headers_on_every_response`). Charter's
+  CORS-strict-policy claim also audited: no `CORSMiddleware` exists
+  or is needed — the load balancer's path-based routing (Phase 8b)
+  puts frontend and API on the same origin per tenant subdomain, a
+  stronger posture than a CORS policy would add. Not a gap; charter
+  corrected to state this, no `CORS-REVIEW` backlog item needed (the
+  real config isn't unsafe — it's absent by design). Ref: ADR-0043,
+  PR-5a.
 - **VOICE-HARDEN-01 · OPEN (hard gate before prod enablement)** — Enforce a
   30s max-utterance duration cap server-side (ADR-0036 D6). 1c ships only a
   2MB byte cap (~8-11 min at typical bitrates); STT's 60s sync limit is a

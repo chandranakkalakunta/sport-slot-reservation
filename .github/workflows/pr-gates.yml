@@ -64,6 +64,28 @@ jobs:
         run: pnpm test
       - name: Build
         run: pnpm build
+      # warn-only until first triage pass; ratchet to blocking is backlog
+      # item CI-AUDIT-RATCHET (measured gates over aspirational thresholds)
+      - name: pnpm audit (dependency vulnerability scan, non-blocking)
+        continue-on-error: true
+        run: pnpm audit --audit-level=high
+
+  image-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build backend image (local only, no push — mirrors backend/cloudbuild.yaml's build step)
+        run: docker build -t sport-slot-api:pr-scan backend
+      # warn-only until first triage pass; ratchet to blocking is backlog
+      # item CI-AUDIT-RATCHET (measured gates over aspirational thresholds)
+      - name: Trivy image scan (container vulnerability scan, non-blocking)
+        uses: aquasecurity/trivy-action@v0.36.0
+        continue-on-error: true
+        with:
+          image-ref: sport-slot-api:pr-scan
+          format: table
+          severity: CRITICAL,HIGH
+          exit-code: "1"
 
   secret-scan:
     runs-on: ubuntu-latest

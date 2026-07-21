@@ -1,6 +1,6 @@
 # Security Charter — SportSlot Reservation
 
-**Version:** 1.5 | **Date:** 2026-07-16 | **Author:** Chandra Nakkalakunta
+**Version:** 1.6 | **Date:** 2026-07-21 | **Author:** Chandra Nakkalakunta
 
 ## Principles
 
@@ -42,9 +42,19 @@ When principles conflict: Privacy > Fail Closed > Defense-in-Depth > Zero Creden
 
 ### Phase 2 — Backend Foundation
 - Security headers (HSTS, CSP, X-Frame-Options, X-Content-Type-Options)
-  — **Planned** (not present in app middleware today; see backlog
-  `SEC-HEADERS`) (status corrected 2026-07-16, DOC-TRUTH)
-- CORS strict policy (subdomain-aware)
+  — **Implemented** (`SecurityHeadersMiddleware`,
+  `backend/src/sport_slot/middleware/security_headers.py`; ADR-0043
+  PR-5a, `SEC-HEADERS`) (status corrected 2026-07-21, PR-5a)
+- ~~CORS strict policy (subdomain-aware)~~ — **corrected, not a gap**
+  (verified 2026-07-21, PR-5a): no `CORSMiddleware` exists, and none
+  is needed. The load balancer routes `*.slotsense.chandraailabs.com`
+  path-based — `/api/*`, `/health`, `/readyz`, `/version` to the
+  Cloud Run backend, everything else to the frontend bucket
+  (`terraform/load_balancer_routing.tf`, Phase 8b) — so the browser
+  sees frontend and API as the **same origin** per tenant subdomain.
+  A same-origin architecture is a stronger posture than a CORS policy
+  would add, not a missing control; this line was aspirational
+  framing predating the Phase 8b routing design, not a real gap.
 - Rate limiting (per-user, per-IP, per-tenant)
 - JWT validation middleware with tenant cross-check
 - PII redaction in logs (no emails, no JWT contents)
@@ -155,6 +165,13 @@ recorded as part of the identity model.
 
 ## Changelog
 
+- **1.6 (2026-07-21, PR-5a):** Security headers claim flipped
+  Planned → Implemented (`SecurityHeadersMiddleware`; `SEC-HEADERS`
+  closed). CORS strict-policy claim corrected: no `CORSMiddleware`
+  exists or is needed — the load balancer's path-based routing
+  (`terraform/load_balancer_routing.tf`, Phase 8b) puts frontend and
+  API on the same origin per tenant subdomain, a stronger posture
+  than a CORS policy would add. ADR-0043.
 - **1.5 (2026-07-16, DOC-TRUTH):** Reconciled Phase 5/8 control claims
   with actual CI/infra enforcement — Bandit, pip-audit (warn-only),
   and Gitleaks (blocking) are implemented; Binary Auth, KMS signing,
