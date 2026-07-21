@@ -28,19 +28,40 @@ _Last updated: 2026-07-21_
   VOICE-HARDEN-02, and SEC-01 must be resolved before the deploy pipeline
   targets a resident-facing prod/test environment.
 - **PR-5-SECURITY · SPLIT (ADR-0043)** — Split by blast radius into
-  PR-5a (low-risk: headers, CI scanning, registry cleanup, rotation
-  policy — see `PR-5a-SECURITY`, implemented/pending-merge) and PR-5b
-  (risk-sensitive: Cloud Armor enforce, WIF least-privilege — still
-  `OPEN`, tracked via `WIF-LEAST-PRIV` below). BinAuthz explicitly
-  deferred to Phase 18 (ADR-0043, not PR-5 at all).
-- **PR-5a-SECURITY · IMPLEMENTED, PENDING MERGE** — Security headers
+  PR-5a (low-risk, ✓ merged — `PR-5a-SECURITY`) and PR-5b
+  (risk-sensitive: Cloud Armor enforce + WIF least-privilege). PR-5b
+  itself split further: `WIF-LEAST-PRIV` implemented/pending-apply;
+  Cloud Armor enforce **gated** — see `ARMOR-ENFORCE-GATE` below.
+  BinAuthz explicitly deferred to Phase 18 (ADR-0043, not PR-5 at all).
+- **PR-5a-SECURITY · ✓ DONE — Phase 17 / PR #153** — Security headers
   middleware, charter CORS/headers claims corrected, Trivy image scan
   + pnpm audit added to CI (warn-only), legacy containerregistry API
-  disable prepared (not run), secret rotation policy documented.
-  `terraform/`-free — code, CI, docs only. Ref: ADR-0043, PR-5a.
-- **WIF-LEAST-PRIV · OPEN (into PR-5b)** — GitHub WIF principal holds
-  project-level storage.admin + run.admin; tighten. TF-managed already
-  (ci_* bindings).
+  disabled, secret rotation policy documented. Ref: ADR-0043, PR-5a.
+- **WIF-LEAST-PRIV · IMPLEMENTED, PENDING APPLY** — GitHub WIF
+  principal's project-level `roles/storage.admin` tightened to two
+  bucket-scoped `storage.objectAdmin` grants (the only two buckets CI
+  actually touches — Cloud Build source staging, frontend static
+  assets); `roles/run.admin` tightened to `roles/run.developer` +
+  a minimal custom role (`ciRunSetIamPolicy`, one permission:
+  `run.services.setIamPolicy`) — verified live that run.developer
+  alone lacks the permission `--allow-unauthenticated` needs, so a
+  blind swap would have broken every deploy. `terraform/wif_iam.tf`.
+  Ref: ADR-0043, PR-5b.
+- **ARMOR-ENFORCE-GATE · BLOCKED (Coordinator decision)** — The
+  `slotsense-api-armor` policy's preview→enforce flip (ADR-0043
+  PR-5b) did NOT ship: the 14-day preview-log review
+  (`docs/reviews/2026-07-21-armor-preview-log-review.md`) found 100%
+  of preview-flagged-but-accepted requests (75/75) are legitimate
+  `/api/v1/agent/voice` traffic from a real tenant, false-positiving
+  on the generic SQLi/XSS CRS rules against large voice-audio payload
+  bodies. Enforcing as-is would 403 real users. Needs a Coordinator
+  call: tune (exclude the voice path from WAF body inspection) then
+  re-observe, or enforce with an explicit higher-priority allow rule
+  for that path, or extend the observation window. `frontend_edge`
+  Armor policy also untouched this PR (see PR-5b PR body for why a
+  baseline ruleset there isn't even possible — `CLOUD_ARMOR_EDGE`
+  doesn't support `evaluatePreconfiguredWaf`, confirmed via a prior
+  API error already documented in `terraform/cloud_armor.tf`).
 
 ## Platform Admin
 
