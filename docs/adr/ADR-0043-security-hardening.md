@@ -54,6 +54,40 @@ closes the gaps themselves — the ones worth closing at this stage.
    traffic-affecting change — staged, with the preview-log review as
    the gate, and immediate rollback (flip back to preview) if
    legitimate traffic is blocked.
+
+   **Outcome (2026-07-21, PR-5b review → PR-5c decision):** the
+   preview-log review (`docs/reviews/2026-07-21-armor-preview-log-
+   review.md`) found, over a complete 14-day window, that 100% of the
+   75 preview-flagged-but-accepted requests were legitimate
+   `/api/v1/agent/voice` traffic from a real tenant — large base64
+   audio payloads false-positiving on the generic OWASP CRS SQLi/XSS
+   body-inspection signatures. Zero attack traffic in the population.
+   **Coordinator decision: option 2.** `terraform/cloud_armor.tf`
+   (PR-5c) adds a higher-priority `allow` rule
+   (`priority = 900`, matching `request.path.matches
+   ('/api/v1/agent/voice')`) ahead of the SQLi rule (1000) and XSS
+   rule (2000); Cloud Armor evaluates rules in priority order and
+   stops at the first match, so a matching request never reaches the
+   WAF rules. The two WAF rules then flip `preview = true` → enforcing
+   (match expressions, priorities, and actions unchanged) — every
+   other path gets real SQLi/XSS enforcement immediately.
+
+   **ACCEPTED RESIDUAL, documented not silent:** the voice path is
+   thereby exempt from WAF body inspection. Its SQLi/XSS defense is
+   NOT the WAF but field-level input validation and safe sinks
+   (Firestore is non-SQL; transcribed text is validated in code;
+   the frontend escapes agent output before rendering). Closing that
+   gap durably — auditing the voice→STT→agent path end to end and
+   confirming every sink is safe — is tracked as backlog
+   `VOICE-INPUT-VALIDATION`, scoped to the Phase 18 launch gate, not
+   this PR.
+
+   `frontend_edge` is unmodified: documented as intentional
+   pass-through, not a baseline ruleset, because `CLOUD_ARMOR_EDGE`
+   structurally cannot hold `evaluatePreconfiguredWaf` expressions
+   (confirmed via a prior apply-time API error, PR-5b) — a baseline
+   WAF ruleset there was never an available option, only the
+   documented-pass-through half of the original "or" is real.
 2. **WIF least-privilege** (WIF-LEAST-PRIV): tighten the GitHub WIF
    principal from project-level storage.admin + run.admin to the
    minimum the CI pipeline actually uses (bucket-scoped storage roles;
@@ -87,10 +121,17 @@ CI scan minutes: negligible. Armor rules: already provisioned
 
 ## Consequences
 
-- Findings #7 (Armor) and #9 (CI scanning) close; #10 (rotation)
-  partially closes (policy defined; automation deferred).
-- WIF blast radius shrinks from project-admin to task-scoped.
+- Finding #7 (Armor) closes as of PR-5c: the API policy's SQLi/XSS
+  rules enforce, with the voice path's exemption and its residual
+  risk explicitly documented and tracked (`VOICE-INPUT-VALIDATION`),
+  not silently accepted. Finding #9 (CI scanning) closed at PR-5a;
+  #10 (rotation) partially closes (policy defined; automation
+  deferred).
+- WIF blast radius shrinks from project-admin to task-scoped (PR-5b).
 - Binary Authorization becomes the one named security item carried
   explicitly into Phase 18 rather than silently dropped.
 - The security charter, already made honest in DOC-TRUTH, now has
   the enforcement behind its remaining claims.
+- With PR-5c, this closes the last of the ten 2026-07-13 baseline
+  audit findings — the DR drill (ADR-0038) is the one item left
+  outstanding project-wide.
