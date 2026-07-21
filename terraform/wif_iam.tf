@@ -91,7 +91,7 @@ resource "google_project_iam_member" "ci_service_usage_consumer" {
 # import needed for an IAM-member-only resource.
 resource "google_storage_bucket_iam_member" "ci_cloudbuild_staging_object_admin" {
   bucket = "${var.project_id}-cloudbuild"
-  role   = "roles/storage.objectAdmin"
+  role   = "roles/storage.admin"
   member = local.github_principal_set
 }
 
