@@ -13,10 +13,35 @@ locals {
   github_principal_set = "principalSet://iam.googleapis.com/${google_iam_workload_identity_pool.github_actions.name}/attribute.repository/${var.github_repository}"
 }
 
-# Deploy Cloud Run revisions.
-resource "google_project_iam_member" "ci_run_admin" {
+# Deploy Cloud Run revisions (ADR-0043 WIF-LEAST-PRIV, PR-5b: tightened
+# from roles/run.admin). roles/run.developer covers everything
+# `scripts/deploy_cloud_run.sh` uses EXCEPT one permission:
+# `gcloud run deploy --allow-unauthenticated` calls SetIamPolicy under
+# the hood to grant allUsers roles/run.invoker on the service, and
+# run.developer does NOT include *.setIamPolicy (verified live,
+# 2026-07-21: `gcloud iam roles describe roles/run.developer` lists
+# only *.getIamPolicy; roles/run.admin has both get and set). The
+# custom role below adds exactly that one missing permission rather
+# than granting run.admin's full set (which also covers run jobs/
+# instances/workerpools IAM this CI pipeline never touches).
+resource "google_project_iam_member" "ci_run_developer" {
   project = var.project_id
-  role    = "roles/run.admin"
+  role    = "roles/run.developer"
+  member  = local.github_principal_set
+}
+
+resource "google_project_iam_custom_role" "ci_run_set_iam_policy" {
+  project     = var.project_id
+  role_id     = "ciRunSetIamPolicy"
+  title       = "CI Run SetIamPolicy (least-priv)"
+  description = "Adds run.services.setIamPolicy to the CI WIF principal — the one permission roles/run.developer lacks that `gcloud run deploy --allow-unauthenticated` needs. Composed with roles/run.developer instead of granting roles/run.admin (ADR-0043 WIF-LEAST-PRIV, PR-5b)."
+  permissions = ["run.services.setIamPolicy"]
+  stage       = "GA"
+}
+
+resource "google_project_iam_member" "ci_run_set_iam_policy" {
+  project = var.project_id
+  role    = google_project_iam_custom_role.ci_run_set_iam_policy.id
   member  = local.github_principal_set
 }
 
@@ -50,18 +75,34 @@ resource "google_project_iam_member" "ci_service_usage_consumer" {
   member  = local.github_principal_set
 }
 
-# `gcloud builds submit` uploads the source tarball to the Cloud Build
-# staging bucket (sport-slot-dev-cloudbuild). storage.admin at project
-# level is the simplest fix and matches the documented resolution.
-# SCOPE NOTE: project-level storage.admin is broader than strictly
-# necessary. A tighter alternative is a bucket-scoped
-# google_storage_bucket_iam_member on sport-slot-dev-cloudbuild +
-# roles/artifactregistry.writer already covers image push. Deferring
-# least-privilege tightening to Phase 9 hardening (dev environment).
-resource "google_project_iam_member" "ci_storage_admin" {
-  project = var.project_id
-  role    = "roles/storage.admin"
-  member  = local.github_principal_set
+# ADR-0043 WIF-LEAST-PRIV, PR-5b: project-level storage.admin
+# (ci_storage_admin, removed) tightened to two bucket-scoped grants —
+# the only two GCS buckets this CI pipeline actually touches
+# (verified against .github/workflows/deploy.yml + scripts/
+# build_push.sh, 2026-07-21): the Cloud Build source-staging bucket
+# and the frontend static-asset bucket. roles/storage.objectAdmin
+# (object CRUD, not bucket-level IAM/lifecycle control) matches the
+# role already proven live for sa-cloud-build on the same staging
+# bucket (scripts/setup_build_infra.sh).
+
+# `gcloud builds submit --gcs-source-staging-dir` uploads the source
+# tarball here (scripts/build_push.sh). Bucket predates Terraform
+# (created by setup_build_infra.sh) — bound by literal name, no
+# import needed for an IAM-member-only resource.
+resource "google_storage_bucket_iam_member" "ci_cloudbuild_staging_object_admin" {
+  bucket = "${var.project_id}-cloudbuild"
+  role   = "roles/storage.objectAdmin"
+  member = local.github_principal_set
+}
+
+# `gcloud storage cp` syncs frontend/dist/ here on every deploy
+# (.github/workflows/deploy.yml, "Sync frontend dist to GCS" step) —
+# overwrites existing objects (index.html etc.) and creates new
+# content-hashed ones, so needs object create+update, not just create.
+resource "google_storage_bucket_iam_member" "ci_frontend_bucket_object_admin" {
+  bucket = google_storage_bucket.frontend.name
+  role   = "roles/storage.objectAdmin"
+  member = local.github_principal_set
 }
 
 # CI describes the Memorystore Redis instance at deploy time
@@ -102,10 +143,12 @@ resource "google_service_account_iam_member" "ci_act_as_runtime" {
   member             = local.github_principal_set
 }
 
-# COORDINATOR FLAG: confirm whether `gcloud builds submit` in the CI
-# workflow delegates to sa-cloud-build under the hood. If so, this
-# binding is required; if the build runs under the WIF principal's
-# own identity (--service-account not set), remove this block.
+# CONFIRMED (2026-07-21, ADR-0043 PR-5b evidence pass): required.
+# scripts/build_push.sh's `gcloud builds submit` explicitly passes
+# `--service-account=...sa-cloud-build@...`, so the WIF principal
+# must be allowed to act as that SA to submit the build. Was
+# previously flagged as unconfirmed; resolved by inspection of the
+# live script, not by observing a CI run.
 resource "google_service_account_iam_member" "ci_act_as_cloud_build" {
   service_account_id = google_service_account.cloud_build.name
   role               = "roles/iam.serviceAccountUser"

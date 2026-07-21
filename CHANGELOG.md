@@ -6,6 +6,57 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### feat(security): WIF least-privilege — bucket-scoped storage, run.developer + minimal custom role (ADR-0043, PR-5b)
+
+PR-5b is the risk-sensitive half of ADR-0043's security-hardening
+split. Two independent concerns, kept as separate commits so either
+can be reviewed/rolled back alone.
+
+- **WIF least-privilege (shipped, `terraform/wif_iam.tf`):** the
+  GitHub Actions WIF principal's project-level `roles/storage.admin`
+  is replaced with two bucket-scoped `roles/storage.objectAdmin`
+  grants — the only two GCS buckets CI actually touches, confirmed by
+  reading `.github/workflows/deploy.yml` and `scripts/build_push.sh`
+  line by line: the Cloud Build source-staging bucket
+  (`sport-slot-dev-cloudbuild`, same role already proven live for
+  `sa-cloud-build` on that bucket — `scripts/setup_build_infra.sh`)
+  and the frontend static-asset bucket (`sport-slot-dev-frontend`,
+  `google_storage_bucket.frontend`). Project-level `roles/run.admin`
+  is replaced with `roles/run.developer` **plus** a new minimal
+  custom role (`ciRunSetIamPolicy`, one permission:
+  `run.services.setIamPolicy`) — a live check
+  (`gcloud iam roles describe roles/run.developer`) confirmed
+  run.developer alone lacks `setIamPolicy`, which
+  `deploy_cloud_run.sh`'s `--allow-unauthenticated` flag needs (it
+  grants `allUsers` `roles/run.invoker` under the hood). A blind
+  run.admin → run.developer swap would have broken every CI deploy;
+  this was verified, not guessed, before authoring the change. Also
+  resolved a pre-existing "COORDINATOR FLAG" comment on
+  `ci_act_as_cloud_build`: confirmed required, since `build_push.sh`
+  explicitly passes `--service-account=sa-cloud-build@...`.
+- **Cloud Armor enforce (NOT shipped — gated):** a 14-day preview-log
+  review (`docs/reviews/2026-07-21-armor-preview-log-review.md`) of
+  what the `slotsense-api-armor` policy's preview SQLi/XSS rules
+  would have blocked found 100% of the 75 flagged-but-accepted
+  requests in the window are legitimate `/api/v1/agent/voice` traffic
+  from one real tenant, false-positiving on generic CRS pattern rules
+  against large (20–115KB, median 54KB) voice-audio POST bodies —
+  zero attack traffic in the population. Per ADR-0043's own gate
+  condition, flipping preview→enforce on legitimate-traffic false
+  positives is not authored blind; `terraform/cloud_armor.tf` is
+  unmodified by this PR, awaiting a Coordinator tuning decision (see
+  the review doc for three concrete options). `frontend_edge`'s
+  zero-rule policy is also untouched — a baseline WAF ruleset there
+  isn't possible at all (`CLOUD_ARMOR_EDGE` doesn't support
+  `evaluatePreconfiguredWaf`, already documented in
+  `terraform/cloud_armor.tf` from a prior apply-time API error).
+- `terraform fmt`/`validate` clean (`init -backend=false`,
+  scratch-copy, local-only). Plan and apply are Coordinator-run and
+  not yet executed.
+- Backlog: `WIF-LEAST-PRIV` → implemented-pending-apply; new
+  `ARMOR-ENFORCE-GATE · BLOCKED (Coordinator decision)`; `PR-5a-SECURITY`
+  flipped to done (merged as #153); `PR-5-SECURITY` split entry updated.
+
 ### feat(security): response security headers + CI container/dep scanning + rotation policy (ADR-0043, PR-5a)
 
 The baseline audit and DOC-TRUTH found the security posture claimed in
