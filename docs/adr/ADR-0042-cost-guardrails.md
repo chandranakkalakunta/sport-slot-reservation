@@ -44,6 +44,18 @@ destroys the project's serving ability as collateral, and every
 automated actuator is a new outage mode. The ₹5K scale does not
 justify that risk; the human is the actuator.
 
+**Amendment 2026-07-21:** The Budget API rejects
+`monitoring_notification_channels` combined with default IAM
+recipients, and rejected the SMS channel specifically (opaque 400 on
+both create and update; isolated by removing the notification block,
+which let the base budget + thresholds apply cleanly). Final wiring:
+**Admin Email channel only**, codified in Terraform with
+`disable_default_iam_recipients = true`. SMS is intentionally
+omitted — cost alerts are slower-urgency than outage alerts and the
+forecasted-breach threshold gives days of warning; the outage path
+(PR-2) retains SMS. Supersedes the original "backup emails stay" note
+(not achievable alongside a monitoring channel).
+
 ### D19 — Scope and plumbing
 
 - `billingbudgets.googleapis.com` enabled via Terraform

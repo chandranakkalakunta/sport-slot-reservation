@@ -12,6 +12,12 @@ Status ∈ `OPEN` · `BLOCKED` · `IN PROGRESS` · `✓ DONE — Phase X / PR #n
 
 _Last updated: 2026-07-21_
 
+**Phase 17 (Production Readiness) is build-complete** — all ten
+2026-07-13 baseline audit findings resolved (PR-1a → PR-5c). The
+timed DR drill / `slot-sense-test` environment build is the one
+remaining item for formal phase close. See
+`docs/retrospectives/phase-17-closeout.md`.
+
 ---
 
 ## Security & Compliance
@@ -27,13 +33,12 @@ _Last updated: 2026-07-21_
   is now unconditionally live with no runtime gate. VOICE-HARDEN-01,
   VOICE-HARDEN-02, and SEC-01 must be resolved before the deploy pipeline
   targets a resident-facing prod/test environment.
-- **PR-5-SECURITY · ✓ DONE (all sub-PRs shipped) — Phase 17** — Split
+- **PR-5-SECURITY · ✓ DONE — Phase 17 / PR #153, #154, #155** — Split
   by blast radius into PR-5a (low-risk, ✓ merged #153), PR-5b (WIF
-  least-privilege, ✓ merged #154; Armor enforce gated pending
-  Coordinator decision), and PR-5c (Armor enforce, option 2 —
-  implemented, pending merge, see `ARMOR-ENFORCE-GATE` below). BinAuthz
-  explicitly deferred to Phase 18 (ADR-0043, not PR-5 at all). Closes
-  the last of the ten 2026-07-13 baseline audit findings (#7).
+  least-privilege, ✓ merged #154), and PR-5c (Armor enforce, option 2,
+  ✓ merged #155). BinAuthz explicitly deferred to Phase 18 (ADR-0043,
+  not PR-5 at all). Closes the last of the ten 2026-07-13 baseline
+  audit findings (#7).
 - **PR-5a-SECURITY · ✓ DONE — Phase 17 / PR #153** — Security headers
   middleware, charter CORS/headers claims corrected, Trivy image scan
   + pnpm audit added to CI (warn-only), legacy containerregistry API
@@ -48,8 +53,8 @@ _Last updated: 2026-07-21_
   alone lacks the permission `--allow-unauthenticated` needs, so a
   blind swap would have broken every deploy. `terraform/wif_iam.tf`.
   Ref: ADR-0043, PR-5b.
-- **ARMOR-ENFORCE-GATE · ✓ RESOLVED — Coordinator decision: option 2,
-  implemented in PR-5c, pending merge** — The 14-day preview-log
+- **ARMOR-ENFORCE-GATE · ✓ RESOLVED — Phase 17 / PR #155** —
+  Coordinator decision: option 2. The 14-day preview-log
   review (`docs/reviews/2026-07-21-armor-preview-log-review.md`)
   found 100% of preview-flagged-but-accepted requests (75/75) were
   legitimate `/api/v1/agent/voice` traffic false-positiving on the
@@ -142,31 +147,27 @@ _Last updated: 2026-07-21_
 - **ROADMAP-STALE · ✓ DONE — Phase 17 / DOC-TRUTH** — `docs/roadmap.md`
   archived to `docs/archive/roadmap-2026-06.md`; a stub now points to
   `docs/backlog.md` (canonical) and `CHANGELOG.md` (phase progress).
-- **PR-2-OBSERVABILITY · IMPLEMENTED, PENDING APPLY/VALIDATION** —
-  Uptime checks (edge + service path), 4 alert policies (5xx rate,
-  p95 latency, uptime failure, backup failure), 2 email+SMS
-  notification channels, Error Reporting, voice/agent turn-counter
-  metrics — all in `terraform/observability.tf` (ADR-0040). Awaiting
-  Coordinator SMS-number substitution, plan/apply, and the post-apply
-  validation list in `docs/runbooks/observability.md`. Ref: ADR-0040,
-  PR-2.
-- **PR-3-AVAILABILITY · IMPLEMENTED, PENDING APPLY** — maxScale 2→10,
-  HTTP startup + liveness probes on `/health`, "SlotSense Ops"
+- **PR-2-OBSERVABILITY · ✓ DONE — Phase 17 / PR #144–#147** —
+  Uptime checks (edge + service path, later corrected to edge-only —
+  #147), 4 alert policies (5xx rate, p95 latency, uptime failure,
+  backup failure), 2 email+SMS notification channels, Error Reporting,
+  voice/agent turn-counter metrics — all in `terraform/observability.tf`
+  (ADR-0040). Ref: ADR-0040, PR-2.
+- **PR-3-AVAILABILITY · ✓ DONE — Phase 17 / PR #148–#150** — maxScale
+  2→10, HTTP startup + liveness probes on `/health`, "SlotSense Ops"
   dashboard — `terraform/cloud_run.tf` / `terraform/dashboard.tf`
   (ADR-0041 D15/D17). SLO defined at doc-level only (D14 — no
   Monitoring SLO API resources yet). Redis SPOF decision: BASIC tier
-  accepted with triggers (see `REDIS-HA-TRIGGERS`). Awaiting
-  Coordinator plan/apply and the post-apply revision watchlist in the
-  PR body. Ref: ADR-0041, PR-3.
-- **PR-4-COST · IMPLEMENTED, PENDING APPLY/VALIDATION** — Billing budget
+  accepted with triggers (see `REDIS-HA-TRIGGERS`). Ref: ADR-0041, PR-3.
+- **PR-4-COST · ✓ DONE — Phase 17 / PR #151–#152** — Billing budget
   + five graduated thresholds (50/80/100/120% actual + 100% forecasted)
   per ADR-0005's ₹5K/mo dev ceiling, incl. the voice per-turn surface —
   `terraform/cost.tf` (new), `billingbudgets.googleapis.com` enabled via
   Terraform for the first time. Project-filtered to `sport-slot-dev`
-  only; notifications reuse the existing ADR-0040 channels. Alert-only
-  by design (ADR-0042 D18) — no automated billing-disable/service-cap
-  actuator. Awaiting Coordinator plan/apply and the post-apply
-  validation list in the PR body. Ref: ADR-0042, PR-4.
+  only. Alert-only by design (ADR-0042 D18) — no automated
+  billing-disable/service-cap actuator. Final notification wiring is
+  **Admin Email only** (#152 hotfix — the Budget API rejected the SMS
+  channel; see ADR-0042's 2026-07-21 amendment). Ref: ADR-0042, PR-4.
 - **TEST-PROJECT-BUDGET · OPEN (Phase 18)** — `slot-sense-test` has no
   billing budget yet because the project doesn't exist yet (ADR-0042
   D19 scopes PR-4's budget to `sport-slot-dev` only, by project filter,
