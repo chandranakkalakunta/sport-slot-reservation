@@ -6,6 +6,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### docs: Phase 17 close-out — retrospective, ADR-0042 email-only amendment, backlog closures
+
+Phase 17 (Production Readiness) is **build-complete**: all ten
+2026-07-13 baseline audit findings resolved across PR-1a → PR-5c
+(#141–#155). This is a docs-only close-out — no infra, no Terraform,
+no CI changes.
+
+- **`docs/retrospectives/phase-17-closeout.md`** (placed): audit
+  findings scoreboard (10/10 resolved), sub-phase ledger (#141–#155),
+  API-shape lessons earned this phase (billing budget 400s, Cloud Run
+  probe budget math, `run.developer` vs `run.admin`, dashboard
+  perma-diff canonical form, and more), process lessons (merge ≠
+  applied, WIF/Armor "look before you leap" gates), and open threads
+  carried into Phase 18 (`VOICE-INPUT-VALIDATION`, the timed DR
+  drill/TEST-env, `CI-AUDIT-RATCHET`).
+- **`docs/adr/ADR-0042-cost-guardrails.md`** amended under D18: the
+  Budget API rejected `monitoring_notification_channels` combined
+  with default IAM recipients and rejected the SMS channel
+  specifically (opaque 400s, isolated by removing the notification
+  block first). Final wiring is **Admin Email only**
+  (`disable_default_iam_recipients = true`) — supersedes the original
+  "backup emails stay" note, not achievable alongside a monitoring
+  channel. SMS remains on the outage path (PR-2); cost alerts are
+  slower-urgency and the forecasted-breach threshold already gives
+  days of warning.
+- **Backlog**: `PR-5-SECURITY`, `PR-2-OBSERVABILITY`,
+  `PR-3-AVAILABILITY`, `PR-4-COST` all flipped to `✓ DONE` with their
+  merged PR numbers (`#144–#147`, `#148–#150`, `#151–#152`,
+  `#153–#155` respectively — confirmed against `main`'s merge log,
+  not assumed). `ARMOR-ENFORCE-GATE` closed out with its PR number.
+  Confirmed `VOICE-INPUT-VALIDATION`, `VOICE-HARDEN-01`/`02`,
+  `SEC-01`, `SLO-LOAD-TEST`, `CI-AUDIT-RATCHET`, `TEST-PROJECT-BUDGET`,
+  `AUTH-EXPORT-AUTO`, `BACKUP-ABSENCE-ALERT`, `HARDENING-RESIDUALS`
+  all already present and correctly OPEN/BLOCKED/DEFERRED — none
+  were missing. New top-line note: Phase 17 build-complete, drill
+  pending.
+
 ### feat(security): Cloud Armor API WAF enforce with voice-path exemption (ADR-0043, option 2; finding #7)
 
 Closes the last of the ten 2026-07-13 baseline audit findings. Builds
