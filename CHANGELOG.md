@@ -6,6 +6,81 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### feat(security): response security headers + CI container/dep scanning + rotation policy (ADR-0043, PR-5a)
+
+The baseline audit and DOC-TRUTH found the security posture claimed in
+docs outrunning what's enforced (findings #7, #9, #10): no security
+headers despite the charter's claim, CI scanning limited to Bandit +
+pip-audit + Gitleaks (no container/frontend-dependency scanning), a
+legacy `containerregistry.googleapis.com` enabled with no images, and
+no secret rotation policy. ADR-0043 splits the fix by blast radius;
+this is PR-5a, the low-risk half (code/CI/docs only — no Terraform,
+no Cloud Armor, no IAM; those are PR-5b).
+
+- **`backend/src/sport_slot/middleware/security_headers.py`** (new):
+  `SecurityHeadersMiddleware` sets `Strict-Transport-Security`
+  (`max-age=31536000; includeSubDomains`), `X-Content-Type-Options:
+  nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy:
+  strict-origin-when-cross-origin`, and a baseline
+  `Content-Security-Policy: default-src 'self'; frame-ancestors
+  'none'` on every response. Wired in `main.py` as the outermost
+  middleware layer (added after `RequestIdMiddleware`, so it wraps
+  every response including rate-limited ones) without disturbing the
+  existing `EnvelopeRateLimitMiddleware`/`RequestIdMiddleware` order.
+  `default-src 'self'` is correct for this API-only backend (no
+  Jinja/StaticFiles — verified via grep); known accepted tradeoff:
+  FastAPI's default `/docs`/`/redoc` load CDN assets and will render
+  cosmetically degraded under this CSP — dev-facing introspection
+  endpoints, not a production surface, `/openapi.json` unaffected.
+  Verified by `test_security_headers_on_every_response`
+  (`backend/tests/test_health_and_errors.py`) and the full backend
+  suite (677 passed, 93.26% coverage, `ruff`/`bandit` clean).
+- **Security charter CORS claim corrected** (`docs/security/charter.md`
+  v1.5 → v1.6): the claimed "CORS strict policy" doesn't exist as
+  code — and doesn't need to. The load balancer's path-based routing
+  (`terraform/load_balancer_routing.tf`, Phase 8b) puts frontend and
+  API on the same origin per tenant subdomain, a stronger posture
+  than a CORS policy would add. Not a gap; corrected to state reality
+  rather than silently changing app behavior. Headers claim flipped
+  Planned → Implemented in the same pass.
+- **CI, `.github/workflows/pr-gates.yml`**: new `image-scan` job
+  (builds the backend image locally — no push, mirrors
+  `backend/cloudbuild.yaml`'s build step — then Trivy-scans it,
+  CRITICAL/HIGH, warn-only) and a `pnpm audit --audit-level=high` step
+  in `frontend-gates` (warn-only). Both non-blocking per the
+  measured-gates principle, tied to `CI-AUDIT-RATCHET`. The frontend
+  audit already surfaced 11 real findings (6 high, 1 critical, all in
+  `eslint`'s `js-yaml` transitive chain) — untriaged, left for the
+  ratchet pass, not patched here (out of scope for a code/CI/docs-only
+  PR).
+- **Legacy `containerregistry.googleapis.com` cleanup prepared, not
+  run**: verified empty via two independent read-only checks
+  (`gcloud container images list --repository=gcr.io/sport-slot-dev` →
+  404 `NAME_UNKNOWN`; backing bucket
+  `gs://artifacts.sport-slot-dev.appspot.com` → 404 not found). API
+  disable is a live mutation — command prepared in the PR body for
+  the Coordinator, not executed here.
+- **Secret rotation policy** (`docs/runbooks/disaster-recovery.md`
+  §3.1, new): cadence (event-driven on suspected compromise;
+  quarterly review at this dev-stage) and a 4-step procedure
+  (re-issue → add Secret Manager version → redeploy + verify → disable
+  old version) for `redis-auth` and `resend-api-key`, building on
+  ADR-0038's recovery inventory. Notes the non-obvious bit: both
+  secrets are wired `version = "latest"`
+  (`terraform/cloud_run.tf:163,172`), which Cloud Run resolves once at
+  revision start — adding a new secret version alone does not reach
+  already-running instances without a new revision. Policy + manual
+  procedure only, no automation.
+- Backlog: `PR-5-SECURITY` marked split (ADR-0043) into `PR-5a-SECURITY`
+  (implemented, pending merge — this PR) and PR-5b (`WIF-LEAST-PRIV`,
+  still open); `SEC-HEADERS` → done-pending-merge;
+  `CONTAINERREGISTRY-CLEANUP` → pending Coordinator disable;
+  `CI-AUDIT-RATCHET` extended to cover the two new scanners.
+- `docs/adr/README.md`: added the ADR-0041, ADR-0042, and ADR-0043
+  rows to the Phase 17 table — ADR-0041/0042 had been missing since
+  their respective PRs (flagged as an adjacent gap in PR-4), backfilled
+  here alongside ADR-0043's own row.
+
 ### feat(cost): billing budget + graduated threshold alerts to ops channels (ADR-0042, PR-4)
 
 The 2026-07-13 baseline audit found zero cost guardrails (finding #5):

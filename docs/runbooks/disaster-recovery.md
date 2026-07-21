@@ -115,6 +115,46 @@ added to this table in the same PR that introduces it, with its
 re-issue path — or be explicitly flagged as irreplaceable (which would
 itself justify revisiting the no-value-backup decision).
 
+### 3.1 Secret rotation policy (ADR-0043 PR-5a)
+
+Policy + manual procedure only — no automation. Builds on the
+recovery inventory above; rotation reuses the same re-issue commands,
+plus the two steps recovery doesn't need (redeploy, retire old
+version).
+
+**Cadence:**
+- **Event-driven (immediate):** suspected or confirmed compromise —
+  leaked value, departing operator with access, anomalous usage.
+  Rotate the same day.
+- **Periodic:** quarterly review at this dev-stage, single-operator
+  project (proportionate to current risk — see security charter
+  §Threat Model). Revisit toward a shorter cadence at the first
+  paying tenant / Phase 18 production launch.
+
+**Procedure (both secrets):**
+
+1. **Generate/re-issue** the new value — same commands as the
+   recovery table above:
+   - `redis-auth`: `gcloud redis instances get-auth-string <instance> --region=asia-south1 --project=sport-slot-dev` (retrieves current) or `gcloud redis instances update --enable-auth` (forces a new AUTH string)
+   - `resend-api-key`: re-issue from the Resend console
+2. **Add a new Secret Manager version** (does not touch or invalidate
+   the old version yet): `gcloud secrets versions add <secret-id> --data-file=-`
+3. **Redeploy and verify.** Both secrets are wired into
+   `google_cloud_run_v2_service.sport_slot_api` with `version =
+   "latest"` (`terraform/cloud_run.tf:163,172`) — but Cloud Run
+   resolves `"latest"` **once, at revision start**, not per-request.
+   Adding a version alone does **not** reach already-running
+   instances; a new revision must actually roll out (redeploy, or
+   force a new revision) before the rotation takes effect. Verify
+   post-rollout: `redis-auth` — confirm the app still connects (no
+   `AUTH` failures in logs / Redis-dependent endpoints healthy);
+   `resend-api-key` — send one test email and confirm delivery.
+4. **Disable the old version** only after step 3 verifies clean —
+   `gcloud secrets versions disable <secret-id> --version=<old-version>`.
+   Disable, not destroy: keeps a fast rollback path (re-enable) if the
+   rotation surfaces a problem after the fact. Destroy the disabled
+   version on the next periodic review once confident it's unneeded.
+
 ## 4. Layer 3 — Terraform rebuild
 
 PR-1b codifies the remaining imperative-only resources (four service

@@ -22,6 +22,7 @@ from sport_slot.config import get_settings
 from sport_slot.health import router as health_router
 from sport_slot.logging import configure_logging
 from sport_slot.middleware.request_id import RequestIdMiddleware
+from sport_slot.middleware.security_headers import SecurityHeadersMiddleware
 from sport_slot.ratelimit import EnvelopeRateLimitMiddleware, limiter
 
 log = structlog.get_logger()
@@ -43,6 +44,7 @@ def create_app() -> FastAPI:
 
     app.add_middleware(EnvelopeRateLimitMiddleware)
     app.add_middleware(RequestIdMiddleware)
+    app.add_middleware(SecurityHeadersMiddleware)
     register_exception_handlers(app)
 
     app.include_router(health_router)

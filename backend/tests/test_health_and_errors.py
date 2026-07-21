@@ -44,3 +44,13 @@ async def test_404_uses_error_envelope(make_client):
     body = resp.json()
     assert body["code"] == "NOT_FOUND"
     assert body["request_id"] == resp.headers["x-request-id"]
+
+
+async def test_security_headers_on_every_response(make_client):
+    async with make_client() as client:
+        resp = await client.get("/health")
+    assert resp.headers["strict-transport-security"] == "max-age=31536000; includeSubDomains"
+    assert resp.headers["x-content-type-options"] == "nosniff"
+    assert resp.headers["x-frame-options"] == "DENY"
+    assert resp.headers["referrer-policy"] == "strict-origin-when-cross-origin"
+    assert resp.headers["content-security-policy"] == "default-src 'self'; frame-ancestors 'none'"
