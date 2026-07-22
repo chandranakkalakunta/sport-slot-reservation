@@ -3,8 +3,8 @@ variable "project_id" {
   type        = string
 
   validation {
-    condition     = can(regex("^sport-slot-(dev|test|prod-[a-z]+)$", var.project_id))
-    error_message = "project_id must match pattern: sport-slot-{dev|test|prod-XX}"
+    condition     = can(regex("^(sport-slot-dev|slot-sense-(dev|test|prod-[a-z]+))$", var.project_id))
+    error_message = "project_id must be sport-slot-dev (legacy) or slot-sense-{dev|test|prod-XX}. Legacy name accepted during migration (remove after — NAMING-MIGRATION)."
   }
 }
 
@@ -76,4 +76,16 @@ variable "default_labels" {
     managed_by = "terraform"
     owner      = "chandra-ai-labs"
   }
+}
+
+variable "base_domain" {
+  description = "Base domain for tenant subdomains and hosts"
+  type        = string
+  default     = "slotsense.chandraailabs.com"
+}
+
+variable "admin_host" {
+  description = "Admin host (defaults to admin.<base_domain>)"
+  type        = string
+  default     = "admin.slotsense.chandraailabs.com"
 }

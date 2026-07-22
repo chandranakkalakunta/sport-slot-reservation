@@ -10,5 +10,7 @@ billing_account_id = "014A8C-586310-DE4575"
 region             = "asia-south1"
 zone               = "asia-south1-a"
 environment        = "dev"
-github_repository  = "chandranakkalakunta/sport-slot-reservation"
+github_repository  = "chandranakkalakunta/slot-sense"
+# base_domain  = "slotsense.chandraailabs.com"
+# admin_host   = "admin.slotsense.chandraailabs.com"
 

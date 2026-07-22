@@ -11,9 +11,9 @@
 # granted anywhere in this file, by design.
 
 resource "google_storage_bucket" "invoice_exports" {
-  name                        = "sport-slot-dev-invoices"
+  name                        = "${var.project_id}-invoices"
   project                     = var.project_id
-  location                    = "ASIA-SOUTH1"
+  location                    = upper(var.region)
   uniform_bucket_level_access = true
 
   labels = var.default_labels
