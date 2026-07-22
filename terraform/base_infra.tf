@@ -11,7 +11,7 @@ resource "google_redis_instance" "sport_slot_redis" {
   name           = "sport-slot-redis"
   project        = var.project_id
   region         = var.region
-  location_id    = var.zone
+  location_id    ="asia-south1-c"
   tier           = "BASIC"
   memory_size_gb = 1
   redis_version  = "REDIS_7_0"
