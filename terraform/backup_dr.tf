@@ -55,9 +55,9 @@ resource "google_firestore_backup_schedule" "daily" {
 # produces a clean plan. See PR description for detail.
 
 resource "google_storage_bucket" "tfstate" {
-  name     = "sport-slot-dev-tfstate"
+  name     = "${var.project_id}-tfstate"
   project  = var.project_id
-  location = "ASIA-SOUTH1"
+  location = upper(var.region)
 
   uniform_bucket_level_access = true
 
@@ -98,7 +98,7 @@ resource "google_secret_manager_secret" "redis_auth" {
   replication {
     user_managed {
       replicas {
-        location = "asia-south1"
+        location = var.region
       }
     }
   }

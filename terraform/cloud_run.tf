@@ -113,11 +113,11 @@ resource "google_cloud_run_v2_service" "sport_slot_api" {
       }
       env {
         name  = "SPORTSLOT_BASE_DOMAIN"
-        value = "slotsense.chandraailabs.com"
+        value = var.base_domain
       }
       env {
         name  = "SPORTSLOT_ADMIN_HOST"
-        value = "admin.slotsense.chandraailabs.com"
+        value = var.admin_host
       }
       env {
         name  = "SPORTSLOT_REDIS_HOST"
@@ -135,6 +135,7 @@ resource "google_cloud_run_v2_service" "sport_slot_api" {
         name  = "SPORTSLOT_TASKS_LOCATION"
         value = var.region
       }
+      # CI-populated on first deploy; not parameterized (self-referential URL). See runbook Layer 3.
       env {
         name  = "SPORTSLOT_WORKER_BASE_URL"
         value = "https://sport-slot-api-yw2l7pv63a-el.a.run.app"

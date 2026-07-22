@@ -54,15 +54,13 @@ locals {
   all_apis = concat(local.core_apis, local.operational_apis)
 }
 
-# ─── RESOURCE TEMPLATE (uncomment when ready to import) ───
-#
-# resource "google_project_service" "enabled_apis" {
-#   for_each           = toset(local.all_apis)
-#   project            = var.project_id
-#   service            = each.value
-#   disable_on_destroy = false
-#
-#   lifecycle {
-#     prevent_destroy = true
-#   }
-# }
+resource "google_project_service" "enabled_apis" {
+  for_each           = toset(local.all_apis)
+  project            = var.project_id
+  service            = each.value
+  disable_on_destroy = false
+
+  lifecycle {
+    prevent_destroy = true
+  }
+}

@@ -17,9 +17,9 @@
 # ── GCS bucket (stores frontend/dist/ output uploaded in Phase 8b.2b CI step) ──
 
 resource "google_storage_bucket" "frontend" {
-  name                        = "sport-slot-dev-frontend"
+  name                        = "${var.project_id}-frontend"
   project                     = var.project_id
-  location                    = "ASIA-SOUTH1"
+  location                    = upper(var.region)
   uniform_bucket_level_access = true
 
   labels = var.default_labels
@@ -60,7 +60,7 @@ resource "google_compute_region_network_endpoint_group" "api_neg" {
   network_endpoint_type = "SERVERLESS"
 
   cloud_run {
-    service = "sport-slot-api"
+    service = google_cloud_run_v2_service.sport_slot_api.name
   }
 }
 
