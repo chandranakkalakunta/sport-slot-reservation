@@ -1,0 +1,32 @@
+{
+  "permissions": {
+    "defaultMode": "acceptEdits",
+    "allow": [
+      "Bash(git status*)", "Bash(git diff*)", "Bash(git log*)",
+      "Bash(git add*)", "Bash(git commit*)", "Bash(git checkout*)",
+      "Bash(git branch*)", "Bash(git grep*)", "Bash(git mv*)",
+      "Bash(gh pr view*)", "Bash(gh pr diff*)", "Bash(gh pr checks*)",
+      "Bash(gh run list*)", "Bash(gh run view*)",
+      "Bash(terraform fmt*)", "Bash(terraform validate*)",
+      "Bash(terraform init -backend=false*)",
+      "Bash(gcloud * list*)", "Bash(gcloud * describe*)",
+      "Bash(gcloud logging read*)", "Bash(gcloud services list*)",
+      "Bash(grep*)", "Bash(rg*)", "Bash(find*)", "Bash(cat*)",
+      "Bash(ls*)", "Bash(curl -s*)",
+      "Bash(uv run pytest*)", "Bash(npm run test*)", "Bash(npm run lint*)"
+    ],
+    "ask": [
+      "Bash(git push*)", "Bash(gh pr create*)", "Bash(gh pr merge*)"
+    ],
+    "deny": [
+      "Bash(terraform apply*)", "Bash(terraform plan*)",
+      "Bash(terraform import*)", "Bash(terraform destroy*)",
+      "Bash(terraform state*)",
+      "Bash(gcloud * create*)", "Bash(gcloud * update*)",
+      "Bash(gcloud * delete*)", "Bash(gcloud * deploy*)",
+      "Bash(firebase deploy*)",
+      "Read(.env*)", "Read(**/*.tfvars)",
+      "Bash(rm -rf*)"
+    ]
+  }
+}
