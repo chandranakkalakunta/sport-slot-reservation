@@ -46,3 +46,27 @@ resource "google_artifact_registry_repository" "sport_slot_repo" {
 
   depends_on = [google_project_service.enabled_apis]
 }
+
+# Cloud Build source-staging bucket (`gcloud builds submit
+# --gcs-source-staging-dir`, scripts/build_push.sh). Previously
+# auto-created by Cloud Build on first use — absent from a fresh
+# project until the first manual build, which left
+# wif_iam.tf's ci_cloudbuild_staging_object_admin IAM binding 404ing
+# against a bucket that didn't exist yet (DR drill Pass 1, finding #8).
+resource "google_storage_bucket" "cloudbuild_staging" {
+  name                        = "${var.project_id}-cloudbuild"
+  project                     = var.project_id
+  location                    = upper(var.region)
+  uniform_bucket_level_access = true
+
+  lifecycle_rule {
+    action {
+      type = "Delete"
+    }
+    condition {
+      age = 30
+    }
+  }
+
+  depends_on = [google_project_service.enabled_apis]
+}

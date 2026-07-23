@@ -3,9 +3,10 @@
 # Coordinator-run. Tag = short git SHA (clean tree required).
 set -euo pipefail
 
-PROJECT="sport-slot-dev"
-REGION="asia-south1"
-IMAGE_BASE="${REGION}-docker.pkg.dev/${PROJECT}/sport-slot-repo/sport-slot-api"
+PROJECT="${SLOTSENSE_PROJECT:-sport-slot-dev}"
+REGION="${SLOTSENSE_REGION:-asia-south1}"
+ARTIFACT_REPO="${SLOTSENSE_ARTIFACT_REPO:-sport-slot-repo}"
+IMAGE_BASE="${REGION}-docker.pkg.dev/${PROJECT}/${ARTIFACT_REPO}/sport-slot-api"
 BUCKET="gs://${PROJECT}-cloudbuild"
 
 cd "$(dirname "$0")/.."

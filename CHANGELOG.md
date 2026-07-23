@@ -6,6 +6,53 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### fix(deploy): parameterize deploy pipeline for multi-env; Terraform owns scaling (ADR-0041 D15); cloudbuild staging bucket in TF (PR-C)
+
+DR drill Pass 1 (`docs/runbooks/DRILL-pass1-report.md`) rebuilt
+`slot-sense-dev-01` successfully but surfaced that the deploy pipeline
+was still single-environment and one script silently reverted an ADR
+decision on every deploy. PR-C closes those gaps.
+
+- **`scripts/deploy_cloud_run.sh`**: removed `--min-instances=0
+  --max-instances=2` from the `gcloud run deploy` call. Terraform sets
+  `max_instance_count = 10` (ADR-0041 D15); this script's hardcoded `2`
+  was silently overwriting it on **every** deploy, so maxScale 10 had
+  never actually held in production (D7 model: CI owns image + env,
+  Terraform owns template config). `PROJECT`, `REGION`,
+  `ARTIFACT_REPO`, `SPORTSLOT_BASE_DOMAIN`, and `SPORTSLOT_ADMIN_HOST`
+  now read from `SLOTSENSE_*` env vars, defaulting to today's
+  `sport-slot-dev` values — no behavior change for existing CI.
+- **`scripts/build_push.sh`**: same parameterization for `PROJECT`,
+  `REGION`, `ARTIFACT_REPO` (`BUCKET` already derived from `PROJECT`).
+- **`terraform/base_infra.tf`**: added
+  `google_storage_bucket.cloudbuild_staging` (`<project_id>-cloudbuild`,
+  30-day delete lifecycle rule) — this bucket is required by
+  `build_push.sh --gcs-source-staging-dir` but nothing created it in a
+  fresh project, causing `wif_iam.tf`'s
+  `ci_cloudbuild_staging_object_admin` IAM binding to 404 (DR drill
+  Pass 1, finding #8). One-time `terraform import
+  google_storage_bucket.cloudbuild_staging sport-slot-dev-cloudbuild`
+  needed in `sport-slot-dev` before its next clean plan.
+- **`terraform/wif_iam.tf`**: added `depends_on =
+  [google_storage_bucket.cloudbuild_staging]` on
+  `ci_cloudbuild_staging_object_admin` so a fresh-project apply
+  sequences correctly.
+- **`docs/runbooks/disaster-recovery.md`** §4.1: reordered the rebuild
+  procedure to the drill-proven sequence — bootstrap-group apply
+  (APIs + Artifact Registry + Cloud Build SA IAM + cloudbuild staging
+  bucket) → image build → **secret population** → main apply → verify.
+  Added a hard warning that secret values must exist before the Cloud
+  Run apply (finding #7: creating it first leaves the service tainted
+  with `SECRETS_ACCESS_CHECK_FAILED`, and `prevent_destroy` then blocks
+  self-healing, requiring manual `terraform untaint` + a forced
+  revision), and a note that the org-policy exception needs ~1-2 min
+  propagation before the `allUsers` frontend binding succeeds (finding
+  #10). §4.2 corrected: the default Compute SA is **not** unused — it
+  is Cloud Build's default identity in new projects.
+- **Backlog**: added `PLATFORM-ADMIN-BOOTSTRAP`, `SMS-CHANNEL-DECISION`,
+  `DRILL-BOOTSTRAP-SCRIPT`, `DRILL-PASS-2` (all OPEN, findings #3/#9
+  and the drill's follow-on work). Ref: DR drill Pass 1.
+
 ### docs: Phase 17 close-out — retrospective, ADR-0042 email-only amendment, backlog closures
 
 Phase 17 (Production Readiness) is **build-complete**: all ten
