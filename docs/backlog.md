@@ -10,7 +10,7 @@ traceability record.
 **Entry convention:** `[ID] status — one-line what & why. Blocker. Ref.`
 Status ∈ `OPEN` · `BLOCKED` · `IN PROGRESS` · `✓ DONE — Phase X / PR #n`.
 
-_Last updated: 2026-07-21_
+_Last updated: 2026-07-23_
 
 **Phase 17 (Production Readiness) is build-complete** — all ten
 2026-07-13 baseline audit findings resolved (PR-1a → PR-5c). The
@@ -85,7 +85,14 @@ remaining item for formal phase close. See
 
 ## Platform Admin
 
-- _(none tracked)_
+- **PLATFORM-ADMIN-BOOTSTRAP · OPEN (blocks a usable fresh environment)**
+  — A rebuilt/new environment has no admin user. DR runbook Layer 6
+  only covers *restoring* Firebase Auth identities from an export;
+  there is no first-time-admin path. Needs a documented, scripted
+  admin-creation step (Firebase Admin SDK: create user + role claim +
+  Firestore admin doc; password generated to Secret Manager or via
+  first-login reset — never in TF/tfvars). Found in DR drill Pass 1
+  (finding #3). Ref: `docs/runbooks/DRILL-pass1-report.md`.
 
 ## Tenant Admin
 
@@ -275,6 +282,27 @@ remaining item for formal phase close. See
   SPORTSLOT_VOICE_ENABLED) and required IAM roles live only in code
   docstrings; a deploy/runbook doc listing voice env vars + roles would
   have saved hours 2026-07-13.
+- **SMS-CHANNEL-DECISION · OPEN (decision)** — "Coordinator SMS"
+  notification channel is a manual console pre-req; `observability.tf`'s
+  `data "google_monitoring_notification_channel"` lookup on it fails
+  the **entire plan** without it, which blocks a scripted rebuild.
+  Decide: keep manual (and encode the pre-req in bootstrap tooling), or
+  convert to a TF resource, or make new-env alerting email-only. Found
+  in DR drill Pass 1 (finding #9). Ref: `docs/runbooks/DRILL-pass1-report.md`.
+- **DRILL-BOOTSTRAP-SCRIPT · OPEN** — Encode the now-proven rebuild
+  sequence (project create → billing link → bootstrap APIs → state
+  bucket → `terraform init -backend-config` → firebase add → SMS
+  channel → bootstrap-group apply → secret population → image build →
+  main apply → admin bootstrap → health verify → clean-plan check)
+  into an idempotent, retry-safe `drill-bootstrap.sh`. A timed,
+  uninterrupted run of that script is what produces the authoritative
+  RTO measurement. Ref: `docs/runbooks/DRILL-pass1-report.md`.
+- **DRILL-PASS-2 · OPEN** — Firestore export/import and cross-project
+  backup-restore TODOs, Firebase Auth export/import with hash params,
+  and DNS/cert cutover — deferred from DR drill Pass 1 (which covered
+  Layers 3/4/5 + minimal Layer 2 only). Ref:
+  `docs/runbooks/DRILL-pass1-report.md`, `docs/runbooks/disaster-recovery.md`
+  §1/§7/§8.
 
 ---
 

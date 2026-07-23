@@ -2,14 +2,17 @@
 # Deploy to Cloud Run (DEV). Coordinator-run. Guarded.
 set -euo pipefail
 
-PROJECT="sport-slot-dev"
-REGION="asia-south1"
+PROJECT="${SLOTSENSE_PROJECT:-sport-slot-dev}"
+REGION="${SLOTSENSE_REGION:-asia-south1}"
 SERVICE="sport-slot-api"
 SA="sa-cloud-run@${PROJECT}.iam.gserviceaccount.com"
 TASKS_INVOKER_SA="sa-tasks-invoker@${PROJECT}.iam.gserviceaccount.com"
 SCHEDULER_INVOKER_SA="sa-scheduler-invoker@${PROJECT}.iam.gserviceaccount.com"
 TASKS_QUEUE="notifications"
-IMAGE_BASE="${REGION}-docker.pkg.dev/${PROJECT}/sport-slot-repo/${SERVICE}"
+ARTIFACT_REPO="${SLOTSENSE_ARTIFACT_REPO:-sport-slot-repo}"
+IMAGE_BASE="${REGION}-docker.pkg.dev/${PROJECT}/${ARTIFACT_REPO}/${SERVICE}"
+BASE_DOMAIN="${SLOTSENSE_BASE_DOMAIN:-slotsense.chandraailabs.com}"
+ADMIN_HOST="${SLOTSENSE_ADMIN_HOST:-admin.slotsense.chandraailabs.com}"
 
 cd "$(dirname "$0")/.."
 
@@ -52,22 +55,25 @@ fi
 
 echo "About to deploy ${IMAGE}"
 echo "  service=${SERVICE} region=${REGION} sa=${SA}"
-echo "  min=0 max=2 mem=512Mi cpu=1 (ADR-0005)"
+echo "  mem=512Mi cpu=1 (ADR-0005)"
 # Skip interactive confirmation in CI (CI=true is set by GitHub Actions).
 if [ -z "${CI:-}" ]; then
   read -r -p "Type DEPLOY to proceed: " CONFIRM
   [[ "$CONFIRM" == "DEPLOY" ]] || { echo "Aborted."; exit 1; }
 fi
 
+# Scaling (min/max instances) is Terraform-owned per ADR-0041 D15
+# and the D7 model — CI sets image + env only. Previously this
+# script forced --max-instances=2, silently reverting Terraform's
+# 10 on every deploy (found in DR drill Pass 1).
 gcloud run deploy "$SERVICE" \
   --project="$PROJECT" --region="$REGION" \
   --image="$IMAGE" \
   --service-account="$SA" \
   --allow-unauthenticated \
   --ingress=internal-and-cloud-load-balancing \
-  --min-instances=0 --max-instances=2 \
   --memory=512Mi --cpu=1 \
-  --set-env-vars="SPORTSLOT_ENVIRONMENT=development,SPORTSLOT_GCP_PROJECT=${PROJECT},SPORTSLOT_BASE_DOMAIN=slotsense.chandraailabs.com,SPORTSLOT_ADMIN_HOST=admin.slotsense.chandraailabs.com,SPORTSLOT_REDIS_HOST=${REDIS_HOST},SPORTSLOT_REDIS_PORT=${REDIS_PORT},SPORTSLOT_TASKS_QUEUE=${TASKS_QUEUE},SPORTSLOT_TASKS_LOCATION=${REGION},SPORTSLOT_WORKER_BASE_URL=${WORKER_URL},SPORTSLOT_TASKS_INVOKER_SA=${TASKS_INVOKER_SA},SPORTSLOT_SCHEDULER_INVOKER_SA=${SCHEDULER_INVOKER_SA},SPORTSLOT_CLOUD_RUN_SA_EMAIL=${SA},BUILD_ID=${BUILD_ID:-unknown}" \
+  --set-env-vars="SPORTSLOT_ENVIRONMENT=development,SPORTSLOT_GCP_PROJECT=${PROJECT},SPORTSLOT_BASE_DOMAIN=${BASE_DOMAIN},SPORTSLOT_ADMIN_HOST=${ADMIN_HOST},SPORTSLOT_REDIS_HOST=${REDIS_HOST},SPORTSLOT_REDIS_PORT=${REDIS_PORT},SPORTSLOT_TASKS_QUEUE=${TASKS_QUEUE},SPORTSLOT_TASKS_LOCATION=${REGION},SPORTSLOT_WORKER_BASE_URL=${WORKER_URL},SPORTSLOT_TASKS_INVOKER_SA=${TASKS_INVOKER_SA},SPORTSLOT_SCHEDULER_INVOKER_SA=${SCHEDULER_INVOKER_SA},SPORTSLOT_CLOUD_RUN_SA_EMAIL=${SA},BUILD_ID=${BUILD_ID:-unknown}" \
   --network=default --subnet=default \
   --vpc-egress=private-ranges-only \
   --set-secrets="SPORTSLOT_REDIS_AUTH=redis-auth:latest,SPORTSLOT_RESEND_API_KEY=resend-api-key:latest"

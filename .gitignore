@@ -73,7 +73,8 @@ frontend/dev-dist/
 terraform/.terraform/
 terraform/*.tfstate
 terraform/*.tfstate.*
-terraform/terraform.tfvars
+terraform/*.tfvars
+!terraform/*.tfvars.example
 terraform/*.auto.tfvars
 terraform/crash.log
 terraform/crash.*.log

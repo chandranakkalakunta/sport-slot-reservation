@@ -215,7 +215,7 @@ step before them.
    step for detail. (The email channel and everything else in
    `observability.tf` is Terraform-managed — nothing else to
    pre-create.)
-6. **First `terraform apply` pass, excluding Cloud Run:**
+6. **Bootstrap-group `terraform apply`, excluding Cloud Run:**
    ```
    terraform apply -target=<every resource except google_cloud_run_v2_service.sport_slot_api>
    ```
@@ -223,31 +223,46 @@ step before them.
    references a container image
    (`asia-south1-docker.pkg.dev/.../sport-slot-repo/sport-slot-api:<tag>`)
    that cannot exist yet in a brand-new Artifact Registry repo — the
-   repo itself is created in this same apply pass. Terraform cannot
-   create a Cloud Run revision pointing at an image that doesn't
-   exist.
+   repo, the Cloud Build staging bucket
+   (`google_storage_bucket.cloudbuild_staging`), and the Cloud Build
+   SA IAM bindings are all created in this same apply pass (DR drill
+   Pass 1, findings #2 and #8). Terraform cannot create a Cloud Run
+   revision pointing at an image that doesn't exist.
 7. **Build and push at least one image** into the newly created
    `sport-slot-repo`, e.g. via a manual `gcloud builds submit --tag
    asia-south1-docker.pkg.dev/<new-project-id>/sport-slot-repo/sport-slot-api:bootstrap`,
    or by pointing CI (once its WIF federation is live from step 6) at
    the new project and letting the normal pipeline deploy.
-8. **Second `terraform apply` pass**, with `google_cloud_run_v2_service.sport_slot_api`
-   included, now that its image exists. Per the D7 ownership model
-   (`terraform/cloud_run.tf`), Terraform only needs *an* image to
-   exist at this point — CI owns which image is live from then on.
-9. **Manual post-apply steps:**
-   - Populate Secret Manager secret **versions** (Terraform creates
-     shells only, never values) — see §3 for each secret's re-issue
-     procedure.
-   - Grant `roles/iam.serviceAccountUser` on `sa-scheduler-invoker` to
-     whichever principal is running `terraform apply`, if the apply
-     fails on an actAs-style permission error (see the NOTE in
-     `terraform/cloud_scheduler.tf`).
-   - Restore Firestore data (Layer 1) and Firebase Auth identities
-     (Layer 6) into the new project.
-   - Repoint DNS (§8) at the new Load Balancer's static IP once
-     `terraform apply` has created it.
-10. **Verify:** `terraform plan` shows no changes, the Cloud Run
+8. **Populate Secret Manager secret versions — hard prerequisite,
+   BEFORE the Cloud Run apply.** Terraform creates secret *shells*
+   only, never values (see §3 for each secret's re-issue procedure).
+   > **Warning (DR drill Pass 1, finding #7):** creating the Cloud Run
+   > service before secret values exist leaves it **tainted**
+   > (`SECRETS_ACCESS_CHECK_FAILED`) — and `prevent_destroy` then
+   > blocks Terraform from self-healing, requiring a manual
+   > `terraform untaint` plus a forced revision to recover. Populate
+   > secrets first; there is no cheaper recovery path once this
+   > happens.
+9. **Second `terraform apply` pass**, with `google_cloud_run_v2_service.sport_slot_api`
+   included, now that its image exists AND its secrets are populated.
+   Per the D7 ownership model (`terraform/cloud_run.tf`), Terraform
+   only needs *an* image to exist at this point — CI owns which image
+   is live from then on.
+   > **Note:** the org-policy exception permitting the public
+   > (`allUsers`) frontend bucket binding needs roughly 1–2 minutes to
+   > propagate after this apply creates it. If the binding step 412s,
+   > wait and retry — this is expected, not a failure (DR drill Pass 1,
+   > finding #10).
+10. **Manual post-apply steps:**
+    - Grant `roles/iam.serviceAccountUser` on `sa-scheduler-invoker` to
+      whichever principal is running `terraform apply`, if the apply
+      fails on an actAs-style permission error (see the NOTE in
+      `terraform/cloud_scheduler.tf`).
+    - Restore Firestore data (Layer 1) and Firebase Auth identities
+      (Layer 6) into the new project.
+    - Repoint DNS (§8) at the new Load Balancer's static IP once
+      `terraform apply` has created it.
+11. **Verify:** `terraform plan` shows no changes, the Cloud Run
     service serves traffic, and CI can deploy a new revision
     end-to-end.
 
@@ -264,7 +279,7 @@ runbook-covered, or explicitly excluded:
 | 16 project IAM bindings on the 6 custom SAs above | TF-managed | `terraform/iam.tf` (PR-1b) |
 | `firebase-adminsdk-fbsvc@` service account | **Excluded** | Firebase-provisioned automatically by `firebase projects:addfirebase` — no Terraform resource can create it; recreated by rebuild step 4.1.4 |
 | 3 bindings on `firebase-adminsdk-fbsvc@` (`firebase.sdkAdminServiceAgent`, `firebaseauth.admin`, `iam.serviceAccountTokenCreator`) | **Excluded (D8)** | Firebase-provisioned alongside the SA above; not codified per Coordinator-approved D8 scope decision |
-| `707808711911-compute@developer.gserviceaccount.com` (default Compute Engine SA) | **Excluded** | GCP-default per-project SA, auto-created, unused by any workload in this project |
+| `707808711911-compute@developer.gserviceaccount.com` (default Compute Engine SA) | **Excluded** | GCP-default per-project SA, auto-created — **not unused**: it is Cloud Build's default identity in new projects (`roles/cloudbuild.builds.builder` granted to `<project_number>-compute@`, DR drill Pass 1 finding #2), so Cloud Build fails without it present and correctly bound |
 | All `service-*@gcp-sa-*.iam.gserviceaccount.com` / `*.gserviceaccount.com` service agents (cloudbuild, cloudservices, cloud-redis, compute-system, container-engine-robot, containerregistry, firebase-rules, aiplatform, artifactregistry, cloudscheduler, cloudtasks, firebase, firestore, pubsub, serverless-robot-prod) | **Excluded** | Google-provisioned service agents, created automatically when the corresponding API is enabled; no Terraform resource represents them; reappear automatically on API enablement during rebuild |
 | `google_cloud_run_v2_service.sport_slot_api` | TF-managed | `terraform/cloud_run.tf` (PR-1b); existence/shape only — see D7 |
 | Cloud Run **revisions** | **Excluded** | CI-owned per D7; ephemeral, not individually tracked; ignored via `lifecycle.ignore_changes` on the image/client fields |
