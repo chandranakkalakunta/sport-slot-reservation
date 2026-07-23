@@ -36,6 +36,7 @@ locals {
     "compute.googleapis.com",
     "networksecurity.googleapis.com",
     "certificatemanager.googleapis.com",
+    "orgpolicy.googleapis.com",
   ]
 
   # Operational services APIs (enabled Phase 1.3.1 Batch 2)

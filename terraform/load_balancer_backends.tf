@@ -25,11 +25,26 @@ resource "google_storage_bucket" "frontend" {
   labels = var.default_labels
 }
 
+# Project-scoped exception to the org's domain-restricted-sharing
+# policy, permitting allUsers on the public static-asset bucket.
+# Reproduces the override sport-slot-dev has had since ADR-0031.
+resource "google_org_policy_policy" "allow_public_members" {
+  name   = "projects/${var.project_number}/policies/iam.allowedPolicyMemberDomains"
+  parent = "projects/${var.project_number}"
+  spec {
+    rules {
+      allow_all = "TRUE"
+    }
+  }
+  depends_on = [google_project_service.enabled_apis]
+}
+
 # allUsers objectViewer — deliberate, public static web assets, no PII.
 resource "google_storage_bucket_iam_member" "frontend_public_read" {
-  bucket = google_storage_bucket.frontend.name
-  role   = "roles/storage.objectViewer"
-  member = "allUsers"
+  bucket     = google_storage_bucket.frontend.name
+  role       = "roles/storage.objectViewer"
+  member     = "allUsers"
+  depends_on = [google_org_policy_policy.allow_public_members]
 }
 
 # ── Frontend backend bucket (LB attachment, CDN enabled) ──

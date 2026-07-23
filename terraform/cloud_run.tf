@@ -56,7 +56,7 @@ resource "google_cloud_run_v2_service" "sport_slot_api" {
     }
 
     containers {
-      image = "asia-south1-docker.pkg.dev/sport-slot-dev/sport-slot-repo/sport-slot-api:faa1695"
+      image = "${var.region}-docker.pkg.dev/${var.project_id}/${var.artifact_repo_name}/sport-slot-api:${var.bootstrap_image_tag}"
 
       ports {
         name           = "http1"

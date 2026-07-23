@@ -11,7 +11,7 @@ resource "google_redis_instance" "sport_slot_redis" {
   name           = "sport-slot-redis"
   project        = var.project_id
   region         = var.region
-  location_id    ="asia-south1-c"
+  location_id    = "asia-south1-c"
   tier           = "BASIC"
   memory_size_gb = 1
   redis_version  = "REDIS_7_0"
@@ -28,10 +28,12 @@ resource "google_redis_instance" "sport_slot_redis" {
   lifecycle {
     prevent_destroy = true
   }
+
+  depends_on = [google_project_service.enabled_apis]
 }
 
 resource "google_artifact_registry_repository" "sport_slot_repo" {
-  repository_id = "sport-slot-repo"
+  repository_id = var.artifact_repo_name
   project       = var.project_id
   location      = var.region
   format        = "DOCKER"
@@ -41,4 +43,6 @@ resource "google_artifact_registry_repository" "sport_slot_repo" {
   lifecycle {
     prevent_destroy = true
   }
+
+  depends_on = [google_project_service.enabled_apis]
 }

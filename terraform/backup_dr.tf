@@ -44,40 +44,12 @@ resource "google_firestore_backup_schedule" "daily" {
   daily_recurrence {}
 }
 
-# ─── Layer 4: GCS — tfstate bucket (import) + invoices bucket lifecycle ───
+# ─── Layer 4: GCS — invoices bucket lifecycle ───
 #
-# NOTE (CONTEXT correction, discovered in Step 1 live-state verification):
-# sport-slot-dev-tfstate already has versioning_enabled = true and an
-# existing lifecycle rule (Delete, num_newer_versions = 30) live — this
-# contradicts the original audit premise that "none of the buckets have
-# versioning." The block below is written to match that live state
-# field-for-field (30, not the originally-planned 10) so the import
-# produces a clean plan. See PR description for detail.
-
-resource "google_storage_bucket" "tfstate" {
-  name     = "${var.project_id}-tfstate"
-  project  = var.project_id
-  location = upper(var.region)
-
-  uniform_bucket_level_access = true
-
-  versioning {
-    enabled = true
-  }
-
-  lifecycle_rule {
-    action {
-      type = "Delete"
-    }
-    condition {
-      num_newer_versions = 30
-    }
-  }
-
-  lifecycle {
-    prevent_destroy = true
-  }
-}
+# tfstate bucket is NOT Terraform-managed: the bootstrap script creates
+# it before `terraform init` can run (the backend cannot bootstrap the
+# bucket it stores its own state in — see terraform/backend.tf and the
+# DR runbook §4.1 step 3), so Terraform must not manage it either.
 
 # google_storage_bucket.invoice_exports itself lives in
 # terraform/invoice_export.tf (already in state) — versioning, the
