@@ -45,6 +45,14 @@ tf-fmt: ## Format Terraform files
 tf-validate: ## Validate Terraform syntax
 	@cd terraform && terraform validate
 
+.PHONY: tf
+tf: ## Environment-safe terraform wrapper — make tf ENV=dev CMD=plan [ARGS="-target=..."]
+	@bash scripts/tf.sh $(ENV) $(CMD) $(ARGS)
+
+.PHONY: tf-list
+tf-list: ## List tf.sh's registered environments (project/bucket/var-file)
+	@bash scripts/tf.sh --list
+
 # ═══════════════════════════════════════════════════════════════
 # GCP
 # ═══════════════════════════════════════════════════════════════
