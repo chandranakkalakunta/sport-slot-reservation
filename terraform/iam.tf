@@ -197,3 +197,10 @@ resource "google_project_iam_member" "monitoring_monitoring_editor" {
   role    = "roles/monitoring.editor"
   member  = "serviceAccount:${google_service_account.monitoring.email}"
 }
+
+resource "google_project_iam_member" "compute_sa_cloudbuild_builder" {
+  project    = var.project_id
+  role       = "roles/cloudbuild.builds.builder"
+  member     = "serviceAccount:${var.project_number}-compute@developer.gserviceaccount.com"
+  depends_on = [google_project_service.enabled_apis]
+}

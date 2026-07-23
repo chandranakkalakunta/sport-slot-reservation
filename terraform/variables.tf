@@ -89,3 +89,15 @@ variable "admin_host" {
   type        = string
   default     = "admin.slotsense.chandraailabs.com"
 }
+
+variable "artifact_repo_name" {
+  description = "Artifact Registry repo name. Legacy dev: sport-slot-repo; new slot-sense-* envs: slot-sense-repo."
+  type        = string
+  default     = "sport-slot-repo"
+}
+
+variable "bootstrap_image_tag" {
+  description = "Image tag Cloud Run points at on first create. CI owns the live image after (ignore_changes)."
+  type        = string
+  default     = "faa1695"
+}

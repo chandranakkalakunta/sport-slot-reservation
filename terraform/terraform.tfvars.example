@@ -13,4 +13,6 @@ environment        = "dev"
 github_repository  = "chandranakkalakunta/slot-sense"
 # base_domain  = "slotsense.chandraailabs.com"
 # admin_host   = "admin.slotsense.chandraailabs.com"
+# artifact_repo_name  = "slot-sense-repo"
+# bootstrap_image_tag = "bootstrap"
 
