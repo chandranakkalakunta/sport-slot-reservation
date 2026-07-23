@@ -3,8 +3,8 @@ variable "project_id" {
   type        = string
 
   validation {
-    condition     = can(regex("^(sport-slot-dev|slot-sense-(dev|test|prod-[a-z]+))$", var.project_id))
-    error_message = "project_id must be sport-slot-dev (legacy) or slot-sense-{dev|test|prod-XX}. Legacy name accepted during migration (remove after — NAMING-MIGRATION)."
+    condition     = can(regex("^(sport-slot-dev|slot-sense-(dev|test|prod-[a-z]+)(-[0-9]+)?)$", var.project_id))
+    error_message = "project_id must be sport-slot-dev (legacy) or slot-sense-{dev|test|prod-XX} with optional -NN suffix. Legacy name accepted during migration (remove after — NAMING-MIGRATION)."
   }
 }
 
