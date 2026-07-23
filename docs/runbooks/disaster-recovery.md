@@ -4,7 +4,7 @@
   are complete where facts are known; drill execution and
   TODO-Coordinator items are outstanding.
 - **Governing ADR:** [ADR-0038](../adr/ADR-0038-backup-and-disaster-recovery.md)
-- **Last updated:** 2026-07-20
+- **Last updated:** 2026-07-23
 
 ## 1. Scope, RTO/RPO, disaster classes
 
@@ -304,6 +304,73 @@ runbook-covered, or explicitly excluded:
 > which this PR does not do (zero-live-change scope; enabling it is a
 > live project change left for the Coordinator if a full asset-graph
 > view is wanted later).
+
+### 4.3 `scripts/tf.sh` — environment-safe Terraform wrapper
+
+**Why this exists:** Terraform selects its **state** (backend, via
+`-backend-config`, cached silently in `.terraform/`) and its
+**variables** (via `-var-file`, per command) through two independent
+mechanisms that can disagree with no warning — a backend block cannot
+itself take variables, so there is no Terraform-native way to bind the
+two together. This is exactly what happened during the 2026-07 DR
+drill: `.terraform/` was still pointed at the drill project
+(`slot-sense-dev-01`) from an earlier `init`, while a plain `terraform
+plan` picked up `terraform.tfvars` (`sport-slot-dev`). Terraform
+correctly produced a plan to **destroy 95 drill resources and recreate
+them as dev resources** — only `lifecycle.prevent_destroy` and a human
+reading the plan caught it (DR Drill Pass 1, finding #4 in
+"Local environment hazards observed").
+
+`scripts/tf.sh` makes environment selection **atomic**: one argument
+selects both the backend and the var-file, no `terraform` command runs
+without naming an environment, and every invocation refuses to proceed
+if the live state's `project_id` output doesn't match what the named
+environment expects.
+
+**Usage:**
+
+```
+scripts/tf.sh <env> <terraform-command> [args...]
+scripts/tf.sh --list
+scripts/tf.sh --help
+```
+
+```
+scripts/tf.sh dev plan
+scripts/tf.sh dev-01 apply -target=google_project_service.enabled_apis
+scripts/tf.sh dev import google_storage_bucket.foo my-bucket
+```
+
+Or via `make`: `make tf ENV=dev CMD=plan`, `make tf-list`.
+
+**What it does on every invocation:**
+
+1. Looks up `<env>` in the registry at the top of `tf.sh` (currently
+   `dev` → `sport-slot-dev`, `dev-01` → `slot-sense-dev-01`) — an
+   unknown environment or a missing `-var-file` refuses to run
+   anything.
+2. Compares the bucket recorded in `.terraform/terraform.tfstate`
+   (the local backend pointer) against the environment's expected
+   bucket, and re-runs `terraform init -reconfigure -backend-config=...`
+   whenever they differ — the exact drift that caused the drill
+   incident.
+3. Runs `terraform output -raw project_id` against the now-correct
+   backend and **hard-refuses** to run the requested command if it
+   doesn't match the environment's expected project — a second,
+   independent check against the live state itself, not just against
+   where `.terraform/` is pointed.
+4. Auto-injects `-var-file=<env's tfvars>` for commands that accept it
+   (`plan`, `apply`, `destroy`, `refresh`, `import`, `console`); passing
+   `-var-file` manually is rejected — the whole point is that you never
+   choose it separately from the environment.
+
+**Adding a new environment:** add one `case` arm to `env_lookup()` in
+`scripts/tf.sh` — project ID, state bucket, prefix, and var-file all
+live in that one place.
+
+**Note:** `terraform/slot-sense-dev.tfvars` (the first drill attempt,
+project now `DELETE_REQUESTED`) is deliberately **not** in the
+registry — it points at a project that no longer exists.
 
 ## 5. Layer 4 — GCS buckets
 
