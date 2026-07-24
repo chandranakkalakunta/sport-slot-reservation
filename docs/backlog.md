@@ -85,14 +85,19 @@ remaining item for formal phase close. See
 
 ## Platform Admin
 
-- **PLATFORM-ADMIN-BOOTSTRAP · OPEN (blocks a usable fresh environment)**
-  — A rebuilt/new environment has no admin user. DR runbook Layer 6
-  only covers *restoring* Firebase Auth identities from an export;
-  there is no first-time-admin path. Needs a documented, scripted
-  admin-creation step (Firebase Admin SDK: create user + role claim +
-  Firestore admin doc; password generated to Secret Manager or via
-  first-login reset — never in TF/tfvars). Found in DR drill Pass 1
-  (finding #3). Ref: `docs/runbooks/DRILL-pass1-report.md`.
+- **PLATFORM-ADMIN-BOOTSTRAP · RESOLVED by PR-E (2026-07-24)** — A
+  rebuilt/new environment had no *documented* admin-login path. The
+  scripted admin-creation step (`backend/scripts/seed_platform_admin.py`:
+  Firebase Admin SDK create user + role claim + Firestore admin doc,
+  temp password printed once, never in TF/tfvars) already existed at
+  drill time — the actual gaps were (a) the script resolved its target
+  project from ambient ADC/gcloud config instead of an explicit flag,
+  risking seeding the wrong environment, and (b) DR runbook Layer 6 had
+  no reference to it. PR-E added a required `--project` argument (no
+  ambient fallback) and a Layer 6 "First-time admin bootstrap"
+  subsection. Originally found in DR drill Pass 1 (finding #3), now
+  corrected there. Ref: `docs/runbooks/DRILL-pass1-report.md`,
+  `docs/runbooks/disaster-recovery.md` Layer 6.
 
 ## Tenant Admin
 

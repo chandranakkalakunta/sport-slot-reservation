@@ -87,13 +87,25 @@ with Terraform multi-env (PR-A/PR-B), **CI cannot deploy to a new
 environment.** Parameterizing the scripts + workflow is PR-C's main
 body of work.
 
-**3. Platform admin bootstrap is unsolved — the most important gap.**
-A brand-new environment has **no admin user**. DR runbook Layer 6 only
-covers *restoring* identities from a Firebase Auth export; there is no
-first-time-admin path. A rebuilt environment is therefore not usable
-without a documented, scripted admin-creation step (Firebase Admin SDK:
-create user + role claim + Firestore admin doc; password generated to
-Secret Manager or via first-login reset — never in TF/tfvars).
+**3. Platform admin bootstrap — ~~unsolved~~ CORRECTED 2026-07-24 (PR-E).**
+*Original finding (below) overstated the gap: `backend/scripts/seed_platform_admin.py`
+already existed at drill time and correctly creates the first platform
+admin (idempotent; Firebase Admin SDK — create user + role claim +
+Firestore admin doc; temp password printed, never written to TF/tfvars).
+What was actually missing was (a) explicit `--project` targeting — the
+script resolved the project from ambient ADC/gcloud config, so running
+it with the wrong context could silently seed the wrong environment —
+and (b) any DR runbook reference to it, so a rebuilt environment had no
+**documented** path to first login even though the tooling existed.
+PR-E adds required `--project` targeting and a Layer 6 "First-time admin
+bootstrap" subsection. Original text preserved for the record:*
+
+> A brand-new environment has **no admin user**. DR runbook Layer 6 only
+> covers *restoring* identities from a Firebase Auth export; there is no
+> first-time-admin path. A rebuilt environment is therefore not usable
+> without a documented, scripted admin-creation step (Firebase Admin SDK:
+> create user + role claim + Firestore admin doc; password generated to
+> Secret Manager or via first-login reset — never in TF/tfvars).
 
 **4. Local environment hazards observed (worth runbook notes).**
 - After a drill, the local `.terraform` still points at the drill
@@ -119,7 +131,9 @@ Secret Manager or via first-login reset — never in TF/tfvars).
 - **§4.1** — add the org-policy propagation wait before the public
   bucket binding.
 - **Layer 6** — add a first-time platform-admin bootstrap procedure
-  (finding #3); current text assumes an export exists.
+  (finding #3); current text assumes an export exists. **Done in PR-E**
+  — see the "First-time admin bootstrap (no export to restore)"
+  subsection.
 - Firestore TODOs (PITR in-place semantics, cross-project backup
   restore) remain unanswered — Pass 2 scope.
 - DNS record inventory (§8) still unfilled — Pass 2 / cutover scope.
@@ -147,8 +161,9 @@ uninterrupted run of that script produces the authoritative RTO.
 1. **PR-C** — cloudbuild bucket in TF; deploy/build script
    parameterization; remove `--max-instances`; secret-ordering; org-
    policy wait.
-2. **Platform admin bootstrap** — design + script (blocks a usable
-   fresh environment).
+2. ~~**Platform admin bootstrap** — design + script (blocks a usable
+   fresh environment).~~ **Resolved by PR-E** (2026-07-24) — script
+   existed already; PR-E added `--project` targeting + Layer 6 docs.
 3. **`drill-bootstrap.sh`** — encode the sequence; timed run for RTO.
 4. **Pass 2** — Firestore export/import, Auth export/import with hash
    params, DNS/cert cutover; answers the two open Firestore TODOs.
