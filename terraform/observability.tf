@@ -39,22 +39,28 @@ resource "google_monitoring_notification_channel" "email" {
 # SMS is console-owned operator config, TF-referenced read-only —
 # mirrors ADR-0038's secret shells-vs-values pattern (contact info as
 # operator config, not a Terraform-managed value). The number never
-# appears in the repo or in tfvars. This data source FAILS PLAN LOUDLY
-# if the channel doesn't exist yet — creation + one-time verification
-# is a documented PRE-apply step (docs/runbooks/observability.md);
-# the exact display name "Coordinator SMS" is the contract this data
-# source depends on.
+# appears in the repo or in tfvars. Gated behind var.enable_sms_alerts
+# (default false): an unconditional lookup FAILED THE ENTIRE PLAN on a
+# brand-new environment with no console-created channel yet (DR drill
+# Pass 1, GAP 2.3) — new environments now build email-only, with SMS
+# added after the channel is created and phone-verified by hand. Set
+# enable_sms_alerts = true in a given environment's tfvars only once
+# that channel exists; the exact display name "Coordinator SMS" is the
+# contract this data source depends on. Legacy sport-slot-dev already
+# has the channel — its tfvars (gitignored) must set
+# enable_sms_alerts = true or its alert policies silently drop SMS.
 data "google_monitoring_notification_channel" "sms" {
+  count        = var.enable_sms_alerts ? 1 : 0
   project      = var.project_id
   display_name = "Coordinator SMS"
   type         = "sms"
 }
 
 locals {
-  observability_channels = [
-    google_monitoring_notification_channel.email.id,
-    data.google_monitoring_notification_channel.sms.name,
-  ]
+  observability_channels = concat(
+    [google_monitoring_notification_channel.email.id],
+    var.enable_sms_alerts ? [data.google_monitoring_notification_channel.sms[0].name] : []
+  )
 }
 
 # ─── D10: Uptime checks (two deliberately redundant paths) ───

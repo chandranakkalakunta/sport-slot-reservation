@@ -198,23 +198,35 @@ step before them.
    ```
    firebase projects:addfirebase <new-project-id>
    ```
-   Also enable the Firebase Authentication providers needed
-   (email/password, etc.) via the Firebase Console or `firebase`
-   CLI — provider configuration is not Terraform-managed (see
-   `terraform/firestore.tf`'s note that security rules/indexes are
-   Firebase CLI-managed, and Layer 6 above for Auth).
-5. **Create the SMS notification channel in console** (ADR-0040, PR-2)
-   — BEFORE any `terraform apply` below. `terraform/observability.tf`
-   references it read-only via a `data
-   "google_monitoring_notification_channel"` lookup on display name
-   `"Coordinator SMS"`; that lookup — and therefore any plan/apply
-   that includes it — fails loudly if the channel doesn't exist yet.
-   Console: Monitoring → Alerting → Notification Channels → Add SMS,
-   display name exactly `Coordinator SMS`, then complete the one-time
-   verification code. See `docs/runbooks/observability.md`'s pre-apply
-   step for detail. (The email channel and everything else in
-   `observability.tf` is Terraform-managed — nothing else to
-   pre-create.)
+   Email/Password sign-in is now codified as
+   `terraform/auth.tf`'s `google_identity_platform_config.auth`
+   (PR-F, closes GAP 2.2) — no manual console/CLI step is needed for
+   a **new** environment; it's created by the bootstrap-group apply
+   (step 6) via `identitytoolkit:initializeAuth`, the same API that
+   already backs standard Firebase Auth (no GCIP tier upgrade — see
+   `auth.tf`'s header comment for the verification). An **existing**
+   environment that already has a live Config object (e.g.
+   sport-slot-dev) needs a one-time
+   `terraform import google_identity_platform_config.auth <project-id>`
+   before its first plan/apply including this resource, so Terraform
+   adopts it instead of attempting to re-initialize it.
+5. **SMS notification channel — OPTIONAL, deferred by default**
+   (ADR-0040 PR-2; made conditional in PR-F, closes GAP 2.3). New
+   environments build **email-only**: `terraform/observability.tf`'s
+   SMS lookup is gated behind `var.enable_sms_alerts` (default
+   `false`), so an unconfigured environment's plan/apply no longer
+   fails on a missing console-created channel. Skip this step for a
+   new environment's first apply.
+   To add SMS later, once ready: Console → Monitoring → Alerting →
+   Notification Channels → Add SMS, display name exactly
+   `Coordinator SMS`, complete the one-time verification code (see
+   `docs/runbooks/observability.md`), then set
+   `enable_sms_alerts = true` in that environment's tfvars before the
+   next apply. Legacy `sport-slot-dev` already has the channel — its
+   tfvars (gitignored) must set `enable_sms_alerts = true` or its
+   alert policies silently drop the SMS channel on the next apply.
+   (The email channel and everything else in `observability.tf` is
+   unconditionally Terraform-managed — nothing else to pre-create.)
 6. **Bootstrap-group `terraform apply`, excluding Cloud Run:**
    ```
    terraform apply -target=<every resource except google_cloud_run_v2_service.sport_slot_api>
@@ -293,7 +305,8 @@ runbook-covered, or explicitly excluded:
 | `google_cloud_tasks_queue` (notifications) | TF-managed | `terraform/cloud_tasks.tf` (pre-existing) |
 | Load Balancer, Cloud Armor, networking | TF-managed | `load_balancer_*.tf`, `cloud_armor.tf` (pre-existing) |
 | WIF pool/provider (GitHub Actions OIDC) | TF-managed | `wif.tf`, `wif_iam.tf` (pre-existing) |
-| Firebase project config, Hosting, Identity Platform / Auth providers | **Runbook-covered** | Managed via Firebase CLI/Console, not Terraform (see step 4.1.4, Layer 6, and `terraform/firestore.tf`'s note on security rules) |
+| `google_identity_platform_config.auth` (Email/Password sign-in provider) | TF-managed (PR-F) | `terraform/auth.tf`; sport-slot-dev requires a one-time import (see step 4.1.4) since the object pre-dates this resource |
+| Firebase project config, Hosting | **Runbook-covered** | Managed via Firebase CLI/Console, not Terraform (see step 4.1.4, Layer 6, and `terraform/firestore.tf`'s note on security rules) |
 | Firebase Auth user identities | **Runbook-covered** | See §7 |
 | DNS records (Namecheap) | **Runbook-covered** | External registrar, not a GCP asset; see §8 |
 

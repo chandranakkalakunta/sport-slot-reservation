@@ -101,3 +101,9 @@ variable "bootstrap_image_tag" {
   type        = string
   default     = "faa1695"
 }
+
+variable "enable_sms_alerts" {
+  description = "Whether to attach the console-created 'Coordinator SMS' notification channel to alert policies. New environments start email-only (the channel requires manual phone verification); set true after creating and verifying the channel. Legacy sport-slot-dev sets true."
+  type        = bool
+  default     = false
+}
