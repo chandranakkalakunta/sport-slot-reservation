@@ -453,6 +453,41 @@ project's own storage with it).
 export are lost under the project-loss class; affected users
 re-register.
 
+### First-time admin bootstrap (no export to restore)
+
+A brand-new environment (first-ever deploy of a project, or a rebuild
+where no `firebase auth:export` exists yet — e.g. immediately after
+Layer 3's rebuild procedure, before any weekly export has been taken)
+has no identities to import. There is no platform admin to sign in as
+until one is created directly.
+
+`backend/scripts/seed_platform_admin.py` creates that first platform
+admin: it is idempotent (safe to re-run — resets the password if the
+address already exists), sets the four custom claims
+(`role=platform_admin`, `tenant_id=null`, `tenant_slug=null`,
+`household_id=null`) that `auth/dependency.py` checks, and writes the
+corresponding `platform_admins` profile doc. This is the same script
+used to seed the original dev environment — not a new bootstrap path.
+
+- **When to run it:** after the app is serving (Layer 3 rebuild
+  complete, backend reachable) and before the first admin login.
+- **Command** (`--project` is required — no ambient/gcloud-context
+  fallback, to prevent seeding the wrong environment):
+
+  ```
+  uv run python backend/scripts/seed_platform_admin.py --project <target-project-id>
+  ```
+
+- **Capture the temp password immediately.** It is generated and
+  printed to stdout **once**; it is not stored or recoverable after
+  the fact. Copy it to the off-project secret store used for DR
+  credentials before closing the terminal.
+- **Sign in fresh.** The custom claims set by this script only appear
+  in a Firebase ID token issued *after* the script runs. If the admin
+  has any existing session (e.g. re-running this script against an
+  already-seeded environment), they must sign out and sign in again —
+  refreshing an existing token is not enough to pick up the claims.
+
 ## 8. DNS (Namecheap)
 
 ### Record inventory

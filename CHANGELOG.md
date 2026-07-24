@@ -6,6 +6,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### fix(admin): explicit --project targeting + correct default email for seed_platform_admin; document first-admin bootstrap in DR Layer 6 (PR-E)
+
+`backend/scripts/seed_platform_admin.py` already existed and correctly
+created the first platform admin, but had no way to target a specific
+GCP project — it resolved the project from ambient ADC/gcloud config,
+so running it against the wrong context could silently seed an admin
+into the wrong environment. DR runbook Layer 6 also never referenced
+the script, so a rebuilt environment had no documented path to first
+login (DR drill Pass 1 finding #3, corrected in this PR — the tooling
+existed, targeting and docs were the actual gaps).
+
+- **`backend/scripts/seed_platform_admin.py`**: added a required
+  `--project` argument (no default, no ambient fallback; exits
+  non-zero if absent), passed explicitly to both
+  `firebase_admin.initialize_app(options={"projectId": project})` and
+  `firestore.Client(project=project)`. Default admin address changed
+  from `admin@sportbook.chandraailabs.com` to
+  `admin@chandraailabs.com` (one address across all environments;
+  `PLATFORM_ADMIN_EMAIL` override unchanged). `must_change_password`
+  now written as `True` — confirmed inert for `platform_admin` (the
+  frontend password gate explicitly excludes that role; no backend
+  code reads the field), so this documents intent without changing
+  behavior.
+- **`docs/runbooks/disaster-recovery.md`**: added a "First-time admin
+  bootstrap (no export to restore)" subsection under Layer 6, covering
+  when to run the script, the `--project` command, the one-time-only
+  temp password, and the sign-in-fresh caveat for claim propagation.
+- **`docs/runbooks/DRILL-pass1-report.md`**: corrected finding #3 —
+  it previously stated bootstrap tooling was "unsolved"; the script
+  existed, targeting and runbook documentation were the actual gaps.
+- **`docs/backlog.md`**: PLATFORM-ADMIN-BOOTSTRAP marked resolved.
+
 ### fix(deploy): parameterize deploy pipeline for multi-env; Terraform owns scaling (ADR-0041 D15); cloudbuild staging bucket in TF (PR-C)
 
 DR drill Pass 1 (`docs/runbooks/DRILL-pass1-report.md`) rebuilt
