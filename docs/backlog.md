@@ -287,13 +287,32 @@ remaining item for formal phase close. See
   SPORTSLOT_VOICE_ENABLED) and required IAM roles live only in code
   docstrings; a deploy/runbook doc listing voice env vars + roles would
   have saved hours 2026-07-13.
-- **SMS-CHANNEL-DECISION · OPEN (decision)** — "Coordinator SMS"
-  notification channel is a manual console pre-req; `observability.tf`'s
-  `data "google_monitoring_notification_channel"` lookup on it fails
-  the **entire plan** without it, which blocks a scripted rebuild.
-  Decide: keep manual (and encode the pre-req in bootstrap tooling), or
-  convert to a TF resource, or make new-env alerting email-only. Found
-  in DR drill Pass 1 (finding #9). Ref: `docs/runbooks/DRILL-pass1-report.md`.
+- **AUTH-PROVIDER-CODIFY · RESOLVED by PR-F (2026-07-24)** — Environment
+  Provisioning Spec GAP 2.2: `firebase projects:addfirebase` enables
+  Firebase Auth but not any sign-in provider; without Email/Password
+  turned on, `seed_platform_admin.py` fails with
+  `CONFIGURATION_NOT_FOUND`. Previously a manual Console/CLI step with
+  no runbook documentation. PR-F codifies it as
+  `google_identity_platform_config.auth` in `terraform/auth.tf` —
+  verified (provider binary inspection + live API check against
+  sport-slot-dev, `subtype: FIREBASE_AUTH`) not to trigger a GCIP
+  billing-tier upgrade. New environments get it for free on the
+  bootstrap-group apply; sport-slot-dev (already has a live Config
+  object) needs a one-time `terraform import` before its next apply.
+  Ref: `docs/runbooks/disaster-recovery.md` §4.1 step 4.
+- **SMS-CHANNEL-DECISION · RESOLVED by PR-F (2026-07-24)** — "Coordinator
+  SMS" notification channel was a manual console pre-req;
+  `observability.tf`'s `data "google_monitoring_notification_channel"`
+  lookup on it failed the **entire plan** without it, blocking a
+  scripted rebuild. Coordinator decision: new environments build
+  email-only. PR-F gates the data source and `observability_channels`
+  local behind `var.enable_sms_alerts` (default `false`); the channel
+  can be created and attached later by setting the var true once it
+  exists and is phone-verified. Legacy sport-slot-dev already has the
+  channel — its gitignored tfvars must set `enable_sms_alerts = true`.
+  Found in DR drill Pass 1 (finding #9). Ref:
+  `docs/runbooks/DRILL-pass1-report.md`,
+  `docs/runbooks/disaster-recovery.md` §4.1 step 5.
 - **DRILL-BOOTSTRAP-SCRIPT · OPEN** — Encode the now-proven rebuild
   sequence (project create → billing link → bootstrap APIs → state
   bucket → `terraform init -backend-config` → firebase add → SMS

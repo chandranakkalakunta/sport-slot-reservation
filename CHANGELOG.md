@@ -6,6 +6,45 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### feat(tf): codify Firebase auth provider; make SMS alert channel conditional (PR-F)
+
+Environment Provisioning Spec GAP 2.2 and 2.3 — two manual console
+steps that blocked an unattended environment build.
+
+- **`terraform/auth.tf`** (new): `google_identity_platform_config.auth`
+  codifies enabling the Email/Password Firebase Auth sign-in provider,
+  which `firebase projects:addfirebase` does not turn on and
+  `seed_platform_admin.py` requires (`CONFIGURATION_NOT_FOUND`
+  otherwise; DR drill Pass 1 discovery). Verified before authoring
+  (not assumed): the resource's REST calls target
+  `identitytoolkit.googleapis.com/v2` — already enabled, already
+  backing standard Firebase Auth — and `identityplatform.googleapis.com`
+  does not appear anywhere in the pinned `hashicorp/google` 6.50.0
+  provider binary, so no GCIP billing-tier upgrade risk. Live check
+  against sport-slot-dev confirms `subtype: FIREBASE_AUTH`. No new API
+  enablement needed (`identitytoolkit.googleapis.com` already in
+  `apis.tf`). sport-slot-dev already has a live Config object pre-dating
+  this resource — Coordinator must run
+  `terraform import google_identity_platform_config.auth sport-slot-dev`
+  before its next plan/apply; new environments need no import.
+- **`terraform/observability.tf`**: the `"Coordinator SMS"` notification
+  channel data source (an unconditional lookup that failed the
+  **entire plan** on any environment without the console-created
+  channel — DR drill Pass 1 finding #9) is now gated behind
+  `var.enable_sms_alerts` (`terraform/variables.tf`, default `false`).
+  New environments build email-only by default; SMS attaches once the
+  channel exists and is phone-verified, by setting the var `true`.
+  Legacy sport-slot-dev's gitignored tfvars must set
+  `enable_sms_alerts = true` to keep its existing SMS channel attached.
+- **`terraform/terraform.tfvars.example`**: documented
+  `enable_sms_alerts` (commented, default false).
+- **`docs/runbooks/disaster-recovery.md`**: §4.1 steps 4–5 updated —
+  auth provider is now Terraform-managed (import caveat for existing
+  environments noted); SMS channel creation is optional/deferred.
+  §4.2 inventory table updated.
+- **`docs/backlog.md`**: AUTH-PROVIDER-CODIFY (new) and
+  SMS-CHANNEL-DECISION marked resolved.
+
 ### fix(admin): explicit --project targeting + correct default email for seed_platform_admin; document first-admin bootstrap in DR Layer 6 (PR-E)
 
 `backend/scripts/seed_platform_admin.py` already existed and correctly

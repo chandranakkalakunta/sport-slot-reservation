@@ -15,4 +15,5 @@ github_repository  = "chandranakkalakunta/slot-sense"
 # admin_host   = "admin.slotsense.chandraailabs.com"
 # artifact_repo_name  = "slot-sense-repo"
 # bootstrap_image_tag = "bootstrap"
+# enable_sms_alerts   = false  # true only after the "Coordinator SMS" channel exists and is phone-verified (sport-slot-dev sets true)
 
