@@ -78,6 +78,7 @@ terraform/*.tfvars
 terraform/*.auto.tfvars
 terraform/crash.log
 terraform/crash.*.log
+terraform/.tf.sh.log
 # Lock file is committed for reproducibility — do NOT ignore
 # terraform/.terraform.lock.hcl
 
